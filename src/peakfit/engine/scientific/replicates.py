@@ -3,8 +3,8 @@
 Two methods, neither of which refits or changes any error:
 
 - **Duplicate planes** (any series): planes whose recorded plane values are exactly
-  equal. The contrasts between copies are compared with the covariance the stored
-  covariance factors predict for them.
+  equal. The contrasts between copies are compared with the conditional amplitude
+  variance, the noise part of the published uncertainty.
 - **CEST baseline planes:** see below.
 
 **CEST baseline planes.** Far from a peak's own offset, a CEST profile is a flat or
@@ -23,22 +23,24 @@ an empirical measure of the amplitude error, compared here with the published pr
 Values are those recorded: nothing is refitted.
 
 **Duplicate planes.** For each peak, all within-group orthonormal contrasts C are
-stacked, k = Σ_g (m_g − 1) for groups of m_g copies, and whitened jointly by their
-covariance CΣCᵀ, Σ being the peak's covariance between planes reconstructed from the
-covariance factors: q = (Ca)ᵀ(CΣCᵀ)⁻¹(Ca), with E[q] = k at first order. Joint
-whitening removes the correlation between groups from shared parameters; q depends on
-neither the contrast basis nor the plane order. The pooled RMS √(Σq / Σk) is 1 when
-the uncertainty of contrasts is calibrated.
+stacked, k = Σ_g (m_g − 1) for groups of m_g copies, and standardized by the peak's
+conditional amplitude variance c, the diagonal of σ²MRMᵀ: q = |Ca|²/c, with E[q] = k
+at first order. The lineshape terms of the covariance between planes are linear in
+the true amplitudes of each plane, equal across copies, so the contrasts annihilate
+them: CΣCᵀ = cI exactly at the true amplitudes (``docs/profile-uncertainty.md``
+§5.3). Built from the fitted amplitudes instead, they would return as noise along
+the contrast itself and bias q low. q depends on neither the contrast basis nor the
+plane order. The pooled RMS √(Σq / Σk) is 1 when the conditional σ is calibrated.
 
 - **Pools:** peaks without and with the correlated-profile flag, kept apart.
-- **Exclusions:** unusable clusters, withheld covariance factors, and a contrast
-  covariance that is not positive definite or has a direction weaker than √ε of the
-  largest. That is the codebase's weak-direction convention s ≤ √ε·s₁ applied to the
-  singular values of the matrix inverted, here the eigenvalues of CΣCᵀ (equivalently
-  cond ≥ 1/√ε, as in ``evaluation``). Nothing is regularized.
-- **Limits:** repeatability, not accuracy; contrasts, not marginal σ (a shared scale
-  uncertainty cancels); raw amplitudes, not normalized profiles. Peaks of one cluster
-  have correlated contrasts, so the effective sample is smaller than the count.
+- **Exclusions:** unusable clusters; a non-finite amplitude on any plane of the
+  peak; a conditional variance that is not finite (the fit withholds the
+  conditional covariance where the shapes are rank-deficient or their condition
+  number reaches 1/√ε) or not positive. Nothing is regularized.
+- **Limits:** the conditional σ only: blind to the lineshape-parameter part of the
+  marginal and profile σ. Repeatability, not accuracy; raw amplitudes, not
+  normalized profiles. Peaks of one cluster have correlated contrasts, so the
+  effective sample is smaller than the count.
 """
 
 from dataclasses import dataclass, field
@@ -48,7 +50,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from peakfit.engine.algorithms.covariance_factors import (
-    peak_covariances_between_planes,
     profile_correlations,
     profile_standard_errors,
 )
@@ -168,16 +169,14 @@ def run_baseline_scatter(
 # RMS_STANDARD_ERROR_LIMIT: below MIN_DUPLICATE_CONTRASTS = 1/(2·0.1²) = 50 contrasts.
 RMS_STANDARD_ERROR_LIMIT = 0.1
 MIN_DUPLICATE_CONTRASTS = round(0.5 / RMS_STANDARD_ERROR_LIMIT**2)
-_WEAK = float(np.sqrt(np.finfo(float).eps))
 
 
 class ExclusionReason(Enum):
     """Why a peak with duplicate planes is left out of the duplicate check."""
 
     UNUSABLE_CLUSTER = "unusable cluster"
-    FACTORS_WITHHELD = "covariance factors withheld"
-    NOT_POSITIVE_DEFINITE = "contrast covariance not positive definite"
-    WEAK_DIRECTION = "contrast covariance has a direction weaker than √ε of the largest"
+    NON_FINITE_AMPLITUDE = "non-finite amplitude"
+    NO_CONDITIONAL_VARIANCE = "conditional variance withheld or not positive"
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +185,8 @@ class RecordedCluster:
 
     ``plane_values`` (S), ``amplitudes`` (L × S), ``factors`` and ``flagged``, the
     correlated-profile flag of each of the L peaks. ``amplitudes`` and ``factors`` are
-    None for an unusable cluster.
+    None for an unusable cluster. The check reads only the conditional covariance of
+    the factors; the flags come from all of them.
     """
 
     peak_names: tuple[str, ...]
@@ -219,7 +219,7 @@ class DuplicatePool:
 
     @property
     def rms(self) -> float:
-        """√(Σq / Σk): 1 when the uncertainty of contrasts is calibrated; NaN if empty."""
+        """√(Σq / Σk): 1 when the conditional σ is calibrated; NaN if empty."""
         return float(np.sqrt(self.q / self.contrasts)) if self.contrasts else float("nan")
 
     @property
@@ -272,15 +272,6 @@ def orthonormal_contrasts(groups: Sequence[Sequence[int]], n_planes: int) -> Flo
     return np.array(rows).reshape(-1, n_planes)
 
 
-def _whitening_failure(eigenvalues: FloatArray) -> ExclusionReason | None:
-    """Why a contrast covariance with these ascending eigenvalues cannot whiten, if so."""
-    if eigenvalues[0] <= 0.0:
-        return ExclusionReason.NOT_POSITIVE_DEFINITE
-    if eigenvalues[0] <= _WEAK * eigenvalues[-1]:
-        return ExclusionReason.WEAK_DIRECTION
-    return None
-
-
 @dataclass(slots=True)
 class _Tally:
     q: float = 0.0
@@ -297,8 +288,8 @@ def duplicate_plane_check(clusters: Sequence[RecordedCluster]) -> DuplicateCheck
 
     Each cluster's duplicates are the groups of its exactly equal plane values; a
     cluster without them contributes nothing and excludes nothing. A peak's standardized
-    norm is q = dᵀV⁻¹d for its contrasts d and their covariance V. Nothing is
-    regularized: a peak whose contrasts cannot be whitened is left out with its reason.
+    norm is q = |Ca|²/c for its contrasts Ca and its conditional variance c. Nothing is
+    regularized: a peak that cannot be standardized is left out with its reason.
     """
     tallies = {False: _Tally(), True: _Tally()}
     excluded: dict[str, ExclusionReason] = {}
@@ -310,21 +301,18 @@ def duplicate_plane_check(clusters: Sequence[RecordedCluster]) -> DuplicateCheck
             excluded.update(dict.fromkeys(cluster.peak_names, ExclusionReason.UNUSABLE_CLUSTER))
             continue
         contrasts = orthonormal_contrasts(groups, cluster.amplitudes.shape[1])
-        # All NaN where the factors are withheld.
-        covariances = peak_covariances_between_planes(cluster.factors, cluster.amplitudes)
+        variances = np.diag(np.asarray(cluster.factors.conditional, dtype=float))
         for peak, name in enumerate(cluster.peak_names):
-            covariance = contrasts @ covariances[peak] @ contrasts.T
-            if not np.all(np.isfinite(covariance)):
-                excluded[name] = ExclusionReason.FACTORS_WITHHELD
+            amplitudes = cluster.amplitudes[peak]
+            if not np.all(np.isfinite(amplitudes)):
+                excluded[name] = ExclusionReason.NON_FINITE_AMPLITUDE
                 continue
-            eigenvalues, vectors = np.linalg.eigh(covariance)
-            failure = _whitening_failure(eigenvalues)
-            if failure is not None:
-                excluded[name] = failure
+            variance = float(variances[peak])
+            if not (np.isfinite(variance) and variance > 0.0):
+                excluded[name] = ExclusionReason.NO_CONDITIONAL_VARIANCE
                 continue
-            contrast = contrasts @ cluster.amplitudes[peak]
             tally = tallies[bool(cluster.flagged[peak])]
-            tally.q += float(np.sum((vectors.T @ contrast) ** 2 / eigenvalues))
+            tally.q += float(np.sum((contrasts @ amplitudes) ** 2)) / variance
             tally.contrasts += contrasts.shape[0]
             tally.peaks += 1
             tally.clusters.add(index)

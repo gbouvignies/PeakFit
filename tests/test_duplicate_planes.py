@@ -1,10 +1,10 @@
-"""Duplicate planes: contrasts between copies against the covariance the factors predict.
+"""Duplicate planes: contrasts between copies against the conditional variance.
 
-The duplicate check of ``peakfit replicates`` (issue #174, spec #172).
+The duplicate check of ``peakfit replicates`` (issue #174, spec #172): q = |Ca|²/c.
 
-The hand-built factors below describe one peak with a single lineshape parameter, so
-that its covariance between planes is Σ = cI + g²v·aaᵀ (``shape_gain`` g, parameter
-covariance v, no cross term): every expected value can be worked out by hand.
+The hand-built factors below describe one peak with a single lineshape parameter
+(``shape_gain`` g, parameter covariance v, cross gain x) and conditional variance c:
+every expected value is |Ca|²/c, worked out by hand, whatever g, v and x.
 """
 
 from dataclasses import replace
@@ -55,31 +55,62 @@ def _cluster(plane_values, amplitudes, factors=None, *, flagged=False, name="A")
     )
 
 
-def test_one_pair_is_standardized_by_its_predicted_variance():
-    # Contrast d = (3 − 1)/√2 = √2; Var d = c + g²v·d² = 1 + 2 = 3, so q = 2/3.
-    check = duplicate_plane_check([_cluster([10.0, 10.0, 20.0], [3.0, 1.0, 7.0])])
+def test_one_pair_is_standardized_by_the_conditional_variance():
+    # Contrast d = (3 − 1)/√2 = √2 and c = 0.5, so q = d²/c = 4 over k = 1, whatever
+    # the lineshape factors state.
+    check = duplicate_plane_check(
+        [_cluster([10.0, 10.0, 20.0], [3.0, 1.0, 7.0], _factors(conditional=0.5))]
+    )
     pool = check.unflagged
     assert pool.contrasts == 1
     assert pool.peaks == 1
     assert pool.clusters == 1
-    assert np.isclose(pool.rms, np.sqrt(2.0 / 3.0))
+    assert np.isclose(pool.q, 4.0)
+    assert np.isclose(pool.rms, 2.0)
     assert check.flagged.contrasts == 0
     assert check.excluded == {}
 
 
-def test_groups_sharing_a_parameter_are_whitened_jointly():
-    # Two pairs: d = (√2, 3/√2) and V = I + ddᵀ, so q = |d|²/(1 + |d|²) = 6.5/7.5.
-    # Whitening each pair alone would give 2/3 + 4.5/5.5 instead.
-    check = duplicate_plane_check([_cluster([1.0, 1.0, 2.0, 2.0], [3.0, 1.0, 5.0, 2.0])])
-    assert check.unflagged.contrasts == 2
-    assert np.isclose(check.unflagged.rms, np.sqrt(6.5 / 7.5 / 2))
+def test_q_does_not_depend_on_the_lineshape_factors():
+    # Two pairs, d = (√2, 3/√2): q = |d|²/c = 6.5 for every gain, parameter
+    # covariance and cross gain, and with the lineshape factors withheld.
+    planes, amplitudes = [1.0, 1.0, 2.0, 2.0], [3.0, 1.0, 5.0, 2.0]
+    variants = [
+        _factors(gain=0.0, variance=0.0),
+        _factors(gain=3.0, variance=2.0, cross=0.4),
+        _factors(variance=0.0, cross=1.0),
+        CovarianceFactors(np.array([[1.0]]), None, None, None),
+    ]
+    for factors in variants:
+        check = duplicate_plane_check([_cluster(planes, amplitudes, factors)])
+        assert check.excluded == {}
+        assert check.unflagged.contrasts == 2
+        assert np.isclose(check.unflagged.q, 6.5)
 
 
 def test_three_copies_give_two_contrasts_and_use_every_copy():
-    # Centred copies (−2, −1, 3): |d|² = 14, so q = 14/15 over k = 2.
-    check = duplicate_plane_check([_cluster([5.0, 5.0, 5.0, 9.0], [1.0, 2.0, 6.0, 4.0])])
+    # Centred copies (−2, −1, 3): |d|² = 14 over k = 2, with c = 2: q = 7.
+    check = duplicate_plane_check(
+        [_cluster([5.0, 5.0, 5.0, 9.0], [1.0, 2.0, 6.0, 4.0], _factors(conditional=2.0))]
+    )
     assert check.unflagged.contrasts == 2
-    assert np.isclose(check.unflagged.rms, np.sqrt(14.0 / 15.0 / 2))
+    assert np.isclose(check.unflagged.q, 7.0)
+
+
+def test_each_peak_is_standardized_by_its_own_conditional_variance():
+    # Two peaks, one pair: d = √2 for A and 2√2 for B, c = 2 and 4 (the off-diagonal
+    # term plays no part): q = 1 + 2 = 3 over k = 2.
+    factors = CovarianceFactors(np.array([[2.0, 1.5], [1.5, 4.0]]), None, None, None)
+    cluster = RecordedCluster(
+        ("A", "B"),
+        np.array([0.0, 0.0, 1.0]),
+        np.array([[3.0, 1.0, 0.0], [5.0, 1.0, 0.0]]),
+        factors,
+        (False, False),
+    )
+    check = duplicate_plane_check([cluster])
+    assert (check.unflagged.contrasts, check.unflagged.peaks) == (2, 2)
+    assert np.isclose(check.unflagged.q, 3.0)
 
 
 def _random_cluster(rng, plane_values, *, n_peaks=2, n_theta=2):
@@ -129,41 +160,63 @@ def test_a_run_without_repeated_plane_values_has_nothing_to_check():
 
 
 def test_each_excluded_peak_is_listed_with_its_reason():
-    planes = [1.0, 1.0, 2.0, 2.0]
-    amplitudes = [3.0, 1.0, 5.0, 2.0]
-    withheld = CovarianceFactors(np.array([[1.0]]), None, None, None)
+    planes = [1.0, 1.0, 2.0, 2.0, 3.0]
+    amplitudes = [3.0, 1.0, 5.0, 2.0, 4.0]
     unusable = RecordedCluster(("U1", "U2"), np.asarray(planes), None, None, (False, False))
-    # V = cI − 2gx·ddᵀ: with x = 1 and |d|² = 6.5, negative along d.
-    negative = _factors(variance=0.0, cross=1.0)
-    # V = cI + ddᵀ: its eigenvalues c and c + |d|² differ by far more than 1/√ε.
-    weak = _factors(conditional=1e-12)
+    # A NaN amplitude on a plane without copies still excludes the peak.
     check = duplicate_plane_check(
         [
             unusable,
-            _cluster(planes, amplitudes, withheld, name="W"),
-            _cluster(planes, amplitudes, negative, name="N"),
-            _cluster(planes, amplitudes, weak, name="D"),
+            _cluster(planes, [3.0, 1.0, 5.0, 2.0, np.nan], name="A"),
+            _cluster(planes, amplitudes, _factors(conditional=np.nan), name="W"),
+            _cluster(planes, amplitudes, _factors(conditional=np.inf), name="I"),
+            _cluster(planes, amplitudes, _factors(conditional=0.0), name="Z"),
+            _cluster(planes, amplitudes, _factors(conditional=-1.0), name="N"),
             _cluster(planes, amplitudes, name="OK"),
         ]
     )
     assert check.excluded == {
         "U1": ExclusionReason.UNUSABLE_CLUSTER,
         "U2": ExclusionReason.UNUSABLE_CLUSTER,
-        "W": ExclusionReason.FACTORS_WITHHELD,
-        "N": ExclusionReason.NOT_POSITIVE_DEFINITE,
-        "D": ExclusionReason.WEAK_DIRECTION,
+        "A": ExclusionReason.NON_FINITE_AMPLITUDE,
+        "W": ExclusionReason.NO_CONDITIONAL_VARIANCE,
+        "I": ExclusionReason.NO_CONDITIONAL_VARIANCE,
+        "Z": ExclusionReason.NO_CONDITIONAL_VARIANCE,
+        "N": ExclusionReason.NO_CONDITIONAL_VARIANCE,
     }
     assert (check.unflagged.peaks, check.unflagged.clusters) == (1, 1)
-    assert np.isclose(check.unflagged.rms, np.sqrt(6.5 / 7.5 / 2))
+    assert np.isclose(check.unflagged.q, 6.5)
+    assert np.isfinite(check.unflagged.rms)
+
+
+def test_a_withheld_conditional_covariance_excludes_every_peak_of_its_cluster():
+    # Where the shapes are rank-deficient or too ill-conditioned, the fit withholds
+    # the whole conditional covariance as NaN (``linear_algebra.factorize_shapes``).
+    withheld = CovarianceFactors(np.full((2, 2), np.nan), None, None, None)
+    cluster = RecordedCluster(
+        ("C1", "C2"),
+        np.array([0.0, 0.0, 1.0]),
+        np.array([[3.0, 1.0, 0.0], [5.0, 1.0, 0.0]]),
+        withheld,
+        (False, False),
+    )
+    check = duplicate_plane_check([cluster])
+    assert check.excluded == dict.fromkeys(("C1", "C2"), ExclusionReason.NO_CONDITIONAL_VARIANCE)
+    assert check.unflagged.peaks == check.flagged.peaks == 0
 
 
 def test_exclusion_reasons_keep_their_stated_wording():
     assert {reason.value for reason in ExclusionReason} == {
         "unusable cluster",
-        "covariance factors withheld",
-        "contrast covariance not positive definite",
-        "contrast covariance has a direction weaker than √ε of the largest",
+        "non-finite amplitude",
+        "conditional variance withheld or not positive",
     }
+
+
+def test_signed_zeros_are_one_plane_value_and_nan_matches_nothing():
+    assert duplicate_groups(np.array([0.0, -0.0, 1.0])) == ((0, 1),)
+    assert duplicate_groups(np.array([np.nan, np.nan, 1.0, 1.0])) == ((2, 3),)
+    assert duplicate_groups(np.array([np.nan, 2.0, np.nan])) == ()
 
 
 def test_the_contrasts_are_orthonormal_and_blind_to_equal_copies():
@@ -289,11 +342,42 @@ def _mean_q_over_k(clusters) -> tuple[float, float]:
     ],
 )
 def test_contrasts_scattering_as_stated_give_a_mean_q_over_k_of_one(plane_values):
-    # The groups' contrasts are correlated through the shared parameters, and the
-    # check whitens them jointly.
     rng = np.random.default_rng(175)
     cluster = _measured_cluster(rng, plane_values)
     mean, se = _mean_q_over_k(_draws(cluster, rng))
+    assert abs(mean - 1.0) <= 3.0 * se
+
+
+def test_lineshape_parameter_noise_leaves_q_unchanged():
+    # Copies with equal true amplitudes a*, the conditional noise e, and lineshape
+    # parameter errors δθ, 100 times larger in σ than the conditional noise, entering
+    # through the gain: a_s = a*_s + e_s + G_s(a*)δθ. The contrasts annihilate G(a*)δθ,
+    # so q, and its mean of k, do not move. Standardizing by CΣCᵀ built from the
+    # fitted amplitudes would let that noise return along the contrast, biasing q low.
+    plane_values = np.array([0.0, 1.0, 1.0, 1.0, 2.0, 3.0, 3.0])
+    rng = np.random.default_rng(176)
+    cluster = _measured_cluster(rng, plane_values)
+    factors = cluster.factors
+    assert factors is not None
+    assert factors.shape_gain is not None
+    truth = np.array(cluster.amplitudes, dtype=float)
+    for group in duplicate_groups(plane_values):
+        truth[:, list(group)] = truth[:, [group[0]]]
+    gains = np.einsum("ms,mlp->lsp", truth, factors.shape_gain)  # G_s(a*), by peak
+    root = np.linalg.cholesky(factors.conditional)
+    contrasts = orthonormal_contrasts(duplicate_groups(plane_values), plane_values.size)
+    quiet, loud = [], []
+    for _ in range(REALIZATIONS):
+        noise = root @ rng.standard_normal(truth.shape)
+        theta = 100.0 * rng.standard_normal(gains.shape[2])
+        quiet.append(replace(cluster, amplitudes=truth + noise))
+        loud.append(replace(cluster, amplitudes=truth + noise + gains @ theta))
+    assert not np.allclose(quiet[0].amplitudes, loud[0].amplitudes)
+    np.testing.assert_allclose(
+        loud[0].amplitudes @ contrasts.T, quiet[0].amplitudes @ contrasts.T, atol=1e-8
+    )
+    mean, se = _mean_q_over_k(loud)
+    assert mean == pytest.approx(_mean_q_over_k(quiet)[0], rel=1e-9)
     assert abs(mean - 1.0) <= 3.0 * se
 
 
@@ -401,7 +485,9 @@ def test_a_published_run_lists_peaks_it_cannot_check(repeated_run):
     first, second, *rest = outcome.clusters
     evaluation = first.analytical_evaluation
     assert evaluation is not None
-    withheld = CovarianceFactors(evaluation.amplitude_covariance, None, None, None)
+    # A conditional covariance withheld as the fit withholds it: all NaN.
+    conditional = np.full_like(evaluation.amplitude_covariance, np.nan)
+    withheld = CovarianceFactors(conditional, None, None, None)
     edited = replace(
         outcome,
         clusters=(
@@ -419,7 +505,7 @@ def test_a_published_run_lists_peaks_it_cannot_check(repeated_run):
         ),
     )
     check = run_duplicate_check(edited, context)
-    expected = dict.fromkeys(first.peak_names, ExclusionReason.FACTORS_WITHHELD)
+    expected = dict.fromkeys(first.peak_names, ExclusionReason.NO_CONDITIONAL_VARIANCE)
     expected |= dict.fromkeys(second.peak_names, ExclusionReason.UNUSABLE_CLUSTER)
     assert check.excluded == expected
     whole = run_duplicate_check(outcome, context)
@@ -434,6 +520,8 @@ def _replicates(*args: str):
 
 LIMITS = (
     "It measures repeatability, not accuracy.",
+    "It tests the conditional σ only, the noise part: it cannot detect a "
+    "miscalibration of the lineshape-parameter part of the marginal or profile σ.",
     "It checks the uncertainty of contrasts between copies, not marginal σ.",
     "It checks raw amplitudes, not normalized profiles.",
     "Equal plane values do not prove independent, equivalent acquisitions.",
