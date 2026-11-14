@@ -452,6 +452,44 @@ def _rounded(value):
     return value
 
 
+def _signed(value: float, digits: int = 1) -> str:
+    """A signed number with a typographic minus, as the specification writes it."""
+    return f"{value:+.{digits}f}".replace("-", "−")
+
+
+def markdown_tables(record: dict) -> str:
+    """The results tables of profile-uncertainty §8.2, formatted from a record.
+
+    The gated table, then the table of unmodelled correlation between copies. The
+    specification quotes them verbatim; ``tests/test_duplicate_check_validation.py``
+    checks that it does.
+    """
+    gated = [
+        "| Case | Pool | Mean q/k | SE | Deviation | Replication | Block χ² (p) "
+        "| Contrast variances, worst |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    correlated = ["| Case | ρ | Mean q/k | RMS |", "|---|---|---|---|"]
+    for name, case in record["cases"].items():
+        st = case["statistic"]
+        if case["gated"]:
+            blocks, rep = case["blocks"], case["blocks"]["replication"]
+            gated.append(
+                f"| {name} | {case['pool']} | {st['mean_q_over_k']:.3f} | {st['se']:.3f} "
+                f"| {_signed(st['deviation_se'])} SE "
+                f"| {rep['mean_q_over_k']:.3f}, {_signed(rep['deviation_se'])} SE "
+                f"| {blocks['chi2']:.1f} ({blocks['p_value']:.2f}) "
+                f"| {case['analytical']['largest_deviation_se']:.1f} SE |"
+            )
+        elif rho := case["copies_correlation"]:
+            label = name.rsplit(", copies correlated", 1)[0]
+            correlated.append(
+                f"| {label} | {_signed(rho)} | {st['mean_q_over_k']:.3f} ± {st['se']:.3f} "
+                f"| {st['rms']:.3f} |"
+            )
+    return "\n".join(gated) + "\n\n" + "\n".join(correlated) + "\n"
+
+
 def main() -> None:
     """Run every case and report the gate."""
     parser = argparse.ArgumentParser()
@@ -520,6 +558,9 @@ def main() -> None:
                 f"{with_them['mean_q_over_k']:.4f} ({with_them['deviation_se']:+.1f} SE)"
             )
     print(json.dumps(_rounded(result["gate"]), indent=1, ensure_ascii=False))
+    if args.blocks > 1:
+        print()
+        print(markdown_tables(json.loads(text)))
 
 
 if __name__ == "__main__":

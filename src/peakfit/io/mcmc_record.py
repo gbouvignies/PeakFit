@@ -8,8 +8,6 @@ and amplitude summaries, so the results read back without the source spectrum. R
 IDs sort chronologically.
 """
 
-from __future__ import annotations
-
 import hashlib
 import os
 import secrets

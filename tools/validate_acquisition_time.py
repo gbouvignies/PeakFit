@@ -18,8 +18,6 @@ amplitude error relative to the first peak (%).
 """
 
 # ruff: noqa: T201
-from __future__ import annotations
-
 import argparse
 import tempfile
 from pathlib import Path

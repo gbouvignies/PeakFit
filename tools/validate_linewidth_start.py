@@ -15,8 +15,6 @@ Two studies, both on the bundled CEST spectrum (examples/02-advanced-fitting):
 """
 
 # ruff: noqa: T201
-from __future__ import annotations
-
 import itertools
 import sys
 import time

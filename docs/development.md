@@ -45,6 +45,24 @@ as evidence with an explicit provenance and intended claim. Do not silently
 regenerate them, weaken their assertions, or change them without explaining and
 reviewing the scientific or contract reason.
 
+### Validation tools
+
+The validation tools under `tools/` (T-rows of a specification, such as
+`tools/profile_uncertainty/`) gate scientific claims on synthetic realizations.
+Their records are evidence, so the protocol is set before the result is seen:
+- **Fixed in advance:** the number of realizations, the seed, the gate and its
+  tolerance. Derive each realization's seed from (seed, case, index), so that a
+  larger run extends the earlier one rather than replacing it.
+- **Replication:** report the gated statistic over disjoint blocks of
+  realizations, with their consistency, so that one draw cannot decide the
+  verdict. `duplicate_check.py --blocks` is the template.
+- **Confirmation:** a gated result within 0.5 SE of its threshold calls for a
+  larger confirmation run. Commit its protocol (N, seed, diagnostics and decision
+  rule) before running it, and record it beside the results. Never choose seeds
+  or tolerances after seeing a result.
+- **Docs quote the record:** the results tables in a specification come from the
+  tool's printed record, and a test checks them against it.
+
 ### Golden fit reference
 
 `tests/integration/test_golden_regression.py` fits the bundled example once and

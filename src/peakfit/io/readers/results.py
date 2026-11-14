@@ -1,7 +1,5 @@
 """Read a fit's scientific archive from its results directory."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from peakfit.io.output_metadata import RunMetadata

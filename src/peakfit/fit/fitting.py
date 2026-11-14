@@ -11,8 +11,6 @@ Public API:
 - find_review_clusters: Identify clusters needing review
 """
 
-from __future__ import annotations
-
 import multiprocessing
 from typing import TYPE_CHECKING, Any
 

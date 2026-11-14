@@ -6,8 +6,6 @@ Use --source /path/to/checkout/src to run the same harness against pre-fix main.
 it requires LMFit in a separate validation environment, never a runtime dependency.
 """
 
-from __future__ import annotations
-
 # Imports follow --source selection deliberately when comparing source revisions.
 # ruff: noqa: PLC0415
 import argparse

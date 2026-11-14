@@ -1,7 +1,5 @@
 """Analysis actions and asynchronous delivery in the native editor shell."""
 
-from __future__ import annotations
-
 from concurrent.futures import CancelledError
 from dataclasses import replace
 from pathlib import Path

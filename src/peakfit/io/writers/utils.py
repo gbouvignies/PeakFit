@@ -1,7 +1,5 @@
 """Small formatting helpers shared by completed-result writers."""
 
-from __future__ import annotations
-
 import math
 
 

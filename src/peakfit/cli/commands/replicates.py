@@ -1,7 +1,5 @@
 """The replicates command: check a run's uncertainties against its replicate planes."""
 
-from __future__ import annotations
-
 from collections import Counter, defaultdict
 from pathlib import Path  # noqa: TC003 - needed at runtime for Typer
 from typing import TYPE_CHECKING, Annotated, Any

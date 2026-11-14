@@ -1,7 +1,5 @@
 """Full-grid simulation projected from an authoritative final fit outcome."""
 
-from __future__ import annotations
-
 from concurrent.futures import CancelledError
 from copy import deepcopy
 from dataclasses import dataclass

@@ -1,7 +1,5 @@
 """Human and tabular completed-fit projections from final outcomes."""
 
-from __future__ import annotations
-
 import csv
 import json
 from dataclasses import replace

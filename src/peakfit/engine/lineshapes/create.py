@@ -1,7 +1,5 @@
 """Construct built-in lineshape model instances."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from peakfit.engine.lineshapes.models import (

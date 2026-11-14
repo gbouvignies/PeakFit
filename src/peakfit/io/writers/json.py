@@ -1,7 +1,5 @@
 """JSON 9.0.0 projection of immutable completed-fit outcomes."""
 
-from __future__ import annotations
-
 import json
 import math
 from collections.abc import Mapping

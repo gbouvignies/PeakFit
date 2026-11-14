@@ -5,8 +5,6 @@ Example: python tools/validate_release_overlap.py --source /tmp/v0.10.5
 Use the current environment's NumPy/SciPy versions to isolate source differences.
 """
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import importlib

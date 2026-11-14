@@ -15,8 +15,6 @@ The fixtures were generated with NMRPipe 13.0 (rev 2026.072).
 """
 
 # ruff: noqa: T201
-from __future__ import annotations
-
 import argparse
 import json
 import shutil

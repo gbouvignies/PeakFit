@@ -1,7 +1,5 @@
 """Plot subcommands for PeakFit CLI."""
 
-from __future__ import annotations
-
 import hashlib
 from pathlib import Path  # noqa: TC003 - needed at runtime for Typer
 from typing import TYPE_CHECKING, Annotated

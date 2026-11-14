@@ -1,7 +1,5 @@
 """Fit command - main fitting workflow with mandatory validation."""
 
-from __future__ import annotations
-
 import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any

@@ -1,7 +1,5 @@
 """Plan and write fit result artifacts."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from peakfit.io.writers.config import WriterConfig

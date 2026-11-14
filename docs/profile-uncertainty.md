@@ -786,15 +786,15 @@ of freedom. The worst contrast variance is against c_ll.
 
 | Case | Pool | Mean q/k | SE | Deviation | Replication | Block χ² (p) | Contrast variances, worst |
 |---|---|---|---|---|---|---|---|
-| `sp2`, isolated, two copies | all | 0.989 | 0.005 | −2.2 SE | 0.993, −1.3 SE | 20.3 (0.02) | 2.2 SE |
-| `sp2`, isolated, three copies | all | 1.001 | 0.004 | +0.2 SE | 1.001, +0.3 SE | 4.4 (0.88) | 2.1 SE |
-| `sp1`, isolated, two copies | all | 1.007 | 0.005 | +1.3 SE | 1.008, +1.5 SE | 9.0 (0.44) | 2.0 SE |
-| `no_apod`, isolated, two copies | all | 1.003 | 0.005 | +0.7 SE | 1.003, +0.6 SE | 6.5 (0.68) | 1.4 SE |
-| `sp2`, pair 3 points, two copies | all | 1.000 | 0.004 | +0.1 SE | 0.999, −0.2 SE | 3.3 (0.95) | 1.5 SE |
-| `sp2`, pair 3 points, three copies | all | 1.000 | 0.003 | −0.1 SE | 1.000, +0.0 SE | 3.6 (0.94) | 1.7 SE |
-| `sp2`, pair 3 points, shared phase, three copies | all | 1.000 | 0.003 | +0.2 SE | 1.000, +0.1 SE | 9.9 (0.36) | 1.3 SE |
-| `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.009 | 0.004 | +2.4 SE | 1.007, +1.8 SE | 9.4 (0.40) | 1.8 SE |
-| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 0.994 | 0.005 | −1.2 SE | 0.991, −1.6 SE | 8.8 (0.45) | 2.3 SE |
+| sp2, isolated, two copies | all | 0.989 | 0.005 | −2.2 SE | 0.993, −1.3 SE | 20.3 (0.02) | 2.2 SE |
+| sp2, isolated, three copies | all | 1.001 | 0.004 | +0.2 SE | 1.001, +0.3 SE | 4.4 (0.88) | 2.1 SE |
+| sp1, isolated, two copies | all | 1.007 | 0.005 | +1.3 SE | 1.008, +1.5 SE | 9.0 (0.44) | 2.0 SE |
+| no_apod, isolated, two copies | all | 1.003 | 0.005 | +0.7 SE | 1.003, +0.6 SE | 6.5 (0.68) | 1.4 SE |
+| sp2, pair 3 points, two copies | all | 1.000 | 0.004 | +0.1 SE | 0.999, −0.2 SE | 3.3 (0.95) | 1.5 SE |
+| sp2, pair 3 points, three copies | all | 1.000 | 0.003 | −0.1 SE | 1.000, +0.0 SE | 3.6 (0.94) | 1.7 SE |
+| sp2, pair 3 points, shared phase, three copies | all | 1.000 | 0.003 | +0.2 SE | 1.000, +0.1 SE | 9.9 (0.36) | 1.3 SE |
+| sp2, pair 2 points (flagged), two copies | flagged | 1.009 | 0.004 | +2.4 SE | 1.007, +1.8 SE | 9.4 (0.40) | 1.8 SE |
+| sp2, isolated with a coincident pair (exclusions), two copies | unflagged | 0.994 | 0.005 | −1.2 SE | 0.991, −1.6 SE | 8.8 (0.45) | 2.3 SE |
 
 - **The shortfall is gone.** The first implementation's record (the previous
   version of `duplicate_check.json`) left six of the seven `sp2` gated cases below 1, an inverse-variance weighted mean q/k of 0.995 ± 0.0013
@@ -856,10 +856,10 @@ of freedom. The worst contrast variance is against c_ll.
 
 | Case | ρ | Mean q/k | RMS |
 |---|---|---|---|
-| `sp2`, isolated, two copies | +0.3 | 0.698 ± 0.004 | 0.835 |
-| `sp2`, isolated, two copies | −0.3 | 1.301 ± 0.007 | 1.141 |
-| `sp2`, pair 3 points, three copies | +0.3 | 0.700 ± 0.002 | 0.837 |
-| `sp2`, pair 3 points, three copies | −0.3 | 1.299 ± 0.003 | 1.140 |
+| sp2, isolated, two copies | +0.3 | 0.698 ± 0.004 | 0.835 |
+| sp2, isolated, two copies | −0.3 | 1.301 ± 0.007 | 1.141 |
+| sp2, pair 3 points, three copies | +0.3 | 0.700 ± 0.002 | 0.837 |
+| sp2, pair 3 points, three copies | −0.3 | 1.299 ± 0.003 | 1.140 |
 
   Positive correlation pushes the RMS below 1, negative above. This illustrates
   unmodelled covariance in general; it is not a model of joint pseudo-3D NUS

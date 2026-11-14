@@ -1,7 +1,5 @@
 """External-source analyses with compact scientific authority and atomic publication."""
 
-from __future__ import annotations
-
 import hashlib
 import json
 import os

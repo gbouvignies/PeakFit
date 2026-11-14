@@ -1,7 +1,5 @@
 """Completed-run projections from the authoritative final outcome."""
 
-from __future__ import annotations
-
 from types import MappingProxyType
 
 import numpy as np

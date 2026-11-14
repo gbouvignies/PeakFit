@@ -123,3 +123,13 @@ def test_the_record_passes_its_gate_and_shows_the_illustration(study):
         rho = case["copies_correlation"]
         if rho:
             assert (case["statistic"]["rms"] < 1.0) == (rho > 0), name
+
+
+def test_the_specification_quotes_the_record_tables(study):
+    # The §8.2 results tables are the tool's own tables, formatted from the record:
+    # a rerun that changes a number changes the record, and this test then fails
+    # until the specification quotes the new tables.
+    record = json.loads(RECORD.read_text(encoding="utf-8"))
+    spec = (RECORD.parents[2] / "profile-uncertainty.md").read_text(encoding="utf-8")
+    for table in study.markdown_tables(record).strip().split("\n\n"):
+        assert table in spec

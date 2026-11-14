@@ -1,7 +1,5 @@
 """Configuration and output setup for the fit CLI command."""
 
-from __future__ import annotations
-
 import datetime
 from pathlib import Path
 from typing import cast, get_args

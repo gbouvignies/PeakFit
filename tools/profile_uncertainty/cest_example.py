@@ -1,7 +1,5 @@
 """The bundled CEST example, fitted as PeakFit fits it: set-up shared by the CEST studies."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
