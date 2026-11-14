@@ -38,12 +38,31 @@ if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.editor.review import ClusterReview
 
-_TILE = QtCore.QSize(240, 184)  # preferred tile; columns stretch to fill the width
-_MIN_WIDTH = 200
+# Adaptive tile grid (on screen only; PDF pages keep their fixed layout). Provisional
+# limits pending visual acceptance (#191): at the minimum a tile's plot is about 190 px
+# wide, about 3 px per plane of a 60-plane CEST profile, so a dip a few planes wide
+# stays visible; 1280×800 then shows three columns instead of two. Height follows the
+# width, with a floor that keeps the plot area near 90 px under header and legend.
+TILE_MIN_WIDTH = 210
+TILE_MAX_WIDTH = 320
+TILE_ASPECT = 0.72  # tile height / tile width
+TILE_MIN_HEIGHT = 156
 _PAD = 8
 _ROLE = QtCore.Qt.ItemDataRole.UserRole
 # PDF pages: A4 landscape at 96 dpi, four columns by three rows of tiles.
 _PDF_DPI, _PDF_COLUMNS, _PDF_ROWS = 96, 4, 3
+
+
+def tile_grid(width: int) -> tuple[int, QtCore.QSize]:
+    """Column count and tile size for an available width in logical pixels.
+
+    Columns are the largest count whose tiles meet the minimum width; tiles stretch to
+    fill the width up to the maximum, so further width adds a column instead. A width
+    narrower than one minimum tile still gets one minimum tile.
+    """
+    columns = max(1, width // TILE_MIN_WIDTH)
+    tile = min(TILE_MAX_WIDTH, max(TILE_MIN_WIDTH, width // columns))
+    return columns, QtCore.QSize(tile, max(TILE_MIN_HEIGHT, round(tile * TILE_ASPECT)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,11 +262,15 @@ def _header(painter, inner: QtCore.QRectF, tile: Tile, style: Style) -> float:
     count = len(review.names)
     name = (review.names[0] if review.names else "") + (f"  +{count - 1}" if count > 1 else "")
     measures = _measures(review)
-    width = QtGui.QFontMetrics(caption).horizontalAdvance(measures)
-    right = QtCore.QRectF(row.right() - width, row.top(), width, height)
+    bold = _font(style.font, FONT_SMALL, bold=style.selected in review.ids)
+    # A narrow tile keeps the cluster's name whole and elides its measures instead.
+    named = min(QtGui.QFontMetrics(bold).horizontalAdvance(name), row.right() - x)
+    width = min(
+        QtGui.QFontMetrics(caption).horizontalAdvance(measures), row.right() - x - named - 6
+    )
+    right = QtCore.QRectF(row.right() - max(0.0, width), row.top(), max(0.0, width), height)
     _text(painter, right, measures, theme.secondary, caption)
     left = QtCore.QRectF(x, row.top(), max(0.0, right.left() - x - 6), height)
-    bold = _font(style.font, FONT_SMALL, bold=style.selected in review.ids)
     _text(painter, left, name, theme.text, bold)
     return row.bottom()
 
@@ -485,7 +508,7 @@ class ProfilesView(QtWidgets.QWidget):
         self.reference: tuple[int, ...] = ()
         self.normalized = False
         self.title = "Profiles"  # names the dataset and run in exported figures
-        self.tile_size = QtCore.QSize(_TILE)
+        self.tile_size = tile_grid(TILE_MIN_WIDTH)[1]
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(SPACE_M, SPACE_S, SPACE_M, 0)
         layout.setSpacing(SPACE_S)
@@ -637,9 +660,12 @@ class ProfilesView(QtWidgets.QWidget):
         )
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
-        """Refit the columns whenever the tiles' viewport changes width."""
+        """Refit the columns whenever the tiles' viewport resizes; keep the current tile in view."""
         if watched is self.list.viewport() and event.type() == QtCore.QEvent.Type.Resize:
             self._fit_columns()
+            current = self.list.currentIndex()
+            if current.isValid():
+                self.list.scrollTo(current)
         return super().eventFilter(watched, event)
 
     def _mode_menu(self) -> None:
@@ -662,10 +688,8 @@ class ProfilesView(QtWidgets.QWidget):
         )
 
     def _fit_columns(self) -> None:
-        """Columns fill the width: as many preferred-size tiles as fit, then stretched."""
-        width = self.list.viewport().width() - 2
-        columns = max(1, width // _TILE.width())
-        size = QtCore.QSize(max(_MIN_WIDTH, width // columns), _TILE.height())
+        """Columns fill the width with as many tiles as stay readable (``tile_grid``)."""
+        _columns, size = tile_grid(self.list.viewport().width() - 2)
         if size != self.tile_size or self.list.gridSize() != size:
             self.tile_size = size
             self.list.setGridSize(size)
