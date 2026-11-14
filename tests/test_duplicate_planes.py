@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from click.utils import strip_ansi
 from typer.testing import CliRunner
 
 from peakfit.cli.app import app
@@ -180,13 +181,13 @@ def test_fewer_than_fifty_contrasts_carry_a_low_sample_warning():
     assert np.isclose(enough.standard_error_bound, 0.1)
 
 
-def _fit_example(output: Path, z_values: Path) -> Path:
+def _fit_example(output: Path, z_values: Path, peaks: Path = DATA / "pseudo3d.list") -> Path:
     result = CliRunner().invoke(
         app,
         [
             "fit",
             str(DATA / "pseudo3d.ft2"),
-            str(DATA / "pseudo3d.list"),
+            str(peaks),
             "--z-values",
             str(z_values),
             "--output",
@@ -210,6 +211,18 @@ def repeated_run(tmp_path_factory):
         offsets[copy] = offsets[original]
     np.savetxt(folder / "offsets.txt", offsets)
     return _fit_example(folder / "Fits", folder / "offsets.txt")
+
+
+@pytest.fixture(scope="module")
+def small_run(tmp_path_factory):
+    """Four peaks of the bundled example and one pair of equal plane values."""
+    folder = tmp_path_factory.mktemp("small")
+    offsets = np.loadtxt(DATA / "b1_offsets.txt")
+    offsets[2] = offsets[1]
+    np.savetxt(folder / "offsets.txt", offsets)
+    lines = (DATA / "pseudo3d.list").read_text().splitlines()[:4]
+    (folder / "peaks.list").write_text("\n".join(lines) + "\n")
+    return _fit_example(folder / "Fits", folder / "offsets.txt", folder / "peaks.list")
 
 
 @pytest.fixture(scope="module")
@@ -286,3 +299,79 @@ def test_a_published_run_lists_peaks_it_cannot_check(repeated_run):
     whole = run_duplicate_check(outcome, context)
     pooled = check.unflagged.peaks + check.flagged.peaks
     assert pooled == whole.unflagged.peaks + whole.flagged.peaks - len(expected)
+
+
+def _replicates(*args: str):
+    result = CliRunner().invoke(app, ["replicates", *args])
+    return result, " ".join(strip_ansi(result.output).split())
+
+
+LIMITS = (
+    "It measures repeatability, not accuracy.",
+    "It checks the uncertainty of contrasts between copies, not marginal σ.",
+    "It checks raw amplitudes, not normalized profiles.",
+    "Equal plane values do not prove independent, equivalent acquisitions.",
+    "It is not calibrated for copies reconstructed jointly.",
+    "No error is changed.",
+)
+
+
+@pytest.mark.slow
+def test_the_command_checks_duplicate_planes_when_the_run_has_them(repeated_run):
+    result, text = _replicates(str(repeated_run))
+    assert result.exit_code == 0, result.output
+    assert "Method: duplicate planes" in text
+    assert "4 groups of equal plane values, 5 contrasts per peak" in text
+    assert (
+        "Peaks without the correlated-profile flag: RMS of standardized contrasts 1.09 "
+        "(690 contrasts, 138 peaks, 114 clusters)" in text
+    )
+    assert (
+        "Peaks with the correlated-profile flag: RMS of standardized contrasts 1.24 "
+        "(140 contrasts, 28 peaks, 13 clusters)" in text
+    )
+    assert "Contrasts from peaks of one cluster are correlated" in text
+    assert "Few contrasts" not in text
+    assert "Observed / stated" not in text
+    for limit in LIMITS:
+        assert limit in text
+
+
+@pytest.mark.slow
+def test_a_small_sample_carries_its_warning(small_run):
+    result, text = _replicates(str(small_run))
+    assert result.exit_code == 0, result.output
+    assert "1 group of equal plane values, 1 contrast per peak" in text
+    assert "(4 contrasts, 4 peaks," in text
+    assert (
+        "Few contrasts: the sampling uncertainty of the RMS is at least 1/√(2n) = 0.35, "
+        "a lower bound" in text
+    )
+
+
+@pytest.mark.slow
+def test_the_baseline_method_can_be_chosen_on_a_run_with_duplicates(repeated_run):
+    result, text = _replicates(str(repeated_run), "--baseline")
+    assert result.exit_code == 0, result.output
+    assert "Method: CEST baseline planes" in text
+    assert "Observed / stated profile σ" in text
+    assert "standardized contrasts" not in text
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("option", [["--ref", "0"], ["--window", "300"]])
+def test_baseline_options_are_an_error_when_duplicates_are_checked(repeated_run, option):
+    result, text = _replicates(str(repeated_run), *option)
+    assert result.exit_code == 2
+    assert "--ref and --window belong to the CEST baseline method" in text
+    assert "--baseline" in text
+    assert "standardized contrasts" not in text
+
+
+@pytest.mark.slow
+def test_a_run_without_duplicates_says_so_and_checks_its_baseline(plain_run):
+    result, text = _replicates(str(plain_run))
+    assert result.exit_code == 0, result.output
+    assert "No duplicate planes" in text
+    assert "Method: CEST baseline planes" in text
+    assert "Observed / stated profile σ: median 1.07" in text
