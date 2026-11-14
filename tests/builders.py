@@ -20,8 +20,16 @@ from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.writers.config import WriterConfig
 
 
-def overlapping_gaussians():
-    """Two overlapping synthetic Gaussians across three planes with repeated values."""
+def overlapping_gaussians(amplitudes=None, z_values=None):
+    """Two overlapping synthetic Gaussians, by default across three planes with repeated values.
+
+    ``amplitudes`` (2 × S) and ``z_values`` (S) replace the default three-plane series.
+    """
+    if amplitudes is None:
+        amplitudes = np.array([[5.0, -3.0, 2.0], [3.0, -2.0, 4.0]])
+    if z_values is None:
+        z_values = np.array([2.0, 0.0, 2.0])
+    n_planes = len(z_values)
     axes = [
         SpectralParameters(
             size=size,
@@ -37,12 +45,12 @@ def overlapping_gaussians():
             direct=direct,
             ft=True,
         )
-        for size, direct in ((3, False), (32, False), (32, True))
+        for size, direct in ((n_planes, False), (32, False), (32, True))
     ]
     spectra = Spectra(
         dic={},
-        data=np.zeros((3, 32, 32)),
-        z_values=np.array([2.0, 0.0, 2.0]),
+        data=np.zeros((n_planes, 32, 32)),
+        z_values=np.asarray(z_values, dtype=float),
         params=axes,
     )
     config = PeakFitConfig(
@@ -64,9 +72,8 @@ def overlapping_gaussians():
     ]
     indices = [index.ravel() for index in np.indices((32, 32))]
     shapes = Cluster.evaluate_peaks(peaks, Parameters.from_peaks(peaks), indices)
-    amplitudes = np.array([[5.0, -3.0, 2.0], [3.0, -2.0, 4.0]])
     rng = np.random.default_rng(42)
-    spectra.data[:] = (shapes.T @ amplitudes).T.reshape(3, 32, 32)
+    spectra.data[:] = (shapes.T @ amplitudes).T.reshape(n_planes, 32, 32)
     spectra.data += rng.normal(0, 0.002, spectra.data.shape)
     working = tuple(
         WorkingPeak(str(i), "Duplicate", (pos[0] + 0.003, pos[1] - 0.003))
@@ -75,9 +82,16 @@ def overlapping_gaussians():
     return spectra, working, config
 
 
-def two_cluster_dataset():
-    """The overlapping pair plus a remote peak, prepared as more than one cluster."""
-    spectra, peaks, config = overlapping_gaussians()
+def two_cluster_dataset(amplitudes=None, z_values=None, remote=None):
+    """The overlapping pair plus a remote peak, prepared as more than one cluster.
+
+    ``amplitudes`` (2 × S), ``z_values`` (S) and the remote peak's ``remote`` (S)
+    replace the default three-plane series.
+    """
+    spectra, peaks, config = overlapping_gaussians(amplitudes, z_values)
+    if remote is None:
+        remote = np.array([4.0, -2.0, 3.0])
+    n_planes = len(remote)
     pos = tuple(
         axis.pts2ppm(point)
         for axis, point in zip(
@@ -99,7 +113,7 @@ def two_cluster_dataset():
     )
     coordinates = [index.ravel() for index in np.indices((32, 32))]
     values = Cluster.evaluate_peaks([shape], Parameters.from_peaks([shape]), coordinates)[0]
-    spectra.data += (np.array([4.0, -2.0, 3.0])[:, None] * values).reshape(3, 32, 32)
+    spectra.data += (np.asarray(remote)[:, None] * values).reshape(n_planes, 32, 32)
     peaks += (WorkingPeak("remote", "Duplicate", pos),)
     config.fitting.refine_iterations = 2
     config.fitting.steps = []
@@ -107,6 +121,28 @@ def two_cluster_dataset():
     prepared = prepare_dataset_fit(spectra, peaks, config)
     assert len(prepared.clusters) > 1
     return spectra, peaks, config, prepared
+
+
+def cpmg_like_dataset():
+    """The two-cluster dataset over 20 planes of a CPMG-like relaxation-dispersion series.
+
+    Amplitudes fall from a reference plane toward a plateau as the CPMG frequency rises,
+    as in an effective-relaxation-rate experiment; the first plane is the reference
+    (no relaxation delay), far above the others. One plane of one member is an outlier.
+    """
+    frequencies = np.array([0.0, *np.linspace(25.0, 1000.0, 19)])
+    dispersion = 0.45 + 0.25 * (1 - np.exp(-frequencies / 200.0))
+    series = np.where(frequencies == 0.0, 1.0, dispersion)
+    amplitudes = np.vstack([5.0 * series, 3.0 * series**1.4])
+    amplitudes[1, 11] *= 1.35  # an outlier the tile must keep recognisable
+    return two_cluster_dataset(amplitudes, frequencies, 4.0 * series**0.8)
+
+
+def decay_dataset():
+    """The two-cluster dataset over 10 planes of an exponential decay (relaxation delays)."""
+    delays = np.linspace(0.0, 0.18, 10)
+    amplitudes = np.vstack([5.0 * np.exp(-delays / 0.08), 3.0 * np.exp(-delays / 0.05)])
+    return two_cluster_dataset(amplitudes, delays, 4.0 * np.exp(-delays / 0.12))
 
 
 def completed_result(formats, save_simulated, detailed=False):

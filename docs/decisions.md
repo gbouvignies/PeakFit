@@ -139,8 +139,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - It is shown only on the data the run recorded: spectral axes, source plane
   indices, plane values and the spectrum's identity, shape and source files must
   match the run's input snapshot. Otherwise it is withdrawn with the reason.
-- Working peaks are compared with the run's adopted working peaks by stable ID: ◇
-  marks a peak the model does not contain; × the model's position of a peak moved or
+- Working peaks are compared with the run's adopted working peaks by stable ID: ☆
+  (◇ until 2026-11-14) marks a peak the model does not contain; × the model's position of a peak moved or
   deleted since, so a residual centred on the old position is read correctly.
 - The unexplained list keeps the run's regions but measures distances to the
   current working peaks, recomputed after every edit and said in its note: the
@@ -1370,6 +1370,50 @@ Short records of non‑obvious design choices and trade‑offs.
   spectrum to 8.03–12.03 ppm on data spanning 6.50–10.50 ppm, leaving 40–50 % of
   the 2D plot and part of both slices empty.
 - A click on the spectrum keeps the minimal reveal; cluster focus keeps its frame.
+
+## 2026-11-14: One meaning per review glyph (#188)
+- ◇ means only a review highlight (navigator, cluster page, tiles, run changes).
+  A working peak a historical model does not contain was also marked ◇ (spectrum,
+  legend, unexplained list, its note); it is now ☆, drawn as a hollow star in the
+  warning colour with its own legend entry “☆ not in this model”. A star is
+  distinct in shape from every other spectrum mark (+ peak, □ unadopted, × recorded
+  position, ◇ highlight) and renders in the system fonts.
+- ▲ means only a numerical warning. The slice caption counted clipped samples as
+  “▲ 3 clipped · △ 1 model clipped”; it now says “3 data samples clipped · 1 model
+  sample clipped”. The edge marks themselves (filled for data, hollow for model)
+  are unchanged.
+
+## 2026-11-14: Failure log file (#186)
+- **A per-user log file.** PeakFit launched from a desktop launcher has no terminal,
+  so `launch` adds a file to the `peakfit.gui` log: `~/Library/Logs/PeakFit/`
+  (macOS), `%LOCALAPPDATA%\PeakFit\Logs\` (Windows), `$XDG_STATE_HOME/peakfit/`
+  (Linux), each `peakfit.log`. Only errors are written, with their tracebacks,
+  including those raised in worker processes. The terminal keeps receiving them.
+- **Bounded.** One rotated predecessor of at most 1 MB; no retention setting.
+- **Shown, not hidden.** The failure section of the analysis page shows the path,
+  and **Copy details** includes it. If the file cannot be created, PeakFit starts
+  anyway and logs to the terminal only.
+
+## 2026-11-14: Adaptive Profiles tiles (#191)
+- The Profiles grid takes the largest column count whose tiles are at least
+  `TILE_MIN_WIDTH` = 210 px wide; tiles stretch to fill the width up to
+  `TILE_MAX_WIDTH` = 320 px; height is 0.72 × width, at least 156 px. Further width
+  adds a column. Replaces a 240 px preferred width, unbounded stretch and fixed
+  184 px height, which gave two columns (about 7 tiles per screen) at 1280×800.
+- Reasoning for the provisional values: at 1280×800 the Profiles viewport measured
+  654 px wide (offscreen, default panels), so three columns need a minimum of at
+  most 217 px. At 210 px the plot is about 190 px wide, about 3 px per plane of a
+  60-plane CEST profile; the plot area keeps about 90 px of height under header and
+  legend. Synthetic short series (`cpmg_like_dataset`, 20 planes with an outlier;
+  `decay_dataset`, 10 planes) were drawn at 210, 260 and 320 px: the outlier and
+  both members stay distinguishable at 210 px.
+- At 210 px a multi-member header cannot hold the name and all measures, so the
+  header keeps the cluster's name whole and elides the measures (full text in the
+  tooltip).
+- Pending: visual acceptance on the bundled CEST tiles and of the view at
+  1280×800, 1512×982, 1920×1080 and 2560×1440 with DPR, both appearances, using the
+  validation tool of #179; the constants may change with it.
+- PDF export keeps A4 landscape, twelve tiles per page.
 
 ## 2026-11-14: Native slices take shares of the spectral view (#190)
 - Replaces the fixed slice sizes of 2026-11-06 (row 150 px, column 130 px at every

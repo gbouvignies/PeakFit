@@ -6,7 +6,7 @@ reserved for scientific layers, selection and state (specification §12).
 
 from dataclasses import dataclass
 
-from PySide6 import QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 # Logical-pixel rhythm shared by layouts.
 SPACE_XS, SPACE_S, SPACE_M, SPACE_L = 4, 8, 12, 16
@@ -17,7 +17,13 @@ FONT_BODY, FONT_SMALL, FONT_CAPTION, FONT_TITLE = 13, 12, 11, 15
 
 @dataclass(frozen=True, slots=True)
 class Theme:
-    """Named colours for one appearance; hex strings for QSS and pens alike."""
+    """Named colours for one appearance; hex strings for QSS and pens alike.
+
+    Text roles: ``secondary`` and the quieter ``faint`` (captions, headers, placeholders)
+    both reach 4.5:1 on every surface; ``disabled`` is weaker and marks only unavailable
+    controls. ``outline`` bounds editable controls at 3:1 on every surface; ``border``
+    stays a quiet edge for buttons and tooltips, ``divider`` a separator.
+    """
 
     dark: bool
     window: str
@@ -26,9 +32,11 @@ class Theme:
     plot: str
     divider: str
     border: str
+    outline: str
     text: str
     secondary: str
     faint: str
+    disabled: str
     accent: str
     on_accent: str
     selection: str
@@ -54,9 +62,11 @@ LIGHT = Theme(
     plot="#ffffff",
     divider="#e1e5ea",
     border="#c9d0d8",
+    outline="#7d8792",
     text="#1d232b",
     secondary="#5f6a76",
-    faint="#8e98a3",
+    faint="#636d79",
+    disabled="#8e98a3",
     accent="#2f5da8",
     on_accent="#ffffff",
     selection="#dbe6f6",
@@ -82,9 +92,11 @@ DARK = Theme(
     plot="#13171c",
     divider="#29313a",
     border="#3a4552",
+    outline="#66727f",
     text="#e1e6ec",
     secondary="#a3aeba",
-    faint="#6f7a86",
+    faint="#86919d",
+    disabled="#6f7a86",
     accent="#7ea6e8",
     on_accent="#0f1318",
     selection="#22324a",
@@ -147,7 +159,7 @@ def palette(theme: Theme) -> QtGui.QPalette:
     }.items():
         result.setColor(role, QtGui.QColor(value))
     for role in (roles.Text, roles.ButtonText, roles.WindowText):
-        result.setColor(QtGui.QPalette.ColorGroup.Disabled, role, QtGui.QColor(theme.faint))
+        result.setColor(QtGui.QPalette.ColorGroup.Disabled, role, QtGui.QColor(theme.disabled))
     return result
 
 
@@ -172,7 +184,7 @@ QPushButton#tab {{ border: 0; border-bottom: 2px solid transparent; border-radiu
     background: transparent; padding: 4px 0; min-height: 20px; color: {t.secondary};
     font-weight: 600; }}
 QPushButton#tab:checked {{ color: {t.text}; border-bottom-color: {t.accent}; }}
-QPushButton#tab:disabled {{ color: {t.faint}; }}
+QPushButton#tab:disabled {{ color: {t.disabled}; }}
 QPushButton#tab:hover:enabled {{ background: transparent; color: {t.text}; }}
 QTreeWidget::item {{ height: {ROW_HEIGHT}px; border-bottom: 1px solid {t.divider}; }}
 QTreeWidget::item:selected {{ background: {t.selection}; color: {t.text}; }}
@@ -185,6 +197,7 @@ QLabel#muted {{ color: {t.secondary}; font-size: {FONT_SMALL}px; }}
 QLabel#caption {{ color: {t.faint}; font-size: {FONT_CAPTION}px; }}
 QLabel#value {{ font-weight: 600; }}
 QLabel#error {{ color: {t.error}; }}
+QLabel#muted[tone="error"] {{ color: {t.error}; }}
 QLabel#warning {{ color: {t.warning}; font-size: {FONT_SMALL}px; }}
 QLabel#runChip {{ background: {t.selection}; color: {t.text}; border-radius: 11px;
     padding: 2px 10px; font-size: {FONT_SMALL}px; }}
@@ -194,13 +207,13 @@ QPushButton {{ min-height: {CONTROL_HEIGHT - 2}px; padding: 0 10px; border: 1px 
 QPushButton:hover:enabled {{ background: {t.hover}; }}
 QPushButton:pressed {{ background: {t.selection}; }}
 QPushButton:checked {{ background: {t.selection}; border-color: {t.accent}; }}
-QPushButton:disabled {{ color: {t.faint}; border-color: {t.divider}; }}
+QPushButton:disabled {{ color: {t.disabled}; border-color: {t.divider}; }}
 QPushButton:focus {{ border-color: {t.accent}; }}
 QPushButton#primary {{ background: {t.accent}; border-color: {t.accent}; color: {t.on_accent};
     font-weight: 600; padding: 0 14px; }}
 QPushButton#primary:hover:enabled {{ background: {t.accent}; }}
 QPushButton#primary:disabled {{ background: {t.divider}; border-color: {t.divider};
-    color: {t.faint}; }}
+    color: {t.disabled}; }}
 QPushButton#chip {{ border-radius: 11px; min-height: 20px; padding: 0 10px;
     color: {t.secondary}; font-size: {FONT_SMALL}px; background: transparent; }}
 QPushButton#chip:hover:enabled {{ color: {t.text}; background: {t.hover}; }}
@@ -212,7 +225,7 @@ QPushButton#segment[edge="last"] {{ border-top-right-radius: 5px;
     border-bottom-right-radius: 5px; border-right-width: 1px; }}
 QPushButton#segment:checked {{ background: {t.selection}; color: {t.text}; font-weight: 600;
     border-color: {t.border}; }}
-QPushButton#segment:disabled {{ color: {t.faint}; }}
+QPushButton#segment:disabled {{ color: {t.disabled}; }}
 
 QToolButton {{ border: 1px solid transparent; border-radius: 5px; padding: 3px;
     background: transparent; color: {t.secondary}; }}
@@ -228,11 +241,11 @@ QPushButton#link {{ border: 0; background: transparent; color: {t.accent}; paddi
 QPushButton#link:hover {{ text-decoration: underline; }}
 
 QLineEdit, QAbstractSpinBox, QComboBox {{ min-height: {CONTROL_HEIGHT - 4}px; padding: 0 6px;
-    border: 1px solid {t.border}; border-radius: 5px; background: {t.plot}; color: {t.text};
+    border: 1px solid {t.outline}; border-radius: 5px; background: {t.plot}; color: {t.text};
     selection-background-color: {t.selection}; selection-color: {t.text}; }}
 QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus {{ border: 1px solid {t.accent}; }}
-QLineEdit:disabled, QAbstractSpinBox:disabled {{ color: {t.faint}; background: {t.panel};
-    border-color: {t.divider}; }}
+QLineEdit:disabled, QAbstractSpinBox:disabled, QComboBox:disabled {{ color: {t.disabled};
+    background: {t.panel}; border-color: {t.divider}; }}
 
 QListWidget, QListView, QTableView, QTreeView {{ border: 0; background: {t.panel};
     outline: 0; alternate-background-color: {t.panel}; }}
@@ -272,10 +285,55 @@ QCheckBox {{ spacing: 6px; }}
 """
 
 
+class ControlStyle(QtWidgets.QProxyStyle):
+    """Fusion with token-coloured control boundaries the stylesheet cannot reach.
+
+    Fusion derives the checkbox outline from the window colour (about 1.5:1); the
+    stylesheet cannot restyle it without replacing the check mark, so the outline is
+    redrawn here in the ``outline`` token.
+    """
+
+    def __init__(self, theme: Theme) -> None:
+        super().__init__("Fusion")
+        self.theme = theme
+
+    # PySide6's stubs declare QCommonStyle and QProxyStyle overloads that conflict
+    # with each other and omit QStyleOption's ``state`` and ``rect`` members.
+    def drawPrimitive(  # noqa: N802  # ty: ignore[invalid-method-override]
+        self,
+        element: QtWidgets.QStyle.PrimitiveElement,
+        option: QtWidgets.QStyleOption,
+        painter: QtGui.QPainter,
+        /,
+        widget: QtWidgets.QWidget | None = None,
+    ) -> None:
+        """Fusion's drawing, then the checkbox outline in the token unless focus draws it."""
+        super().drawPrimitive(element, option, painter, widget)
+        state = QtWidgets.QStyle.StateFlag
+        keyboard_focus = state.State_HasFocus | state.State_KeyboardFocusChange
+        if (
+            element != QtWidgets.QStyle.PrimitiveElement.PE_IndicatorCheckBox
+            or (option.state & keyboard_focus) == keyboard_focus  # ty: ignore[unresolved-attribute]
+        ):
+            return
+        painter.save()
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
+        painter.translate(0.5, 0.5)
+        painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        painter.setPen(QtGui.QPen(QtGui.QColor(self.theme.outline)))
+        painter.drawRect(option.rect.adjusted(0, 0, -1, -1))  # ty: ignore[unresolved-attribute]
+        painter.restore()
+
+
 def apply(window: QtWidgets.QWidget, theme: Theme) -> None:
-    """Install the palette application-wide (dialogs, tooltips) and the window stylesheet."""
+    """Install the style and palette application-wide (dialogs, tooltips) and the stylesheet."""
     app = QtWidgets.QApplication.instance()
     assert isinstance(app, QtWidgets.QApplication)
+    style = app.style()
+    if isinstance(style, ControlStyle):
+        style.theme = theme
+    else:
+        app.setStyle(ControlStyle(theme))
     app.setFont(ui_font())
     app.setPalette(palette(theme))
     window.setStyleSheet(stylesheet(theme))

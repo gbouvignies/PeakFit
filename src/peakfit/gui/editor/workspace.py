@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.algorithms.noise_correlation import NoisePowerStatus
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
@@ -26,13 +25,14 @@ from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.editor.spectral_geometry import SliceSizes, default_sizes, stored_share
-from peakfit.gui.editor.spectral_view import SpectralView
+from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
     UnexplainedRegion,
     nearest_peak,
     unexplained_regions,
 )
+from peakfit.gui.failures import failure_details
 from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
@@ -922,8 +922,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             flagged = self.warnings.property("count") or 0
             rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
         # With no run the rows stay empty: the toolbar already says Not fitted.
-        if fitting.failure:
-            rows.append((fitting.attempt, fitting.failure, "warning", "", ""))
+        self._show_failure()
         if fitting.recovery_error:
             rows.append(
                 ("Recovery", "▲ " + _recovery_note(fitting.recovery_error), "warning", "", "")
@@ -1097,10 +1096,36 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles = (self._tiles[0], cast("dict[int, Tile] | Exception", outcome))
         self._show_profiles()
 
+    def _show_failure(self) -> None:
+        """A failed attempt leads the analysis page: what failed, where and why."""
+        fitting = self.fitting
+        failed = bool(fitting.failure) and not fitting.busy
+        if not failed:
+            self.panel.show_failure([], "")
+            return
+        status = "▲ " + fitting.attempt
+        self.panel.show_failure(
+            [
+                ("Status", status, "error", "", ""),
+                ("Stage", fitting.failure_stage, "", "", ""),
+                ("Reason", fitting.failure, "", "", ""),
+            ],
+            failure_details(
+                status,
+                fitting.failure_stage,
+                fitting.failure,
+                [
+                    ("Dataset", str(self.dataset.path)),
+                    ("Active run", fitting.result.run_id if fitting.result else "none"),
+                ],
+            ),
+        )
+
     def _show_run_line(self) -> None:
         """One compact status line; inspection and navigation stay available."""
         fitting = self.fitting
         result = fitting.result
+        failed = bool(fitting.failure) and not fitting.busy
         if fitting.busy:
             text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
         elif result is not None:
@@ -1112,7 +1137,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + _noise_check(result.outcome.noise_model)
-                + (fitting.attempt + " · " if fitting.attempt else "")
+                + (fitting.attempt + " · " if fitting.attempt and not failed else "")
                 + (
                     f"all {len(clusters)} clusters usable"
                     if complete
@@ -1120,7 +1145,15 @@ class EditorWorkspace(QtWidgets.QWidget):
                 )
             )
         else:
-            text = fitting.attempt or "Not fitted"
+            text = "" if failed else fitting.attempt or "Not fitted"
+        if failed:
+            # A failure is unmistakable: its first words, in the error style.
+            text = " · ".join(part for part in ("▲ " + fitting.attempt, text) if part)
+        tone = "error" if failed else ""
+        if (self.summary.property("tone") or "") != tone:
+            self.summary.setProperty("tone", tone)
+            self.summary.style().unpolish(self.summary)
+            self.summary.style().polish(self.summary)
         self.summary.setText(text)
         self.summary.setToolTip(
             text
@@ -1511,7 +1544,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             # The residual is the run's; distances are to today's working peaks.
             note = (
                 f"Residual of {comparison.label}. Distances are to the current working "
-                "peaks; ◇ marks a peak added since that run. " + note
+                f"peaks; {NOT_IN_MODEL} marks a peak added since that run. " + note
             )
         found_key, outcome = self._unexplained
         if found_key != key:
@@ -1550,7 +1583,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             nearest = (
                 f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
-                + (" ◇" if region.nearest in comparison.added else "")
+                + (f" {NOT_IN_MODEL}" if region.nearest in comparison.added else "")
                 if region.nearest is not None
                 else ""
             )
@@ -2015,16 +2048,24 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
         rows.append(
             ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
         )
+    noise = result.outcome.noise_model
+    if noise.power_finding:
+        # A caveat on the errors, never on the fit: what was found and what to do.
+        rows.append(
+            (
+                "Noise check",
+                f"▲ {', '.join(noise.power_mismatch)} · errors may be miscalibrated",
+                "warning",
+                noise.power_finding,
+                "",
+            )
+        )
     return rows
 
 
 def _noise_check(model: NoiseModel) -> str:
     """The run line's flag for a noise-power mismatch, naming the axes; the tooltip explains."""
-    axes = [
-        get_dimension_label(i)
-        for i, check in enumerate(model.power_check)
-        if check.status is NoisePowerStatus.MISMATCH
-    ]
+    axes = model.power_mismatch
     return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 
 

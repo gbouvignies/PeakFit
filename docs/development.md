@@ -126,8 +126,9 @@ The desktop application keeps the Qt event loop free of scientific and disk work
   a staged directory by rename.
 - Every job boundary (background lane, fit process, archive process, export) logs
   a failure's full traceback to the `peakfit.gui` logger, which prints to the
-  terminal that started PeakFit; worker processes send theirs back with the
-  failure (`gui.failures`). Dialogs show `ValueError`/`OSError` messages as raised,
+  terminal that started PeakFit and, once `launch` installs it, to the per-user
+  log file (`gui.failures.install_log`); worker processes send theirs back with
+  the failure (`gui.failures`). Dialogs show `ValueError`/`OSError` messages as raised,
   and ask for a report for anything else.
 - The editor renders fitting state on its transitions, never by polling:
   `DatasetFitting.state_changed` fires when a job or result changes, and the

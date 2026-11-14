@@ -111,7 +111,9 @@ class DatasetFitting(QtCore.QObject):
         # Why the accepted run is not in the recovery copy; cleared once it is, or saved.
         self.recovery_error = ""
         self.attempt = ""
+        # The last attempt's failure: its reason and the stage that failed.
         self.failure = ""
+        self.failure_stage = ""
         self._preparing = False
         self._generation = 0
         self._submitted_revision = 0
@@ -168,6 +170,17 @@ class DatasetFitting(QtCore.QObject):
         if self.process.state == "canceling":
             return "Canceling and reaping fit process"
         return self.process.progress if self.process.busy else self.attempt
+
+    def _fail(self, stage: str, reason: str) -> None:
+        """Record a failed attempt; the working peaks and the active run stay as they are."""
+        self.attempt = f"Failed · {self._retained}"
+        self.failure_stage = stage
+        self.failure = reason
+
+    @property
+    def _retained(self) -> str:
+        """What a canceled or failed attempt leaves: the previous result, or none."""
+        return "previous result retained" if self.result is not None else "no result yet"
 
     @property
     def elapsed(self) -> float:
@@ -317,7 +330,7 @@ class DatasetFitting(QtCore.QObject):
         self._preparing = True
         self._started = perf_counter()
         self.attempt = "Preparing complete dataset"
-        self.failure = ""
+        self.failure = self.failure_stage = ""
         spectra, peaks = w.dataset.spectra, w.peaks
         settings_copy = self.configuration.model_copy(deep=True)
         sources = w.dataset.sources
@@ -385,8 +398,7 @@ class DatasetFitting(QtCore.QObject):
             return
         self._preparing = False
         if isinstance(outcome, Exception):
-            self.attempt = "Failed during preparation"
-            self.failure = str(outcome)
+            self._fail("Preparation", str(outcome))
             self.state_changed.emit()
             return
         self.start(outcome)
@@ -396,12 +408,12 @@ class DatasetFitting(QtCore.QObject):
         if prepared.snapshot != self.snapshot(prepared.snapshot) or (
             prepared.continuation is None or prepared.continuation.run_id != self._source_id
         ):
-            self.attempt = "Failed: inputs changed during preparation; fit again"
+            self._fail("Preparation", "Inputs changed during preparation; fit again.")
             self.state_changed.emit()
             return
         self._submitted_revision = self.workspace.edits.revision
         self._started = perf_counter()
-        self.failure = ""
+        self.failure = self.failure_stage = ""
         self.attempt = "Fitting complete dataset"
         self._attempt_id = uuid4().hex
         self._attempt_parent = self.result.run_id if self.result else None
@@ -418,12 +430,12 @@ class DatasetFitting(QtCore.QObject):
         if self.process.busy:
             self._record_attempt("canceled", "Canceled by the scientist")
         self.process.cancel()
-        self.attempt = "Canceled · previous result retained"
+        self.attempt = f"Canceled · {self._retained}"
         self.state_changed.emit()
 
     def _finished(self, _generation: int, outcome: object) -> None:
         if self.process.state == "canceled":
-            self.attempt = "Canceled · previous result retained"
+            self.attempt = f"Canceled · {self._retained}"
         elif isinstance(outcome, DatasetFitResult):
             self._preparing = True
             result = outcome
@@ -480,16 +492,14 @@ class DatasetFitting(QtCore.QObject):
 
             self._worker.submit("publication", self._generation, complete)
         else:
-            self.attempt = "Failed · previous result retained"
-            self.failure = str(outcome)
+            self._fail("Fitting", str(outcome))
             self._record_attempt("failed", self.failure)
         self.state_changed.emit()
 
     def _publish(self, outcome) -> None:
         self._preparing = False
         if isinstance(outcome, Exception):
-            self.attempt = "Failed during completion · previous result retained"
-            self.failure = str(outcome)
+            self._fail("Completion", str(outcome))
             self.state_changed.emit()
             return
         completion, history, journal, recovery_error = outcome
@@ -498,7 +508,7 @@ class DatasetFitting(QtCore.QObject):
             self._submitted_revision != w.edits.revision
             or self.snapshot(completion.result.inputs.snapshot) != completion.result.inputs.snapshot
         ):
-            self.attempt = "Failed: scientific inputs changed before publication"
+            self._fail("Completion", "Scientific inputs changed before publication; fit again.")
             self.state_changed.emit()
             return
         following = w.canvas.pin_peak_id
@@ -513,7 +523,7 @@ class DatasetFitting(QtCore.QObject):
             keep_ids = {run_id(run) for run in history}
             self._worker.cleanup_after_work(lambda: owner.prune(keep_ids))
         w.edits.accept_completion(completion.working_peaks)
-        self.attempt = ""
+        self.attempt = self.failure = self.failure_stage = ""
         w._refresh()
         if following:
             peak = next((p for p in w.peaks if p.id == following), None)
