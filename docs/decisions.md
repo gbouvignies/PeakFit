@@ -1289,3 +1289,21 @@ Short records of non‑obvious design choices and trade‑offs.
 - **GUI.** One mark (↔) and one wording on the profile, the tiles and the cluster
   page: a limit of independent per-plane errors, never a verdict on the data, in
   caption style rather than as a warning.
+
+## 2026-11-14: Processing guide for quantitative series (#173)
+- **One user page.** [Processing quantitative series](processing-quantitative-series.md)
+  states the validated workflow (uniform sampling; NMRPipe `SP` or no window, zero
+  fill, FT with the digital-filter delay corrected at FT time) and, for LP,
+  plane-by-plane NUS, joint pseudo-3D reconstruction and other processing, the
+  evidence on relative-intensity bias, σ calibration and correlation between planes,
+  each with its tested conditions or marked untested.
+- **Evidence, not rules.** The validated workflow is the case PeakFit can check, not
+  the only acceptable processing. No status taxonomy, no new glossary terms, and no
+  processing declarations, restrictions or error corrections: documentation and the
+  existing warnings only.
+- **One home.** The output reference, the lineshape reference and the correlated-noise
+  specification (§2.5, §9) link to the page instead of repeating its guidance; the
+  measurements stay in the specifications that record them.
+- **Literature.** East, Delaglio and Lisi (2021) and Stetz and Wand (2016) are cited
+  with their conditions. The East et al. ~10% systematic error is in the decay time
+  (T2, similarly T1), as the published article states.

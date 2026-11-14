@@ -78,9 +78,8 @@ includes manual phasing. Any warning would also need a threshold the evidence do
 not fix. Use the standard conventions, or check short indirect axes by hand.
 - **The processed signal must be the acquired decay.** After linear prediction or
   NUS reconstruction, `TDSIZE` and `APOD` give the extended size. The lineshape then
-  holds only if the extension reproduces the true decay; see
-  [decisions.md](decisions.md) (2026-11-05, reconstruction) and
-  [correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show).
+  holds only if the extension reproduces the true decay; what is known about each
+  case is in [Processing quantitative series](processing-quantitative-series.md).
 
 Other windows (`APODCODE` other than 0 or 1) are fitted with the Gaussian,
 Lorentzian or pseudo-Voigt lineshapes, which do not use aq.

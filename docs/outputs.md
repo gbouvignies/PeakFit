@@ -335,13 +335,11 @@ neighbouring points ([correlated-noise.md](correlated-noise.md)).
   assume independent points: σ√diag((ΦΦᵀ)⁻¹) for amplitudes. That covers any other
   apodization, composite or digital-filter-adjusted windows (`SP -elb`, `-glb`,
   `-df`), an incomplete or inconsistent header, and input that is not NMRPipe.
-- **Not visible in the header:** linear prediction, NUSZF extrapolation, NUS
-  reconstruction, earlier windows and solvent filters leave a header that looks like
-  ordinary processing, so the run is recorded as "modelled". A modelled noise
-  correlation is then not a calibrated uncertainty: in synthetic tests with LP and
-  with NMRPipe's IST, parameter scatter exceeded the published errors 1.5–6.6-fold
-  ([correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show)).
-  SMILE and other reconstruction methods were not tested.
+- **Not visible in the header:** linear prediction, NUS reconstruction, earlier
+  windows and solvent filters leave a header that looks like ordinary processing, so
+  the run is recorded as "modelled" although its errors may not be calibrated. Which
+  processing the errors are validated for, and what is known about each
+  alternative: [Processing quantitative series](processing-quantitative-series.md).
 - **Noise-power check:** each run compares, per axis, the time-domain noise power of
   the spectrum's noise-only lines with the recorded processing's prediction
   ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). A

@@ -65,6 +65,7 @@ find; actionable messages over decorative panels; no internal architecture names
   | GUI design, including error display (§9 for profiles and ratios) | `docs/PeakFit_GUI_Design_Specification_v2.0.md` |
   | Uncertainty of amplitudes, profiles, ratios and R2eff | `docs/profile-uncertainty.md` |
   | Noise model and processing correlation | `docs/correlated-noise.md` |
+  | Which processing the uncertainties are validated for (user guidance) | `docs/processing-quantitative-series.md` |
   | Package layers and storage design | `docs/architecture.md` |
   | Commands, fixtures, GUI threading | `docs/development.md` |
   | Domain terms | `GLOSSARY.md` |

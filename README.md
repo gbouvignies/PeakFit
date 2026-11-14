@@ -158,6 +158,8 @@ detailed evidence can continue without it. Each run is recorded under `mcmc/`, w
 ## Documentation
 
 - [`docs/outputs.md`](docs/outputs.md) - output files and formats.
+- [`docs/processing-quantitative-series.md`](docs/processing-quantitative-series.md) -
+  which processing PeakFit's uncertainties are validated for.
 - [`docs/constraints-and-fit-steps.md`](docs/constraints-and-fit-steps.md) -
   parameter constraints and `[[fitting.steps]]`.
 - [`docs/optimizers.md`](docs/optimizers.md) - the VarPro optimizer and runtime controls.
