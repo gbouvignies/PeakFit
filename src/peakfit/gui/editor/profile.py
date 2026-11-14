@@ -86,20 +86,43 @@ def correlation_findings(correlation: PeakProfileCorrelation, partner: str) -> s
     return "; ".join(found)
 
 
-def correlation_text(name: str, correlation: PeakProfileCorrelation | None, partner: str) -> str:
-    """The flag in a sentence for one peak; empty when there is nothing to say."""
-    if correlation is None:
-        return ""
-    if correlation.status is ProfileCorrelation.NOT_ASSESSED:
-        return f"Correlation of {name}'s errors across planes not assessed: {NOT_ASSESSED_REASON}"
-    if not correlation.flagged:
-        return ""
-    return (
-        f"{CORRELATED_MARK} {name}: errors correlated across planes "
-        f"({correlation_findings(correlation, partner)}). Treated as independent, the "
-        "per-plane errors can misstate downstream parameter uncertainty: a limit of that "
-        "approximation, not of the data."
+def _names(names: Sequence[str]) -> str:
+    """Join names as in prose: A; A and B; A, B and C."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def correlated_note(series: Sequence[ProfileSeries]) -> tuple[str, str]:
+    """The selected peak's correlated-profile flag in one sentence, and its tooltip.
+
+    ``series`` starts with the selected peak. The sentence names every flagged member
+    shown: their errors are correlated across planes, which independent error bars
+    cannot show. It says nothing about the size of each σ, which is unaffected; the
+    consequence for downstream fits is in the tooltip and About these error bars.
+    Empty when the selected peak carries no flag.
+    """
+    selected = series[0] if series else None
+    if selected is None or selected.correlation is None:
+        return "", ""
+    if selected.correlation.status is ProfileCorrelation.NOT_ASSESSED:
+        text = (
+            f"Correlation of {selected.assignment}'s errors across planes not assessed: "
+            f"{NOT_ASSESSED_REASON}"
+        )
+        return text, ""
+    if not selected.flagged:
+        return "", ""
+    # The selected peak first, then the other flagged members the legend shows.
+    members = [selected] + [s for s in series[1:] if s.flagged and s.identifiability.determined]
+    note = (
+        f"Errors of {_names([s.assignment for s in members])} are correlated across planes; "
+        "error bars alone do not show this covariance."
     )
+    findings = "; ".join(
+        f"{s.assignment}: {correlation_findings(s.correlation, s.correlation_partner)}"
+        for s in members
+        if s.correlation is not None
+    )
+    return note, f"{findings}. {CORRELATED_LIMIT}"
 
 
 WITHIN_TOLERANCE_TEXT = (
@@ -674,18 +697,10 @@ class ProfilePlot(QtWidgets.QWidget):
         self.diagnostics.setText(diagnostics)
         self.diagnostics_toggle.setVisible(bool(diagnostics))
         self.diagnostics.setVisible(bool(diagnostics) and self.diagnostics_toggle.isChecked())
-        selected = profile.series[0] if profile is not None else None
-        correlated = (
-            correlation_text(
-                selected.assignment, selected.correlation, selected.correlation_partner
-            )
-            if selected is not None
-            else ""
-        )
+        correlated, findings = correlated_note(profile.series if profile is not None else ())
         self.correlated.setText(correlated)
-        # The full meaning, and what to do next, on hover.
-        marked = selected is not None and selected.flagged
-        self.correlated.setToolTip(CORRELATED_LIMIT if marked else "")
+        # The findings and the downstream consequence on hover; About has the latter.
+        self.correlated.setToolTip(findings)
         self.correlated.setVisible(bool(correlated))
         if profile is None:
             return
@@ -874,7 +889,7 @@ class ProfilePlot(QtWidgets.QWidget):
             self.plane_line.setValue(float(profile.x[columns[0]]))
         off = bool(self._hidden_text) and columns.size > 0 and not shown
         # The qualifiers that change what a bar means, in a few words (About has the
-        # full explanation); what is unusual about the data on the next line. χ²ᵣ is
+        # full explanation); then what is unusual about the data. χ²ᵣ is
         # with the cluster's measures.
         noise = "modelled" if profile.noise_model.modelled else "not modelled"
         # The run's noise-power check found processing the modelled correlation
@@ -898,8 +913,9 @@ class ProfilePlot(QtWidgets.QWidget):
             for part in (self._hidden_text, "current plane is off scale" if off else "")
             if part
         ]
-        # Wraps only between phrases, so no qualifier is split across lines.
-        self.note.setText(phrases((*quantity.split(" · "), extra), tuple(states)))
+        # One paragraph: what the bars are, then what is off scale. It wraps only
+        # between phrases, so no qualifier is split across lines.
+        self.note.setText(phrases((*quantity.split(" · "), extra, *states)))
         # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
         if shown is None:
             quantity_text = (
@@ -928,8 +944,16 @@ class ProfilePlot(QtWidgets.QWidget):
                     "error too."
                 )
             )
+        # Where the selected peak is flagged, what that means for downstream fits.
+        selected = profile.series[0]
+        downstream = (
+            f" {selected.assignment} carries {CORRELATED_MARK}. {CORRELATED_LIMIT}"
+            if selected.flagged
+            else ""
+        )
         explanation = (
             quantity_text
+            + downstream
             + " Errors are never rescaled by χ²ᵣ. "
             + profile.noise_model.description
             + (" " + profile.noise_model.power_warning if profile.noise_model.power_warning else "")

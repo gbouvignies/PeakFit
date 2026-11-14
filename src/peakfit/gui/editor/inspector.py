@@ -59,7 +59,7 @@ class PreciseInspector(PeakInspector):
         """Populate a new committed group without feeding formatted values into science."""
         self._peak = peak
         self._baseline = {}
-        for field in (self.name, self.x_field, self.y_field, self.delete):
+        for field in (self.name, self.x_field, self.y_field):
             field.setEnabled(peak is not None)
         dx, dy = self.decimals
         values = (
@@ -303,20 +303,26 @@ class Inspector(QtWidgets.QScrollArea):
         self.kind = _label("", "section")
         self.title = _label("", "title")
         self.status = _label("", "muted", wrap=True)
-        for widget in (self.kind, self.title, self.status):
-            layout.addWidget(widget)
-        # Peak page
-        self.peak_page = QtWidgets.QWidget()
-        peak = QtWidgets.QVBoxLayout(self.peak_page)
-        peak.setContentsMargins(0, themes.SPACE_XS, 0, 0)
-        peak.setSpacing(themes.SPACE_S)
+        # The peak page's header: identity and size above, Review cluster beside the
+        # identity, so the link takes no row of its own.
         self.cluster_link = QtWidgets.QPushButton()
         self.cluster_link.setObjectName("link")
         self.cluster_link.setFlat(True)
         self.cluster_link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.cluster_link.clicked.connect(self.cluster_requested)
         self.cluster_link.hide()
-        peak.addWidget(self.cluster_link, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        heading = QtWidgets.QHBoxLayout()
+        heading.setSpacing(themes.SPACE_S)
+        heading.addWidget(self.title, 1)
+        heading.addWidget(self.cluster_link, 0, QtCore.Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(self.kind)
+        layout.addLayout(heading)
+        layout.addWidget(self.status)
+        # Peak page
+        self.peak_page = QtWidgets.QWidget()
+        peak = QtWidgets.QVBoxLayout(self.peak_page)
+        peak.setContentsMargins(0, themes.SPACE_XS, 0, 0)
+        peak.setSpacing(themes.SPACE_S)
         x_title = f"{self._axes[x_axis.label]} · {x_axis.label} ppm"
         y_title = f"{self._axes[y_axis.label]} · {y_axis.label} ppm"
         self.editor = PreciseInspector(x_title, y_title)
@@ -328,10 +334,6 @@ class Inspector(QtWidgets.QScrollArea):
         grid.setHorizontalSpacing(themes.SPACE_S)
         grid.setVerticalSpacing(6)
         grid.setColumnMinimumWidth(0, LABEL_WIDTH)  # the inspector's shared label column
-        # Same validated group-commit component, composed vertically in the inspector.
-        grid.removeWidget(self.editor.delete)
-        grid.addWidget(self.editor.delete, 4, 0, 1, 2, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.editor.delete.setObjectName("chip")
         self.editor.details.setMinimumWidth(0)
         self.draft = _label("", "warning")
         self.draft.hide()
@@ -549,6 +551,8 @@ class Inspector(QtWidgets.QScrollArea):
         self.peak_page.setVisible(peak is not None and not cluster)
         self.cluster_page.setVisible(cluster)
         self.analysis_page.setVisible(peak is None)
+        if peak is None or cluster:
+            self.cluster_link.hide()  # shown again by the peak page's recorded result
         source, target = (
             (self.peak_profile_slot, self.cluster_page.profile_slot)
             if cluster

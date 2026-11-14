@@ -1433,3 +1433,35 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Breaking.** Saved view state stores `row_share`/`column_share` for the overview
   and for focus. Slice sizes saved in pixels (`row`/`column`) are ignored: those
   analyses reopen at the default shares, with no migration.
+
+## 2026-11-14: Peak page brings fitted values into view (#189)
+- **Review cluster › in the header.** It sits beside the peak's name, under the
+  cluster size, instead of on a row of its own above the editor.
+- **No Delete peak button.** Deletion is the Delete key (Backspace on a Mac
+  keyboard) on the spectrum or the Peaks list, **Edit → Delete selected peaks**,
+  which now shows the key, and a context menu on the spectrum and the list (new:
+  the specification already treated context menus as shortcuts to menu commands).
+  Each is one Undo entry without confirmation. Right-clicking a marker selects it
+  first, so the menu never acts on a peak other than the one under the pointer.
+  The key is bound only to the spectrum and the list, never to inspector controls.
+- **Correlated-profile caption in one sentence.** “Errors of 53N-H and 147N-H are
+  correlated across planes; error bars alone do not show this covariance.” It
+  names the flagged members and makes no claim about the size of any σ: the
+  marginal and profile σ are correct as recorded; what independent bars cannot
+  carry is the covariance between planes. The diagnostic found is in the tooltip;
+  the consequence for downstream fits that treat `intensity_err` as independent
+  moved to **About these error bars**.
+- **One note under the legend.** What the bars are (“±1 profile σ · noise
+  correlation modelled · noise check ▲ F2”) and what is off scale (“1 point off
+  scale (plane 1) · current plane is off scale”) form one paragraph that wraps only
+  between phrases, instead of two lines. The quantity and off-scale chips stay on
+  their own line: beside the legend they would not fit at 1280×800 (inspector
+  content about 430 px; chips about 355 px).
+- **Measured** with `tools/validate_gui_layout.py` (Fitted amplitude-row bottom in
+  inspector content px for 158EN-H / 53N-H / 22N-H; viewport in brackets; all
+  logical @ DPR 2.0; the 1512×982 and 1920×1080 requests are clamped by the screen
+  to 921 px high): before 722 / 830 / 833 at 1280×800 [687]; after 681 / 724 / 740
+  at every size, 1160×720 [607], 1280×800 [687], 1440×900 [787], 1512×921 [808],
+  1920×921 [808]. At 1280×800 a single peak's table is now in view; for clusters it
+  needs 37–53 px of scrolling, which the ticket accepts. The profile plot keeps its
+  176 px height and the inspector width.

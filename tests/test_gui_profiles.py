@@ -15,6 +15,7 @@ from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import workspace as workspace_module
+from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, peak_profile
 from peakfit.gui.editor.profiles_view import (
     TILE_ASPECT,
     TILE_MAX_WIDTH,
@@ -302,13 +303,26 @@ def test_the_correlated_profile_flag_reads_alike_on_profile_tiles_and_cluster_pa
     profile = w.panel.profile
     note = profile.correlated.text()
     assert profile.correlated.isVisible()
-    assert "correlated across planes" in note
-    assert "|ρ| 0.17" in note
-    # A limit of the approximation, not a verdict on the data.
-    assert "not of the data" in note
-    assert "independent" in note
-    assert all(word not in note.lower() for word in ("discard", "bad", "unreliable"))
-    assert "intensity_err" in profile.correlated.toolTip()  # the full meaning on hover
+    # One plain sentence naming the flagged members, selected peak first: the bars
+    # do not show the covariance between planes. It never says σ is understated.
+    names = {i.engine_name: i.assignment for i in result.inputs.identities}
+    first, second = names[pair.peak_names[0]], names[pair.peak_names[1]]
+    assert note == (
+        f"Errors of {first} and {second} are correlated across planes; "
+        "error bars alone do not show this covariance."
+    )
+    assert all(
+        word not in note.lower()
+        for word in ("understat", "underestimat", "too small", "discard", "bad", "unreliable")
+    )
+    # The findings and the downstream consequence stay one step away.
+    assert "|ρ| 0.17" in profile.correlated.toolTip()
+    assert "intensity_err" in profile.correlated.toolTip()
+    profile.about_toggle.setChecked(True)
+    about = profile.about.text()
+    assert "intensity_err" in about
+    assert "downstream" in about.lower()
+    assert "not of the data" in about
     assert profile.legend.text().count("↔") == 2  # both members carry the mark
     show_profiles(w)
     assert "↔ errors correlated across planes" in _tile_text(w, member)
@@ -537,3 +551,24 @@ def test_short_series_tiles_carry_every_plane(build, planes):
         assert tile.profile is not None
         assert tile.profile.x.size == planes
         assert all(s.amplitudes.size == planes for s in tile.profile.series)
+
+
+def test_what_the_bars_are_and_what_is_off_scale_share_one_note(qapp):
+    _spectra, _peaks, _config, prepared = cpmg_like_dataset()
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    peak = result.inputs.identities[0].working_id
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    # The first plane lies far from the rest, so it is framed out; it is the current one.
+    x = np.concatenate(([-12000.0], np.arange(shown.x.size - 1) * 25.0))
+    panel = ProfilePlot()
+    panel.show()
+    panel.show_profile(replace(shown, x=x), int(shown.source_planes[0]))
+    qapp.processEvents()
+    note = panel.note.text()
+    assert "±1 profile σ" in note
+    assert "1 point off scale" in note
+    assert "current plane is off scale" in note
+    # One paragraph that wraps only between phrases, not a line for each kind.
+    assert "<br>" not in note
+    panel.close()

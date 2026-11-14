@@ -249,6 +249,7 @@ class SpectralView(QtWidgets.QWidget):
     """Display observations only; scientific edits are proposals to the owning workspace."""
 
     selected = QtCore.Signal(str)
+    context_menu_requested = QtCore.Signal(QtCore.QPoint)  # global position
     sizes_changed = QtCore.Signal()
     scale_changed = QtCore.Signal()
     hovered = QtCore.Signal(object)
@@ -899,6 +900,13 @@ class SpectralView(QtWidgets.QWidget):
             self._choose(self._hits(event.scenePos()), event.scenePos())
             event.accept()
 
+    def _context_menu(self, event: QtGui.QContextMenuEvent) -> None:
+        """Right-clicking a marker selects it first, so the menu acts on that peak."""
+        hits = self._hits(self.view.mapToScene(event.pos()))
+        if len(hits) == 1 and hits[0].id != self.selected_id:
+            self.selected.emit(hits[0].id)
+        self.context_menu_requested.emit(event.globalPos())
+
     def _choose(self, hits: list[WorkingPeak], scene_position) -> None:
         if not hits:
             return
@@ -1447,6 +1455,13 @@ class SpectralView(QtWidgets.QWidget):
             self.focus_frame.setVisible(event.type() == QtCore.QEvent.Type.FocusIn)
         if event.type() == QtCore.QEvent.Type.Leave:
             self.hover(None)
+        if (
+            event.type() == QtCore.QEvent.Type.ContextMenu
+            and watched is self.view.viewport()
+            and isinstance(event, QtGui.QContextMenuEvent)
+        ):
+            self._context_menu(event)
+            return True
         if event.type() == QtCore.QEvent.Type.MouseButtonDblClick:
             return self._double_click(self.view.mapToScene(event.position().toPoint()))
         if event.type() == QtCore.QEvent.Type.KeyPress:

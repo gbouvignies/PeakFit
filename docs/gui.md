@@ -100,8 +100,12 @@ precision when focused/copied. Untouched fields retain their original float64 va
 Dot-decimal/scientific notation is accepted; a comma is also accepted when it is
 the local decimal separator. Thousands separators and mixed punctuation are not.
 
-Delete acts on the selected peak; native modifier selection in the list permits
-one-step multi-delete. Undo/Redo restores exact records. In a clean coordinate
+Delete (Backspace on a Mac keyboard) on the spectrum or in the Peaks list,
+**Edit → Delete selected peaks** (its key shown) and the spectrum's and list's
+context menus delete the selected peak as one Undo entry, without confirmation;
+the peak page has no Delete button. Right-clicking a marker selects it before the
+menu opens. Native modifier selection in the list permits one-step multi-delete.
+Undo/Redo restores exact records. In a clean coordinate
 field, Cmd/Ctrl+Z invokes peak Undo; within a draft, ordinary text Undo remains
 available. Undo labels identify the edit.
 
@@ -383,7 +387,8 @@ changed, a line under the bar says how: “Regrouped by run … · was … · jo
 in; a peak added since says which peaks it is now fitted with, with a link back to
 the cluster that was on show. A canceled or failed fit keeps every working edit and
 focus.
-On a peak page, **Review cluster ›** opens its cluster page (the page header gives its size); selecting a peak
+On a peak page, **Review cluster ›** sits beside the peak's name in the page
+header, under the cluster size (“PEAK · CLUSTER OF 3”), and opens its cluster page; selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
@@ -477,18 +482,24 @@ uncertainty of the profile. Strongly overlapping peaks can also have errors
 correlated across planes, which no independent bar shows. Where that exceeds the
 validated tolerance, the **correlated-profile flag**
 ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties), `correlated_profile`)
-marks the member with ↔ in the legend, and a caption under the plot says, for the
-selected peak, which diagnostic was found (largest correlated mode relative to c, or
-|ρ| with a partner) and that downstream fits treating the per-plane errors as
-independent can misstate parameter uncertainty. It is a caption, not a warning: a
-limit of independent per-plane errors, not of the data, and it changes nothing.
+marks the member with ↔ in the legend. When the selected peak is flagged, one
+caption under the plot names the flagged members, for example “Errors of 53N-H and
+147N-H are correlated across planes; error bars alone do not show this
+covariance.” It says nothing about the size of any σ: the marginal and profile σ
+are unaffected. Its tooltip gives the diagnostic found (largest correlated mode
+relative to c, or |ρ| with a partner); **About these error bars** adds that
+downstream fits treating the per-plane errors (`intensity_err`) as independent can
+misstate parameter uncertainty, and that the results archive records the
+covariance. It is a caption, not a warning: a limit of independent per-plane
+errors, not of the data, and it changes nothing.
 Where the cluster's lineshape factors are withheld, the caption says the correlation
 was not assessed; runs with one plane show no flag. Where the run models the
 processed noise correlation the errors are sandwich errors; otherwise they assume
 independent points. The note beside the plot says so in a few words (“±1 profile
 σ · noise correlation modelled”), followed by “noise check ▲ F2”, naming the axes,
-when the run's noise-power check found a mismatch, and with any points off scale, by
-plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
+when the run's noise-power check found a mismatch, then any points off scale, by
+plane, and whether the current plane is one of them, in the same note, which wraps
+only between phrases; χ²ᵣ is with the cluster's measures; **About these
 error bars** below it gives the noise model and the noise-power finding in full. The inspector's provenance states it once for the
 run.
 

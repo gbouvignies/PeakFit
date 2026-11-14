@@ -701,3 +701,98 @@ def test_open_asks_only_when_the_mapping_puts_peaks_outside(qapp, monkeypatch): 
         assert len(workspace.peaks) == 166
     finally:
         window.close()
+
+
+def _delete_and_undo(workspace, qapp, delete) -> None:
+    """``delete`` removes the selected peak as one edit; one Undo restores it."""
+    original = workspace.peaks
+    chosen = original[2]
+    workspace.select_peak(chosen.id)
+    qapp.processEvents()
+    revision = workspace.edits.revision
+    delete()
+    qapp.processEvents()
+    assert chosen.id not in {p.id for p in workspace.peaks}
+    assert len(workspace.peaks) == len(original) - 1
+    assert workspace.edits.revision == revision + 1
+    assert workspace.edits.undo_label == "delete peak"
+    workspace.history(False)
+    assert workspace.peaks == original
+
+
+def _context_menu(widget, qapp) -> QtWidgets.QMenu:
+    """Right-click ``widget`` at its centre and return the menu that opens."""
+    position = widget.rect().center()
+    event = QtGui.QContextMenuEvent(
+        QtGui.QContextMenuEvent.Reason.Mouse, position, widget.mapToGlobal(position)
+    )
+    QtWidgets.QApplication.sendEvent(widget, event)
+    qapp.processEvents()
+    menu = QtWidgets.QApplication.activePopupWidget()
+    assert isinstance(menu, QtWidgets.QMenu)
+    return menu
+
+
+def _trigger(menu: QtWidgets.QMenu, text: str) -> None:
+    action = next(a for a in menu.actions() if a.text() == text)
+    assert action.isEnabled()
+    menu.close()
+    action.trigger()
+
+
+def test_peak_page_has_no_delete_button(workspace):
+    workspace.select_peak(workspace.peaks[0].id)
+    buttons = workspace.panel.peak_page.findChildren(QtWidgets.QPushButton)
+    assert not [b for b in buttons if "delete" in b.text().lower()]
+
+
+def test_delete_key_deletes_the_selected_peak_with_one_undo(workspace, qapp):
+    def press() -> None:
+        workspace.canvas.view.setFocus()
+        QtTest.QTest.keyClick(workspace.canvas.view, QtCore.Qt.Key.Key_Delete)
+
+    _delete_and_undo(workspace, qapp, press)
+
+
+def test_edit_menu_deletes_the_selected_peak_and_shows_its_shortcut(workspace, qapp):
+    action = workspace.delete_action
+    assert action in workspace.actions_for_menu
+    assert not action.shortcut().isEmpty()  # shown beside the menu entry
+    _delete_and_undo(workspace, qapp, action.trigger)
+
+
+def test_canvas_context_menu_deletes_the_selected_peak(workspace, qapp):
+    def menu() -> None:
+        _trigger(_context_menu(workspace.canvas.view.viewport(), qapp), "Delete selected peaks")
+
+    _delete_and_undo(workspace, qapp, menu)
+
+
+def test_right_clicking_a_marker_selects_it_before_the_menu(workspace, qapp):
+    canvas = workspace.canvas
+    target = workspace.peaks[2]
+    workspace.select_peak(workspace.peaks[0].id)
+    qapp.processEvents()
+    x, y = canvas.display(target)
+    scene = canvas.box.mapViewToScene(QtCore.QPointF(x, y))
+    position = canvas.view.mapFromScene(scene)
+    viewport = canvas.view.viewport()
+    event = QtGui.QContextMenuEvent(
+        QtGui.QContextMenuEvent.Reason.Mouse, position, viewport.mapToGlobal(position)
+    )
+    QtWidgets.QApplication.sendEvent(viewport, event)
+    qapp.processEvents()
+    assert workspace.selected_id == target.id
+    menu = QtWidgets.QApplication.activePopupWidget()
+    assert isinstance(menu, QtWidgets.QMenu)
+    _trigger(menu, "Delete selected peaks")
+    assert target.id not in {p.id for p in workspace.peaks}
+    assert workspace.peaks[0].id in {p.id for p in workspace.peaks}
+
+
+def test_list_context_menu_deletes_the_selected_peak(workspace, qapp):
+    def menu() -> None:
+        workspace.navigator.list.setFocus()
+        _trigger(_context_menu(workspace.navigator.list.viewport(), qapp), "Delete selected peaks")
+
+    _delete_and_undo(workspace, qapp, menu)

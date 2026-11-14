@@ -1814,6 +1814,13 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     assert panel.cluster_link.isVisible()
     assert panel.cluster_link.text() == "Review cluster ›"
     assert panel.kind.text() == f"PEAK · CLUSTER OF {len(members)}"  # the size, said once
+    # The link is in the page header, on the identity's line, not a row of its own.
+    assert not panel.peak_page.isAncestorOf(panel.cluster_link)
+    link = panel.cluster_link.geometry().center()
+    title = panel.title.geometry()
+    link = panel.cluster_link.parentWidget().mapTo(panel.widget(), link)
+    top = panel.title.parentWidget().mapTo(panel.widget(), title.topLeft()).y()
+    assert top <= link.y() <= top + title.height()
     panel.cluster_link.click()
     assert panel.cluster_view
     assert w.selected_id == target
