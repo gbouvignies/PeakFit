@@ -606,6 +606,11 @@ their intensities and Cmd/Ctrl+Shift+L shows or hides the residual lanes.
 View also provides exact sample coordinates and frequency ranges. Help lists the
 shortcuts. Delete and Space in text fields retain their ordinary text behavior.
 
+The control that has keyboard focus carries a blue ring, separate from the
+selected-row and checked-button fills; a list or tree shows it on the view's
+edge. When the spectrum has keyboard focus, a frame in the same colour surrounds
+the 2D plot: A, Space, E/O/R and the arrow keys then act on the spectrum.
+
 See [the approved design](PeakFit_GUI_Design_Specification_v2.0.md) and
 [editor validation](validation/gui-v2-editor.md) and
 [fit/comparison validation, screenshots and limitations](validation/gui-v2-fitting.md).
