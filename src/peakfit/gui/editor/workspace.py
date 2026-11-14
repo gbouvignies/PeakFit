@@ -24,7 +24,7 @@ from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
-from peakfit.gui.editor.spectral_geometry import SliceSizes
+from peakfit.gui.editor.spectral_geometry import SliceSizes, default_sizes, stored_share
 from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
@@ -121,9 +121,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         column.addWidget(self.canvas, 1)
         self.focus_open = False
         # The overview as it was when focus opened, restored exactly on return, and
-        # the slice sizes focus uses (residual lanes on), kept between focuses.
+        # the slice shares focus uses (residual lanes on), kept between focuses.
         self._overview: dict | None = None
-        self.focus_sizes = SliceSizes(lanes=True)
+        self.focus_sizes = default_sizes(focus=True)
         self._lanes_given_way = False
         # The focused cluster by stable peak IDs, the run it came from, the members
         # it was framed on, and the peaks a regrouping notice is about.
@@ -566,7 +566,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             "splitter": self.splitter.sizes(),
             "display": {name: getattr(c, name) for name in _DISPLAY},
             "slices": overview["slices"],
-            "focus_slices": {"row": focus.row, "column": focus.column, "lanes": focus.lanes},
+            "focus_slices": {
+                "row_share": focus.row,
+                "column_share": focus.column,
+                "lanes": focus.lanes,
+            },
             "mode": overview["mode"],
         }
         fitting = self.fitting
@@ -620,8 +624,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         if v.get("slices"):
             c.restore_slice_state(v["slices"])
         if v.get("focus_slices"):
-            f = v["focus_slices"]
-            self.focus_sizes = SliceSizes(int(f["row"]), int(f["column"]), bool(f["lanes"]))
+            f, focus = v["focus_slices"], default_sizes(focus=True)
+            self.focus_sizes = SliceSizes(
+                stored_share(f.get("row_share"), focus.row),
+                stored_share(f.get("column_share"), focus.column),
+                bool(f.get("lanes", focus.lanes)),
+            )
         # Restored by priority: the spectral area, then the inspector, then the
         # navigator, each only where it fits the window as it is.
         saved = list(v.get("splitter") or [])
@@ -1415,7 +1423,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._overview = overview
             self.focus_open = True
             self._lanes_given_way = sizes.lanes != self.focus_sizes.lanes
-            self.canvas.set_sizes(sizes)
+            self.canvas.set_sizes(sizes, default_sizes(focus=True))
             self.focus_bar.show()
             self.panel.cluster_page.focus_button.hide()
         self._sync_inspector(cluster=True)
@@ -1686,7 +1694,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.setup.regions.setChecked(saved["regions"])
         self.set_mode(saved["mode"])
         self.render_fitting()
-        c.set_sizes(saved["sizes"])
+        c.set_sizes(saved["sizes"], default_sizes(focus=False))
         c.restore_slice_state(saved["slices"])
         c.set_ranges(*saved["ranges"])
         # The sample too, even when the selection changed in focus: it is view state.

@@ -26,9 +26,11 @@ from peakfit.gui.editor import slices
 from peakfit.gui.editor.spectral_geometry import (
     Extents,
     SliceSizes,
+    default_sizes,
     drag,
     layout,
     minimum_size,
+    stored_share,
 )
 from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
@@ -55,6 +57,7 @@ NOT_IN_MODEL = "☆"
 
 _PENDING_SHOW_MS = 200  # a wait shorter than this needs no label; it would only flash
 _READOUT_MIN = (40, 30)  # the corner readout needs at least this much room
+_NBSP = "\u00a0"  # binds a unit to its value, so a narrow readout never wraps it alone
 REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
 
@@ -274,8 +277,10 @@ class SpectralView(QtWidgets.QWidget):
         self.model_planes = model_planes
         self._model_cancel = Event()
         self._model = None
-        # Slice display: user sizes, residual lanes and the intensity scale.
+        # Slice display: user shares, residual lanes and the intensity scale; the
+        # defaults are the current context's (overview or cluster focus).
         self.sizes = SliceSizes()
+        self.defaults = default_sizes(focus=False)
         self.lane_sigma = LANE_SIGMA
         self.lanes_fit = True  # False while the window has no room for the lanes
         self.gain = 1.0  # the wheel's magnification of both slices' own ranges
@@ -843,7 +848,7 @@ class SpectralView(QtWidgets.QWidget):
     def _intensity(value: float, power: int) -> str:
         """An intensity in a given power of ten, so values read side by side align."""
         number = f"{value * 10.0**-power:.6g}"
-        return f"{number} ×10{formatting.superscript(str(power))}" if power else number
+        return f"{number}{_NBSP}×10{formatting.superscript(str(power))}" if power else number
 
     def set_pinned(self, pinned: bool) -> None:
         """Pin the inspection sample independently of a selected assignment."""
@@ -1575,9 +1580,11 @@ class SpectralView(QtWidgets.QWidget):
         self._relayout()
         self.sizes_changed.emit()
 
-    def set_sizes(self, sizes: SliceSizes) -> None:
-        """Adopt saved or framing-specific slice sizes."""
+    def set_sizes(self, sizes: SliceSizes, defaults: SliceSizes | None = None) -> None:
+        """Adopt saved or framing-specific slice shares, and that context's defaults."""
         self.sizes = sizes
+        if defaults is not None:
+            self.defaults = defaults
         self._relayout()
 
     def resize_slice(self, which: str, step: int) -> None:
@@ -1590,16 +1597,13 @@ class SpectralView(QtWidgets.QWidget):
         self.sizes_changed.emit()
 
     def reset_size(self, which: str) -> None:
-        """Restore one slice's default size, within the divider's limits."""
-        default = getattr(SliceSizes(), which)
-        self.sizes = drag(
-            self.sizes, which, default, self.view.width(), self.view.height(), self.extents
-        )
+        """Restore one slice's default share for the current context (overview or focus)."""
+        self.sizes = replace(self.sizes, **{which: getattr(self.defaults, which)})
         self._relayout()
         self.sizes_changed.emit()
 
     def reset_sizes(self) -> None:
-        """Restore both slices' default sizes."""
+        """Restore both slices' default shares."""
         for which in ("row", "column"):
             self.reset_size(which)
 
@@ -1763,35 +1767,35 @@ class SpectralView(QtWidgets.QWidget):
         """Exact values at the crosshair; the slices themselves carry no numbers."""
         lines = [
             f"<b>{formatting.number(self.ppm_x[self.ix], self.decimals_x)} · "
-            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm</b>"
+            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)}{_NBSP}ppm</b>"
         ]
         power = formatting.exponent(max(abs(value or 0.0), abs(fitted or 0.0)) or 1.0)
         if value is not None:
-            lines.append(f"I {self._intensity(value, power)} a.u.")
+            lines.append(f"I {self._intensity(value, power)}{_NBSP}a.u.")
         if self.comparison_mode and fitted is None:
             lines.append("model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
             lines.append(f"model {self._intensity(fitted, power)}")
-            lines.append(f"residual {(value - fitted) / noise:+.1f} σ")
+            lines.append(f"residual {(value - fitted) / noise:+.1f}{_NBSP}σ")
         self.readout.setText("<br>".join(lines))
 
     def slice_state(self) -> dict[str, object]:
         """Saved view state of the slices."""
         return {
-            "row": self.sizes.row,
-            "column": self.sizes.column,
+            "row_share": self.sizes.row,
+            "column_share": self.sizes.column,
             "lanes": self.sizes.lanes,
             "lane_sigma": self.lane_sigma,
             "gain": self.gain,
         }
 
     def restore_slice_state(self, state: dict) -> None:
-        """Adopt saved slice sizes, lanes and scale."""
+        """Adopt saved slice shares, lanes and scale; sizes saved in pixels are ignored."""
         self.sizes = replace(
             self.sizes,
-            row=int(state.get("row", self.sizes.row)),
-            column=int(state.get("column", self.sizes.column)),
+            row=stored_share(state.get("row_share"), self.sizes.row),
+            column=stored_share(state.get("column_share"), self.sizes.column),
             lanes=bool(state.get("lanes", self.sizes.lanes)),
         )
         self.lane_sigma = float(state.get("lane_sigma", LANE_SIGMA))
