@@ -400,13 +400,17 @@ showing old values.
 
 **Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
 the active run's profiles in the centre, one tile per cluster, in the cluster list's
-order and filter: sort or filter the list and the tiles follow. Each tile overlays
+order and filter: sort or filter the list and the tiles follow. Tiles adapt to the
+width: as many columns as keep each tile at least 210 px wide (logical pixels), tiles
+at most 320 px wide, height following width; a wider window or panel adds columns
+rather than enlarging tiles, and the selected tile stays selected and in view as
+the columns reflow. Each tile overlays
 every member's recorded signed amplitudes on one vertical scale that includes zero,
 so a dip shared between correlated members, opposite signs or a large/small split
 show at a glance; members keep the cluster page's colours and order, named under the
 plot, a flagged member followed by ↔ (the correlated-profile flag; the tooltip names
 the flagged members, or that the correlation was not assessed). The header gives the cluster's mark, first member and size, and its χ²ᵣ,
-|r|max and |ρ|. A member whose amplitude is not identifiable or not established is
+|r|max and |ρ|; in a narrow tile the measures are shortened, never the name. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
 plane. Opening Profiles marks the selected peak's tile and keeps the selection;
@@ -421,7 +425,7 @@ choice for the session, made in either place. In ratios a dotted line marks 1; a
 member whose ratio is unavailable is left out and named under its tile, and a tile
 with no member to normalize keeps raw amplitudes and says why, as the inspector's
 profile does. **Export PDF…** writes the tiles shown, in their order, to A4
-landscape pages (twelve per page) titled with the dataset, run, quantity and filter;
+landscape pages (twelve per page, whatever the on-screen columns) titled with the dataset, run, quantity and filter;
 it is a figure of recorded values, written only when complete. After an edit the caption
 says the tiles are that run's historical values; before a fit Profiles is
 unavailable.
