@@ -9,6 +9,9 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
   compare, export, save and reopen.
 
 - [`outputs.md`](outputs.md) - canonical fit output files.
+- [`processing-quantitative-series.md`](processing-quantitative-series.md) - which
+  processing PeakFit's uncertainties are validated for, and what is known about LP,
+  NUS reconstruction and other alternatives.
 - [`constraints-and-fit-steps.md`](constraints-and-fit-steps.md) - parameter
   constraints and `[[fitting.steps]]`.
 - [`optimizers.md`](optimizers.md) - the VarPro optimizer and runtime controls.

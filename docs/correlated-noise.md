@@ -200,13 +200,11 @@ published errors by:
 - 1.5–3× for NUSZF + IST extrapolation;
 - up to 2.8× for 50% Poisson-gap NUS reconstructed by IST.
 
-Conventional processing of the same data stayed calibrated. These measurements are
-specific to the conditions tested: NMRPipe's IST with its default settings,
-reconstructed plane by plane, and `LP -fb -ord 8`. SMILE and other reconstruction
-methods were not tested, and their uncertainties may behave differently.
-
-Reconstruction can also change the lineshape the fit assumes, which is a separate
-question from the noise model; see [decisions.md](decisions.md).
+Conventional processing of the same data stayed calibrated. The conditions tested
+were NMRPipe's IST with its default settings, reconstructed plane by plane, and
+`LP -fb -ord 8`. What these and the measurements above mean for users' processing,
+including the lineshape changes and methods not tested here, is in
+[Processing quantitative series](processing-quantitative-series.md).
 
 ### 2.6 The noise-power check
 
@@ -496,9 +494,9 @@ it matches the true uncertainty is untested (C6).
 - **The processing model only.** Real noise may include t1 noise, instabilities or
   processing outside §2.1. The CEST comparison shows unexplained differences at
   higher lags, and no real-data validation is available.
-- **Processing the header does not record** (§2.5). Linear prediction, NUSZF
-  extrapolation, NUS reconstruction, earlier windows and solvent filters can leave a
-  run "modelled" whose published errors are not calibrated.
+- **Processing the header does not record** (§2.5) can leave a run "modelled" whose
+  published errors are not calibrated; see
+  [Processing quantitative series](processing-quantitative-series.md).
 - **Synthetic scope:** 1D, single lines, the exact lineshape, one plane. Overlapping
   pairs and 2D clusters are untested.
 - **First order.** The sandwich is exact only in the locally linear regime.
