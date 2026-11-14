@@ -599,8 +599,11 @@ class SpectralView(QtWidgets.QWidget):
         """Selection pins once; following hover never changes it.
 
         ``center`` puts the peak in the middle of the view at the current zoom, for
-        a selection made away from the spectrum (a list, a link). Otherwise the
-        view moves only as far as needed to keep the peak inside it.
+        a selection made away from the spectrum (a list, a link), but never pans the
+        view past the data's extent: on an axis narrower than the data the centred
+        range is clamped inside it, and an axis already showing the whole extent
+        stays put. Otherwise the view moves only as far as needed to keep the peak
+        inside it.
         """
         self.selected_id = peak_id
         self.markers.selected_id = peak_id
@@ -614,9 +617,15 @@ class SpectralView(QtWidgets.QWidget):
             view = self.box
             ranges = view.viewRange()
             shifted = []
-            for value, (low, high) in zip((x, y), ranges, strict=True):
+            extents = [(float(min(a)), float(max(a))) for a in (self.ppm_x, self.ppm_y)]
+            for value, (low, high), (first, last) in zip((x, y), ranges, extents, strict=True):
                 if center:
-                    delta = value - (low + high) / 2
+                    width = high - low
+                    if width >= last - first:
+                        delta = 0.0  # the whole extent is shown: the view does not move
+                    else:
+                        start = min(max(value - width / 2, first), last - width)
+                        delta = start - low
                 else:
                     margin = (high - low) * 0.05
                     delta = min(value - low - margin, 0) + max(value - high + margin, 0)

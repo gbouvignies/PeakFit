@@ -620,6 +620,53 @@ def test_list_selection_centres_the_peak_and_a_spectrum_click_does_not(workspace
     np.testing.assert_allclose(canvas.box.viewRange(), before)
 
 
+def _extent(canvas):
+    """The data's ppm extent on each axis, as (low, high) for x then y."""
+    return [(float(min(a)), float(max(a))) for a in (canvas.ppm_x, canvas.ppm_y)]
+
+
+def _edge_peak(workspace):
+    """The peak nearest the high-ppm edge of the direct dimension."""
+    return max(workspace.peaks, key=lambda p: workspace.canvas.display(p)[0])
+
+
+def test_list_selection_at_full_spectrum_leaves_the_view_unchanged(workspace, qapp):
+    canvas = workspace.canvas
+    canvas.full_spectrum()
+    qapp.processEvents()
+    before = canvas.box.viewRange()
+    edge = _edge_peak(workspace)
+    workspace.navigator.list.setCurrentItem(workspace.navigator._items[edge.id])
+    qapp.processEvents()
+    assert workspace.selected_id == edge.id
+    np.testing.assert_allclose(canvas.box.viewRange(), before)
+
+
+def test_list_selection_when_zoomed_centres_within_the_data(workspace, qapp):
+    canvas = workspace.canvas
+    (dx0, dx1), (dy0, dy1) = _extent(canvas)
+    widths = ((dx1 - dx0) / 4, (dy1 - dy0) / 4)
+    canvas.set_ranges((dx0, dx0 + widths[0]), (dy0, dy0 + widths[1]))
+    qapp.processEvents()
+    edge = _edge_peak(workspace)
+    workspace.navigator.list.setCurrentItem(workspace.navigator._items[edge.id])
+    qapp.processEvents()
+    assert workspace.selected_id == edge.id
+    (a0, a1), (b0, b1) = canvas.box.viewRange()
+    np.testing.assert_allclose((a1 - a0, b1 - b0), widths)  # zoom kept
+    # The view stays inside the data on both axes and the edge peak is visible.
+    tol = 1e-9
+    assert dx0 - tol <= a0
+    assert a1 <= dx1 + tol
+    assert dy0 - tol <= b0
+    assert b1 <= dy1 + tol
+    x, y = canvas.display(edge)
+    assert a0 <= x <= a1
+    assert b0 <= y <= b1
+    # Clamped against the high-ppm edge rather than centred past it.
+    np.testing.assert_allclose(a1, dx1)
+
+
 def test_mapping_warning_reports_peaks_outside_the_direct_window(dataset):
     peaks, spectra = dataset.peaks, dataset.spectra
     assert mapping_warning(peaks, spectra) is None
