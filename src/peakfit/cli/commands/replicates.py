@@ -27,11 +27,11 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.engine.scientific.replicates import DuplicatePool
+    from peakfit.engine.scientific.replicates import DuplicatePool, ExclusionReason
 
 _DEFAULT_REFERENCE = f"|offset| ≥ {CEST_REFERENCE_HZ / 1000:g} kHz"
-_DUPLICATES = "duplicate planes"
-_BASELINE = "CEST baseline planes"
+_DUPLICATE_METHOD = "duplicate planes"
+_BASELINE_METHOD = "CEST baseline planes"
 
 # What the duplicate check does not show (spec #172, "Stated limits").
 _DUPLICATE_LIMITS = (
@@ -146,7 +146,7 @@ def _check_duplicates(
 ) -> None:
     show_command_summary(
         "Check Uncertainties Against Duplicate Planes",
-        [("Inputs", {"Results": display_path(results), "Method": _DUPLICATES})],
+        [("Inputs", {"Results": display_path(results), "Method": _DUPLICATE_METHOD})],
     )
     contrasts = sum(len(group) - 1 for group in groups)
     info(
@@ -159,11 +159,13 @@ def _check_duplicates(
         show_error_with_details("checking duplicate planes", e)
         raise typer.Exit(1) from e
 
-    by_reason: defaultdict[str, list[str]] = defaultdict(list)
+    by_reason: defaultdict[ExclusionReason, list[str]] = defaultdict(list)
     for name, reason in check.excluded.items():
         by_reason[reason].append(name)
-    for reason, names in sorted(by_reason.items()):
-        warning(f"Excluded {_plural(len(names), 'peak')}, {reason}: {', '.join(sorted(names))}")
+    for reason, names in sorted(by_reason.items(), key=lambda item: item[0].value):
+        warning(
+            f"Excluded {_plural(len(names), 'peak')}, {reason.value}: {', '.join(sorted(names))}"
+        )
     if not check.unflagged.peaks and not check.flagged.peaks:
         warning("No peak has duplicate planes it can be checked on.")
         raise typer.Exit(1)
@@ -212,7 +214,7 @@ def _check_baseline(
                 "Inputs",
                 {
                     "Results": display_path(results),
-                    "Method": _BASELINE,
+                    "Method": _BASELINE_METHOD,
                     "Reference points": ", ".join(str(i) for i in ref)
                     if ref
                     else _DEFAULT_REFERENCE,

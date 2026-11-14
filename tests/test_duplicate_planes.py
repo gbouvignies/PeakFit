@@ -23,9 +23,11 @@ from peakfit.engine.algorithms.covariance_factors import (
 )
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.scientific.replicates import (
+    ExclusionReason,
     RecordedCluster,
     duplicate_groups,
     duplicate_plane_check,
+    orthonormal_contrasts,
     run_duplicate_check,
 )
 from peakfit.io.scientific import read_scientific
@@ -145,14 +147,48 @@ def test_each_excluded_peak_is_listed_with_its_reason():
         ]
     )
     assert check.excluded == {
-        "U1": "unusable cluster",
-        "U2": "unusable cluster",
-        "W": "covariance factors withheld",
-        "N": "contrast covariance not positive definite",
-        "D": "contrast covariance has a direction weaker than √ε of the largest",
+        "U1": ExclusionReason.UNUSABLE_CLUSTER,
+        "U2": ExclusionReason.UNUSABLE_CLUSTER,
+        "W": ExclusionReason.FACTORS_WITHHELD,
+        "N": ExclusionReason.NOT_POSITIVE_DEFINITE,
+        "D": ExclusionReason.WEAK_DIRECTION,
     }
     assert (check.unflagged.peaks, check.unflagged.clusters) == (1, 1)
     assert np.isclose(check.unflagged.rms, np.sqrt(6.5 / 7.5 / 2))
+
+
+def test_exclusion_reasons_keep_their_stated_wording():
+    assert {reason.value for reason in ExclusionReason} == {
+        "unusable cluster",
+        "covariance factors withheld",
+        "contrast covariance not positive definite",
+        "contrast covariance has a direction weaker than √ε of the largest",
+    }
+
+
+def test_the_contrasts_are_orthonormal_and_blind_to_equal_copies():
+    planes = np.array([0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0])
+    contrasts = orthonormal_contrasts(duplicate_groups(planes), planes.size)
+    assert contrasts.shape == (3, 7)
+    np.testing.assert_allclose(contrasts @ contrasts.T, np.eye(3), atol=1e-12)
+    np.testing.assert_allclose(contrasts @ (planes**2 + 5.0), 0.0, atol=1e-12)
+
+
+def test_a_fitted_cluster_carries_the_correlated_profile_flag_of_each_peak():
+    # Within-plane amplitude correlation 0.5 > 0.15 with the partner flags both peaks;
+    # withheld lineshape factors leave the flag unassessed, hence unset.
+    planes = np.array([0.0, 0.0, 1.0])
+    amplitudes = np.array([[3.0, 2.0, 1.0], [1.0, 2.0, 3.0]])
+    conditional = np.array([[1.0, 0.5], [0.5, 1.0]])
+    zeros = np.zeros((2, 2, 1))
+    correlated = CovarianceFactors(conditional, zeros, zeros, np.array([[0.0]]))
+    withheld = CovarianceFactors(conditional, None, None, None)
+    fitted = RecordedCluster.fitted(("A", "B"), planes, amplitudes, correlated)
+    assert fitted.flagged == (True, True)
+    assert RecordedCluster.fitted(("A", "B"), planes, amplitudes, withheld).flagged == (
+        False,
+        False,
+    )
 
 
 def test_flagged_peaks_are_pooled_apart_with_their_own_counts():
@@ -356,7 +392,7 @@ def test_a_published_run_accounts_for_every_peak_of_its_duplicates(repeated_run)
     for cluster in outcome.clusters:
         if not cluster.usable:
             for name in cluster.peak_names:
-                assert check.excluded[name] == "unusable cluster"
+                assert check.excluded[name] is ExclusionReason.UNUSABLE_CLUSTER
 
 
 @pytest.mark.slow
@@ -383,8 +419,8 @@ def test_a_published_run_lists_peaks_it_cannot_check(repeated_run):
         ),
     )
     check = run_duplicate_check(edited, context)
-    expected = dict.fromkeys(first.peak_names, "covariance factors withheld")
-    expected |= dict.fromkeys(second.peak_names, "unusable cluster")
+    expected = dict.fromkeys(first.peak_names, ExclusionReason.FACTORS_WITHHELD)
+    expected |= dict.fromkeys(second.peak_names, ExclusionReason.UNUSABLE_CLUSTER)
     assert check.excluded == expected
     whole = run_duplicate_check(outcome, context)
     pooled = check.unflagged.peaks + check.flagged.peaks
