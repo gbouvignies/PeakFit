@@ -263,9 +263,25 @@ class Case:
 
 def build(case: Case) -> tuple[Cluster, Parameters, np.ndarray, NoiseModel]:
     """The noiseless cluster, its true parameters and amplitudes, and its noise model."""
-    first, second = CHAINS[case.lineshape]
-    profile = PROFILES[case.profile]
-    planes = profile.heights.shape[1]
+    heights = PROFILES[case.profile].heights[: case.peaks]
+    heights = heights * np.array([1.0, case.partner])[: case.peaks, None]
+    return build_cluster(case.lineshape, case.separation, heights, shared_phase=case.shared_phase)
+
+
+def build_cluster(
+    lineshape: LineshapeName,
+    separation: tuple[float, float] | None,
+    heights: np.ndarray,
+    *,
+    shared_phase: bool = False,
+) -> tuple[Cluster, Parameters, np.ndarray, NoiseModel]:
+    """A noiseless cluster, its true parameters and amplitudes, and its noise model.
+
+    One peak if ``separation`` is None, else two; ``heights`` (peaks × S) are their
+    true heights over the planes.
+    """
+    first, second = CHAINS[lineshape]
+    n_peaks, planes = heights.shape
     pseudo = SpectralParameters(
         size=planes, sw=1.0, obs=1.0, car=0.0, aq_time=1.0, apocode=0, apodq1=0, apodq2=0,
         apodq3=0, p180=False, direct=False, ft=False,
@@ -278,16 +294,16 @@ def build(case: Case) -> tuple[Cluster, Parameters, np.ndarray, NoiseModel]:
         params=[pseudo, first.parameters(False), second.parameters(True)],
     )
     centre = (shape[1] / 2, shape[2] / 2)
-    separation = case.separation or (0.0, 0.0)
+    separation = separation or (0.0, 0.0)
     offsets = [(-separation[0] / 2, -separation[1] / 2), (separation[0] / 2, separation[1] / 2)]
-    config = FitConfig(lineshape=case.lineshape, fit_phase=["F2"] if case.shared_phase else [])
+    config = FitConfig(lineshape=lineshape, fit_phase=["F2"] if shared_phase else [])
     peaks = []
-    for name, (d1, d2) in zip("AB"[: case.peaks], offsets, strict=False):
+    for name, (d1, d2) in zip("AB"[:n_peaks], offsets, strict=False):
         position = [
             float(spectra.spectral_params[0].pts2ppm(centre[0] + d1)),
             float(spectra.spectral_params[1].pts2ppm(centre[1] + d2)),
         ]
-        shapes = create_shapes(spectra, config, name, position, [case.lineshape] * 2)
+        shapes = create_shapes(spectra, config, name, position, [lineshape] * 2)
         peak = Peak(name, np.array(position), shapes)
         peak.set_cluster_id(1)
         peaks.append(peak)
@@ -302,7 +318,6 @@ def build(case: Case) -> tuple[Cluster, Parameters, np.ndarray, NoiseModel]:
             params[name].value = LINEWIDTH
     cluster = Cluster(1, peaks, grid, np.zeros((grid[0].size, planes)))
     shapes = cluster.evaluate(params)
-    heights = profile.heights[: case.peaks] * np.array([1.0, case.partner])[: case.peaks, None]
     # PeakFit's shapes are not height-normalized: amplitudes in units of each height.
     amplitudes = heights / shapes.max(axis=1)[:, None]
     cluster.data = shapes.T @ amplitudes

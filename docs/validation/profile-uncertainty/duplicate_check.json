@@ -1,0 +1,590 @@
+{
+ "realizations": 4000,
+ "seed": 20261114,
+ "noise": 0.02,
+ "criterion": "mean q/k within ±3 SE of 1 (SE from the realizations); analytical variance ratios within ±3 SE of 1, SE √(2/(N − 1))",
+ "gate": {
+  "cases": 9,
+  "failing": [],
+  "passes": true
+ },
+ "cases": {
+  "sp2, isolated, two copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.95486,
+    "se": 0.01521,
+    "deviation_se": -2.96826,
+    "rms": 0.97717,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.95486,
+     "se": 0.01521,
+     "deviation_se": -2.96826,
+     "rms": 0.97717,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.96585,
+     0.94621
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 2.40522,
+    "largest_covariance_gap": 0.01926,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, isolated, three copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.9965,
+    "se": 0.01108,
+    "deviation_se": -0.31581,
+    "rms": 0.99825,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.9965,
+     "se": 0.01108,
+     "deviation_se": -0.31581,
+     "rms": 0.99825,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.95043,
+     0.99591,
+     1.03045,
+     1.01786
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 2.21641,
+    "largest_covariance_gap": 0.03209,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp1, isolated, two copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.99529,
+    "se": 0.01563,
+    "deviation_se": -0.30137,
+    "rms": 0.99764,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.99529,
+     "se": 0.01563,
+     "deviation_se": -0.30137,
+     "rms": 0.99764,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     1.00588,
+     0.98753
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 0.55759,
+    "largest_covariance_gap": 0.00169,
+    "passes": true
+   },
+   "passes": true
+  },
+  "no_apod, isolated, two copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.00253,
+    "se": 0.01574,
+    "deviation_se": 0.16061,
+    "rms": 1.00126,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.00253,
+     "se": 0.01574,
+     "deviation_se": 0.16061,
+     "rms": 1.00126,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.98569,
+     1.02158
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 0.96485,
+    "largest_covariance_gap": 0.00464,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 3 points, two copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.00405,
+    "se": 0.01115,
+    "deviation_se": 0.36322,
+    "rms": 1.00202,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.00405,
+     "se": 0.01115,
+     "deviation_se": 0.36322,
+     "rms": 1.00202,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     1.03049,
+     1.02845,
+     1.00391,
+     0.96862
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 1.40298,
+    "largest_covariance_gap": 0.00939,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 3 points, three copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.99089,
+    "se": 0.00761,
+    "deviation_se": -1.1974,
+    "rms": 0.99543,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.99089,
+     "se": 0.00761,
+     "deviation_se": -1.1974,
+     "rms": 0.99543,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.97742,
+     0.99231,
+     0.99892,
+     0.99601,
+     0.99167,
+     0.99602,
+     0.98468,
+     1.0257
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 1.14919,
+    "largest_covariance_gap": 0.0252,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 3 points, shared phase, three copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.99429,
+    "se": 0.00778,
+    "deviation_se": -0.73322,
+    "rms": 0.99714,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.99429,
+     "se": 0.00778,
+     "deviation_se": -0.73322,
+     "rms": 0.99714,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.99431,
+     0.9686,
+     1.00977,
+     0.99709,
+     0.99477,
+     1.00483,
+     1.03565,
+     0.99186
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 1.59425,
+    "largest_covariance_gap": 0.03425,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 2 points (flagged), two copies": {
+   "realizations": 4000,
+   "pool": "flagged",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.01676,
+    "se": 0.01191,
+    "deviation_se": 1.40731,
+    "rms": 1.00835,
+    "passes": true
+   },
+   "pools": {
+    "flagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.01676,
+     "se": 0.01191,
+     "deviation_se": 1.40731,
+     "rms": 1.00835,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 1.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     1.01404,
+     1.05609,
+     1.01543,
+     1.00388
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 2.50794,
+    "largest_covariance_gap": 0.01928,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, isolated with a coincident pair (exclusions), two copies": {
+   "realizations": 4000,
+   "pool": "unflagged",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.01285,
+    "se": 0.01616,
+    "deviation_se": 0.79536,
+    "rms": 1.00641,
+    "passes": true
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.01285,
+     "se": 0.01616,
+     "deviation_se": 0.79536,
+     "rms": 1.00641,
+     "passes": true,
+     "peaks_per_realization": 1.004
+    },
+    "flagged": {
+     "realizations_used": 283,
+     "mean_q_over_k": 0.92663,
+     "se": 0.04158,
+     "deviation_se": -1.76454,
+     "rms": 0.96261,
+     "passes": true,
+     "peaks_per_realization": 0.1395
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {
+    "covariance factors withheld": 3666,
+    "contrast covariance has a direction weaker than √ε of the largest": 11,
+    "contrast covariance not positive definite": 36
+   },
+   "analytical": {
+    "variance_ratios": [
+     1.00927,
+     1.01727
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 0.7723,
+    "largest_covariance_gap": 0.00195,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 1 point (near-coalescent), two copies": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.00012,
+    "se": 0.01374,
+    "deviation_se": 0.00889,
+    "rms": 1.00006,
+    "passes": true
+   },
+   "pools": {
+    "flagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.00012,
+     "se": 0.01374,
+     "deviation_se": 0.00889,
+     "rms": 1.00006,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 1.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.99275,
+     1.04271,
+     1.02562,
+     1.07158
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 3.20081,
+    "largest_covariance_gap": 0.0137,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, isolated, two copies, copies correlated +0.3": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": 0.3,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.69539,
+    "se": 0.01121,
+    "deviation_se": -27.17745,
+    "rms": 0.8339,
+    "passes": false
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.69539,
+     "se": 0.01121,
+     "deviation_se": -27.17745,
+     "rms": 0.8339,
+     "passes": false,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.69488,
+     0.69787
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 13.64378,
+    "largest_covariance_gap": 0.01922,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, isolated, two copies, copies correlated −0.3": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": -0.3,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.29695,
+    "se": 0.02065,
+    "deviation_se": 14.38085,
+    "rms": 1.13884,
+    "passes": false
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.29695,
+     "se": 0.02065,
+     "deviation_se": 14.38085,
+     "rms": 1.13884,
+     "passes": false,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     1.2825,
+     1.3139
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 14.03623,
+    "largest_covariance_gap": 0.00393,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, pair 3 points, three copies, copies correlated +0.3": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": 0.3,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 0.69845,
+    "se": 0.00571,
+    "deviation_se": -52.81556,
+    "rms": 0.83573,
+    "passes": false
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 0.69845,
+     "se": 0.00571,
+     "deviation_se": -52.81556,
+     "rms": 0.83573,
+     "passes": false,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     0.69322,
+     0.70874,
+     0.69555,
+     0.7093,
+     0.6996,
+     0.70907,
+     0.6756,
+     0.71761
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 14.50571,
+    "largest_covariance_gap": 0.02589,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, pair 3 points, three copies, copies correlated −0.3": {
+   "realizations": 4000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": -0.3,
+   "statistic": {
+    "realizations_used": 4000,
+    "mean_q_over_k": 1.29848,
+    "se": 0.01031,
+    "deviation_se": 28.93937,
+    "rms": 1.13951,
+    "passes": false
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 4000,
+     "mean_q_over_k": 1.29848,
+     "se": 0.01031,
+     "deviation_se": 28.93937,
+     "rms": 1.13951,
+     "passes": false,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "analytical": {
+    "variance_ratios": [
+     1.29848,
+     1.36673,
+     1.30716,
+     1.33576,
+     1.30022,
+     1.29075,
+     1.27112,
+     1.28543
+    ],
+    "se": 0.02236,
+    "largest_deviation_se": 16.39879,
+    "largest_covariance_gap": 0.04622,
+    "passes": false
+   },
+   "passes": null
+  }
+ }
+}

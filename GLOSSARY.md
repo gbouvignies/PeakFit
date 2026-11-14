@@ -248,7 +248,18 @@ independent per-plane errors only where Σ_rel is close to diagonal.
 **Baseline replicates**:
 CEST planes far from a peak's own offset, references excluded, treated as
 approximate replicates: the robust scatter of their second differences checks the
-profile σ (`peakfit replicates`). They measure repeatability, not accuracy.
+profile σ (`peakfit replicates --baseline`, and the default for a run without
+duplicate planes). They measure repeatability, not accuracy.
+
+**Duplicate planes**:
+Planes of one run whose recorded plane values are exactly equal: copies of one
+condition, in any series. `peakfit replicates` whitens each peak's orthonormal
+contrasts between copies by the covariance the covariance factors predict for them
+and pools them into an RMS of standardized contrasts, 1 when the uncertainty of
+contrasts is calibrated. Like baseline replicates, they measure repeatability, not
+accuracy; they check contrasts, not the marginal σ.
+_Avoid_: replicate pairs (copies may be three or more), near-duplicates (no
+tolerance matching)
 
 **Correlated-profile flag**:
 A per-peak mark that the largest correlated mode of the relative-profile

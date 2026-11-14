@@ -2,8 +2,8 @@
 
 This page is for anyone who processes a pseudo-ND series (T1, T2, CPMG, CEST) for
 PeakFit and then uses its profile σ downstream, for example in ChemEx. It states
-which processing PeakFit's uncertainties are validated for, and what is known about
-the alternatives. It describes evidence, not rules: PeakFit accepts every processing
+which processing PeakFit's uncertainties are validated for, what is known about the
+alternatives, and how to read the empirical checks of `peakfit replicates`. It describes evidence, not rules: PeakFit accepts every processing
 below and changes no value or error because of it.
 
 Every number here comes from a recorded study, linked where it is used. Each is a
@@ -247,6 +247,78 @@ intensities, σ and correlation between planes is untested. Data-adaptive varian
 such as automatic baseline correction, fit each plane's own data, so they need not
 act identically on every plane. Neither safety nor harm is established. The
 intensity mixing above applies as everywhere.
+
+## Interpreting the empirical checks
+
+`peakfit replicates <run>` compares a published run's errors with the scatter of
+its own data. It reads the run without refitting, changes no value or error, and
+names the method that ran.
+
+**Duplicate planes** (any series; the default when the run has them). Planes whose
+recorded plane values are exactly equal are copies. For each peak, the differences
+between copies are standardized by the uncertainty the published covariance
+predicts for them, which accounts for the correlation from shared lineshape
+parameters
+([profile-uncertainty §5.3](profile-uncertainty.md#53-duplicate-planes)). The
+result is an RMS of standardized contrasts, reported separately for peaks without
+and with the correlated-profile flag.
+- **About 1:** the differences between copies scatter as the published covariance
+  predicts. In synthetic series with the validated processing, the check gives 1
+  within its sampling error
+  ([profile-uncertainty §8.2](profile-uncertainty.md#82-t8-the-duplicate-plane-check)).
+- **Clearly above 1:** the copies differ more than the errors allow. Possible
+  causes: errors that are too small for the processing used, copies that are not
+  equivalent (drift, temperature, a change between acquisitions), or noise
+  anticorrelated between copies.
+- **Clearly below 1:** the copies agree better than the errors allow: errors that
+  are too large, or noise positively correlated between copies, as after a
+  reconstruction or processing that couples them. In the synthetic study, a
+  correlation of +0.3 between copies gave an RMS of 0.83, and −0.3 gave 1.14.
+- **How clearly:** with n contrasts the sampling SE of the RMS is at least
+  1/√(2n); the output warns when that exceeds 0.1 (fewer than 50 contrasts).
+  Contrasts from peaks of one cluster are correlated, so the real SE is larger.
+- **No duplicate planes:** the output says so. Planes with nearly equal values are
+  not paired.
+
+**CEST baseline planes** (`--baseline`, or when the run has no duplicates). Planes
+far from a peak's own offset are approximate replicates. The robust scatter of
+their second differences is compared with the published profile σ, as the median
+of observed / stated
+([profile-uncertainty §5.1](profile-uncertainty.md#51-cest-baseline-planes-as-replicates)).
+Drift, residual saturation and minor-state dips can only raise it.
+
+**What neither check shows.**
+- **Repeatability, not accuracy.** An error common to every copy, or to every
+  baseline plane, is invisible: a lineshape misfit, or the bias LP caused for
+  overlapping peaks in T7. A result of 1 is not evidence against bias.
+- **Contrasts, not marginal σ.** A scale uncertainty shared by the copies cancels in
+  their differences, so the duplicate check says nothing about the marginal σ of
+  absolute amplitudes.
+- **Raw amplitudes, not normalized profiles.** Both checks read amplitudes; the
+  ratios and R2eff derived from them are not checked directly.
+- **Equal plane values do not prove independent, equivalent acquisitions.** PeakFit
+  does not know how the copies were acquired, nor in which order, so it reports no
+  signed or drift statistic. Check this yourself.
+- **Copies reconstructed jointly** (joint pseudo-3D NUS) share the reconstruction,
+  so the check is not calibrated for them. Copies acquired independently and
+  reconstructed separately give repeatability information.
+
+**Alongside ChemEx's `duplicates` error option.** With `error = "duplicates"`,
+ChemEx replaces the errors in the file with one σ per profile estimated from the
+duplicates; with the default `global_error = true`, that σ is shared by every
+profile of the experiment
+([profile-uncertainty §6a](profile-uncertainty.md#what-chemex-does-today)).
+- Both use the same duplicates, so neither is independent evidence for the other,
+  and both measure repeatability only.
+- If PeakFit's duplicate check is close to 1, its profile σ (`error = "file"`)
+  agree with the duplicates on average, and they keep what one shared σ discards:
+  the larger errors of overlapping or weaker peaks.
+- If it is clearly above 1, the profile σ understate the scatter between copies,
+  and the processing sections above may say why. ChemEx's estimate follows the
+  observed scatter, but as one uniform σ, estimated from few copies per profile when
+  `global_error` is off.
+- The RMS pools many peaks and does not say which ones are off. PeakFit does not
+  rescale any error by it.
 
 ## References
 
