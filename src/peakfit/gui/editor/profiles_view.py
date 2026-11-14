@@ -46,11 +46,12 @@ if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.editor.review import ClusterReview
 
-# Adaptive tile grid (on screen only; PDF pages keep their fixed layout). Provisional
-# limits pending visual acceptance (#191): at the minimum a tile's plot is about 190 px
-# wide, about 3 px per plane of a 60-plane CEST profile, so a dip a few planes wide
-# stays visible; 1280×800 then shows three columns instead of two. Height follows the
-# width, with a floor that keeps the plot area near 90 px under header and legend.
+# Adaptive tile grid (on screen only; PDF pages keep their fixed layout). Limits kept
+# after visual acceptance (docs/validation/gui-audit-followup.md): at the minimum a
+# tile's plot is about 190 px wide (about 1.5 px per plane of the bundled 131-plane
+# CEST series), and the narrowest dips there stay recognisable; 1280×800 then shows
+# three columns instead of two. Height follows the width, with a floor that keeps the
+# plot area near 90 px under header and legend.
 TILE_MIN_WIDTH = 210
 TILE_MAX_WIDTH = 320
 TILE_ASPECT = 0.72  # tile height / tile width

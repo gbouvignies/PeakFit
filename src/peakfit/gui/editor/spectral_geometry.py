@@ -18,6 +18,7 @@ LANE_MIN = 24  # a visible residual lane compresses no further
 SLICE_MAX = 0.45  # a slice takes at most this share of the view
 # Default shares (row slice of the height, column slice of the width). Focus gives
 # the slices more room while the 2D contours stay large enough to judge overlap.
+# Kept after visual acceptance at 1280×800 to 2560×1440 (docs/validation/gui-audit-followup.md).
 OVERVIEW_ROW, OVERVIEW_COLUMN = 0.22, 0.18
 FOCUS_ROW, FOCUS_COLUMN = 0.30, 0.26
 GAP = 7  # divider thickness

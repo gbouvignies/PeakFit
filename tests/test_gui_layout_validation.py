@@ -57,7 +57,7 @@ def test_window_record_names_logical_size_and_device_pixel_ratio(qapp, tool):
     dpr = widget.devicePixelRatioF()
     assert record["logical"] == [640, 480]
     assert record["dpr"] == dpr
-    assert record["label"] == f"640×480 logical @ DPR {dpr:.1f}"
+    assert record["label"] == f"640×480 logical @ DPR {tool.dpr_text(dpr)}"
     assert record["qt_platform"] == qapp.platformName()
     assert record["platform"]
 
@@ -163,3 +163,35 @@ def test_profiles_measures_report_columns_and_the_drawn_tile_size(tool, fitted):
     w.resize(2000, 800)
     wider = tool.steady(lambda: tool.profiles_measures(w.profiles))
     assert wider["columns"] > wide["columns"]
+
+
+@pytest.mark.gui
+def test_clipped_labels_reports_visible_text_cut_by_its_fixed_size(qapp, tool):
+    root = QtWidgets.QWidget()
+    layout = QtWidgets.QVBoxLayout(root)
+    narrow = QtWidgets.QLabel("Amplitude plane 1 of 60")
+    narrow.setFixedWidth(30)
+    short = QtWidgets.QLabel("Wrapped caption text that needs several lines at this width")
+    short.setWordWrap(True)
+    short.setFixedSize(80, 14)
+    roomy = QtWidgets.QLabel("Fits")
+    hidden = QtWidgets.QLabel("Hidden text that would not fit")
+    hidden.setFixedWidth(10)
+    for label in (narrow, short, roomy, hidden):
+        layout.addWidget(label)
+    root.show()
+    hidden.hide()
+    qapp.processEvents()
+    clipped = tool.clipped_labels(root)
+    assert [entry["text"] for entry in clipped] == [narrow.text(), short.text()]
+    assert clipped[0]["needed"][0] > clipped[0]["size"][0] == 30
+    assert clipped[1]["needed"][1] > clipped[1]["size"][1] == 14
+    root.close()
+
+
+@pytest.mark.parametrize(
+    ("dpr", "text"), [(1.0, "1.0"), (2.0, "2.0"), (1.25, "1.25"), (1.5, "1.5"), (1.75, "1.75")]
+)
+def test_device_pixel_ratio_text_keeps_fractional_scale_factors(tool, dpr, text):
+    # Linux fractional scaling (1.25, 1.75) must not read as 1.2 or 1.8.
+    assert tool.dpr_text(dpr) == text

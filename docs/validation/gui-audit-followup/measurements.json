@@ -1,0 +1,4411 @@
+{
+  "dataset": "examples/02-advanced-fitting/data",
+  "units": "Qt logical pixels; window.dpr converts to device pixels",
+  "type_scale": {
+    "body": 13,
+    "small": 12,
+    "caption": 11,
+    "title": 15,
+    "display": 30
+  },
+  "contrast": {
+    "Light": {
+      "text/panel": 15.296259304443499,
+      "text/chrome": 14.886361260753855,
+      "text/plot": 15.818750325555197,
+      "secondary/panel": 5.330044751625263,
+      "secondary/chrome": 5.187214084794532,
+      "faint/panel": 5.084116810779622,
+      "faint/chrome": 4.947876342234295,
+      "outline/panel": 3.529916938508779,
+      "outline/chrome": 3.4353247889718417,
+      "outline/plot": 3.6504921634008647,
+      "border/panel": 1.5044626897933266,
+      "border/chrome": 1.4641471916655455
+    },
+    "Dark": {
+      "text/panel": 13.073253786494298,
+      "text/chrome": 13.651294773052562,
+      "text/plot": 14.336960700031204,
+      "secondary/panel": 7.282847077133843,
+      "secondary/chrome": 7.604862099420679,
+      "faint/panel": 5.118431620525047,
+      "faint/chrome": 5.34474584282033,
+      "outline/panel": 3.3429153988466798,
+      "outline/chrome": 3.4907242111506536,
+      "outline/plot": 3.6660534155855378,
+      "border/panel": 1.6822597941271076,
+      "border/chrome": 1.7566418207385024
+    }
+  },
+  "captures": [
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          482,
+          468
+        ],
+        "row_slice": [
+          482,
+          152
+        ],
+        "column_slice": [
+          122,
+          468
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          482,
+          468
+        ],
+        "row_slice": [
+          482,
+          152
+        ],
+        "column_slice": [
+          122,
+          468
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          672,
+          562
+        ],
+        "row_slice": [
+          672,
+          178
+        ],
+        "column_slice": [
+          164,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          672,
+          562
+        ],
+        "row_slice": [
+          672,
+          178
+        ],
+        "column_slice": [
+          164,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          552,
+          442
+        ],
+        "row_slice": [
+          552,
+          144
+        ],
+        "column_slice": [
+          138,
+          442
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          552,
+          442
+        ],
+        "row_slice": [
+          552,
+          144
+        ],
+        "column_slice": [
+          138,
+          442
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          614,
+          546
+        ],
+        "row_slice": [
+          614,
+          174
+        ],
+        "column_slice": [
+          152,
+          546
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          614,
+          546
+        ],
+        "row_slice": [
+          614,
+          174
+        ],
+        "column_slice": [
+          152,
+          546
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          384,
+          404
+        ],
+        "row_slice": [
+          384,
+          134
+        ],
+        "column_slice": [
+          100,
+          404
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          384,
+          404
+        ],
+        "row_slice": [
+          384,
+          134
+        ],
+        "column_slice": [
+          100,
+          404
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1008,
+          562
+        ],
+        "row_slice": [
+          1008,
+          178
+        ],
+        "column_slice": [
+          238,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1008,
+          562
+        ],
+        "row_slice": [
+          1008,
+          178
+        ],
+        "column_slice": [
+          238,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1532,
+          562
+        ],
+        "row_slice": [
+          1532,
+          178
+        ],
+        "column_slice": [
+          352,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1532,
+          562
+        ],
+        "row_slice": [
+          1532,
+          178
+        ],
+        "column_slice": [
+          352,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed · no result yet"
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          482,
+          468
+        ],
+        "row_slice": [
+          482,
+          152
+        ],
+        "column_slice": [
+          122,
+          468
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          384,
+          350
+        ],
+        "row_slice": [
+          384,
+          198
+        ],
+        "column_slice": [
+          176,
+          350
+        ],
+        "row_lane": [
+          384,
+          44
+        ],
+        "column_lane": [
+          44,
+          350
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          428,
+          394
+        ],
+        "row_slice": [
+          428,
+          198
+        ],
+        "column_slice": [
+          176,
+          394
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          644,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          214,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          644,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          214,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          482,
+          468
+        ],
+        "row_slice": [
+          482,
+          152
+        ],
+        "column_slice": [
+          122,
+          468
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          384,
+          350
+        ],
+        "row_slice": [
+          384,
+          198
+        ],
+        "column_slice": [
+          176,
+          350
+        ],
+        "row_lane": [
+          384,
+          44
+        ],
+        "column_lane": [
+          44,
+          350
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          428,
+          394
+        ],
+        "row_slice": [
+          428,
+          198
+        ],
+        "column_slice": [
+          176,
+          394
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          644,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          214,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280×800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          644,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          214,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          672,
+          562
+        ],
+        "row_slice": [
+          672,
+          178
+        ],
+        "column_slice": [
+          164,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          556,
+          434
+        ],
+        "row_slice": [
+          556,
+          236
+        ],
+        "column_slice": [
+          238,
+          434
+        ],
+        "row_lane": [
+          556,
+          44
+        ],
+        "column_lane": [
+          44,
+          434
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          600,
+          478
+        ],
+        "row_slice": [
+          600,
+          236
+        ],
+        "column_slice": [
+          238,
+          478
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          876,
+          770
+        ],
+        "columns": 4,
+        "tile": [
+          218,
+          157
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          876,
+          770
+        ],
+        "columns": 4,
+        "tile": [
+          218,
+          157
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          672,
+          562
+        ],
+        "row_slice": [
+          672,
+          178
+        ],
+        "column_slice": [
+          164,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          556,
+          434
+        ],
+        "row_slice": [
+          556,
+          236
+        ],
+        "column_slice": [
+          238,
+          434
+        ],
+        "row_lane": [
+          556,
+          44
+        ],
+        "column_lane": [
+          44,
+          434
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          600,
+          478
+        ],
+        "row_slice": [
+          600,
+          236
+        ],
+        "column_slice": [
+          238,
+          478
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          876,
+          770
+        ],
+        "columns": 4,
+        "tile": [
+          218,
+          157
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          876,
+          770
+        ],
+        "columns": 4,
+        "tile": [
+          218,
+          157
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          552,
+          442
+        ],
+        "row_slice": [
+          552,
+          144
+        ],
+        "column_slice": [
+          138,
+          442
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 655,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 655,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 655,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          448,
+          328
+        ],
+        "row_slice": [
+          448,
+          190
+        ],
+        "column_slice": [
+          200,
+          328
+        ],
+        "row_lane": [
+          448,
+          44
+        ],
+        "column_lane": [
+          44,
+          328
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          492,
+          372
+        ],
+        "row_slice": [
+          492,
+          190
+        ],
+        "column_slice": [
+          200,
+          372
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          730,
+          617
+        ],
+        "columns": 3,
+        "tile": [
+          242,
+          174
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1366x768-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          730,
+          617
+        ],
+        "columns": 3,
+        "tile": [
+          242,
+          174
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          552,
+          442
+        ],
+        "row_slice": [
+          552,
+          144
+        ],
+        "column_slice": [
+          138,
+          442
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 655,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 655,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 655,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          448,
+          328
+        ],
+        "row_slice": [
+          448,
+          190
+        ],
+        "column_slice": [
+          200,
+          328
+        ],
+        "row_lane": [
+          448,
+          44
+        ],
+        "column_lane": [
+          44,
+          328
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          492,
+          372
+        ],
+        "row_slice": [
+          492,
+          190
+        ],
+        "column_slice": [
+          200,
+          372
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          730,
+          617
+        ],
+        "columns": 3,
+        "tile": [
+          242,
+          174
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1366x768-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1366,
+          768
+        ],
+        "dpr": 2.0,
+        "label": "1366×768 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          730,
+          617
+        ],
+        "columns": 3,
+        "tile": [
+          242,
+          174
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          614,
+          546
+        ],
+        "row_slice": [
+          614,
+          174
+        ],
+        "column_slice": [
+          152,
+          546
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 787,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 787,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 787,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          502,
+          420
+        ],
+        "row_slice": [
+          502,
+          228
+        ],
+        "column_slice": [
+          218,
+          420
+        ],
+        "row_lane": [
+          502,
+          44
+        ],
+        "column_lane": [
+          44,
+          420
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          546,
+          464
+        ],
+        "row_slice": [
+          546,
+          228
+        ],
+        "column_slice": [
+          218,
+          464
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          804,
+          749
+        ],
+        "columns": 3,
+        "tile": [
+          267,
+          192
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1440x900-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          804,
+          749
+        ],
+        "columns": 3,
+        "tile": [
+          267,
+          192
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          614,
+          546
+        ],
+        "row_slice": [
+          614,
+          174
+        ],
+        "column_slice": [
+          152,
+          546
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 787,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 787,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 787,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          502,
+          420
+        ],
+        "row_slice": [
+          502,
+          228
+        ],
+        "column_slice": [
+          218,
+          420
+        ],
+        "row_lane": [
+          502,
+          44
+        ],
+        "column_lane": [
+          44,
+          420
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          546,
+          464
+        ],
+        "row_slice": [
+          546,
+          228
+        ],
+        "column_slice": [
+          218,
+          464
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          804,
+          749
+        ],
+        "columns": 3,
+        "tile": [
+          267,
+          192
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1440x900-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1440,
+          900
+        ],
+        "dpr": 2.0,
+        "label": "1440×900 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          804,
+          749
+        ],
+        "columns": 3,
+        "tile": [
+          267,
+          192
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          384,
+          404
+        ],
+        "row_slice": [
+          384,
+          134
+        ],
+        "column_slice": [
+          100,
+          404
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 607,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 607,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 607,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          360,
+          314
+        ],
+        "row_slice": [
+          360,
+          174
+        ],
+        "column_slice": [
+          100,
+          314
+        ],
+        "row_lane": [
+          360,
+          24
+        ],
+        "column_lane": [
+          24,
+          314
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          360,
+          338
+        ],
+        "row_slice": [
+          360,
+          174
+        ],
+        "column_slice": [
+          124,
+          338
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          537,
+          569
+        ],
+        "columns": 2,
+        "tile": [
+          267,
+          192
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1160x720-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          524,
+          569
+        ],
+        "columns": 2,
+        "tile": [
+          261,
+          188
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          384,
+          404
+        ],
+        "row_slice": [
+          384,
+          134
+        ],
+        "column_slice": [
+          100,
+          404
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 607,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 607,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 607,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          360,
+          314
+        ],
+        "row_slice": [
+          360,
+          174
+        ],
+        "column_slice": [
+          100,
+          314
+        ],
+        "row_lane": [
+          360,
+          24
+        ],
+        "column_lane": [
+          24,
+          314
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          360,
+          338
+        ],
+        "row_slice": [
+          360,
+          174
+        ],
+        "column_slice": [
+          124,
+          338
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          537,
+          569
+        ],
+        "columns": 2,
+        "tile": [
+          267,
+          192
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1160x720-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1160,
+          720
+        ],
+        "dpr": 2.0,
+        "label": "1160×720 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          524,
+          569
+        ],
+        "columns": 2,
+        "tile": [
+          261,
+          188
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1008,
+          562
+        ],
+        "row_slice": [
+          1008,
+          178
+        ],
+        "column_slice": [
+          238,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          858,
+          434
+        ],
+        "row_slice": [
+          858,
+          236
+        ],
+        "column_slice": [
+          344,
+          434
+        ],
+        "row_lane": [
+          858,
+          44
+        ],
+        "column_lane": [
+          44,
+          434
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          902,
+          478
+        ],
+        "row_slice": [
+          902,
+          236
+        ],
+        "column_slice": [
+          344,
+          478
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1284,
+          770
+        ],
+        "columns": 6,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1920x1080-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1284,
+          770
+        ],
+        "columns": 6,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1008,
+          562
+        ],
+        "row_slice": [
+          1008,
+          178
+        ],
+        "column_slice": [
+          238,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          858,
+          434
+        ],
+        "row_slice": [
+          858,
+          236
+        ],
+        "column_slice": [
+          344,
+          434
+        ],
+        "row_lane": [
+          858,
+          44
+        ],
+        "column_lane": [
+          44,
+          434
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          902,
+          478
+        ],
+        "row_slice": [
+          902,
+          236
+        ],
+        "column_slice": [
+          344,
+          478
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1284,
+          770
+        ],
+        "columns": 6,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1920x1080-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1920,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1920×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1284,
+          770
+        ],
+        "columns": 6,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1532,
+          562
+        ],
+        "row_slice": [
+          1532,
+          178
+        ],
+        "column_slice": [
+          352,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1332,
+          434
+        ],
+        "row_slice": [
+          1332,
+          236
+        ],
+        "column_slice": [
+          510,
+          434
+        ],
+        "row_lane": [
+          1332,
+          44
+        ],
+        "column_lane": [
+          44,
+          434
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1376,
+          478
+        ],
+        "row_slice": [
+          1376,
+          236
+        ],
+        "column_slice": [
+          510,
+          478
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1924,
+          770
+        ],
+        "columns": 9,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-2560x1440-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1924,
+          770
+        ],
+        "columns": 9,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1532,
+          562
+        ],
+        "row_slice": [
+          1532,
+          178
+        ],
+        "column_slice": [
+          352,
+          562
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 4a48cfff · Current · ▲ Noise check (F2) · all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 573,
+        "fitted_bottom": 681,
+        "fitted_notes_bottom": 752
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 616,
+        "fitted_bottom": 724,
+        "fitted_notes_bottom": 795
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 82,
+        "fitted_top": 632,
+        "fitted_bottom": 740,
+        "fitted_notes_bottom": 811
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1332,
+          434
+        ],
+        "row_slice": [
+          1332,
+          236
+        ],
+        "column_slice": [
+          510,
+          434
+        ],
+        "row_lane": [
+          1332,
+          44
+        ],
+        "column_lane": [
+          44,
+          434
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          1376,
+          478
+        ],
+        "row_slice": [
+          1376,
+          236
+        ],
+        "column_slice": [
+          510,
+          478
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1924,
+          770
+        ],
+        "columns": 9,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-2560x1440-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          2560,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "2560×921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          1924,
+          770
+        ],
+        "columns": 9,
+        "tile": [
+          213,
+          156
+        ]
+      }
+    }
+  ]
+}

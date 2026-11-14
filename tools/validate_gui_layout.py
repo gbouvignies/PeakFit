@@ -9,6 +9,7 @@ every record also states the device-pixel ratio and the Qt platform plugin.
 import argparse
 import json
 import platform
+from dataclasses import asdict
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -18,7 +19,7 @@ from validate_gui_editor import settle, wait_until
 
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.spectrum import read_dataset
-from peakfit.gui.theme import DARK, LIGHT, Theme
+from peakfit.gui.theme import DARK, LIGHT, Theme, TypeScale, type_scale, use_type_scale
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "examples/02-advanced-fitting/data"
@@ -74,6 +75,12 @@ def theme_contrast(theme: Theme) -> dict[str, float]:
     }
 
 
+def dpr_text(dpr: float) -> str:
+    """A device-pixel ratio with at least one decimal and no rounding of 1.25 or 1.75."""
+    text = f"{dpr:.2f}".rstrip("0")
+    return text + "0" if text.endswith(".") else text
+
+
 def window_record(widget: QtWidgets.QWidget) -> dict[str, object]:
     """Platform, Qt plugin, logical size and device-pixel ratio of one capture."""
     width, height = widget.width(), widget.height()
@@ -83,7 +90,7 @@ def window_record(widget: QtWidgets.QWidget) -> dict[str, object]:
         "qt_platform": QtGui.QGuiApplication.platformName(),
         "logical": [width, height],
         "dpr": dpr,
-        "label": f"{width}×{height} logical @ DPR {dpr:.1f}",
+        "label": f"{width}×{height} logical @ DPR {dpr_text(dpr)}",
     }
 
 
@@ -171,6 +178,33 @@ def peak_page_measures(inspector) -> dict[str, int | None]:
     }
 
 
+def clipped_labels(root: QtWidgets.QWidget) -> list[dict[str, object]]:
+    """Visible labels whose text needs more room than they were given.
+
+    A wrapping label is clipped when its text needs more height at its width; any
+    other label when its size hint exceeds its size in either direction. Used with a
+    simulated large system font to find fixed sizes that cut text.
+    """
+    found = []
+    for label in root.findChildren(QtWidgets.QLabel):
+        if not label.isVisible() or not label.text():
+            continue
+        size = label.size()
+        if label.wordWrap():
+            needed = QtCore.QSize(size.width(), label.heightForWidth(size.width()))
+        else:
+            needed = label.sizeHint()
+        if needed.width() > size.width() or needed.height() > size.height():
+            found.append(
+                {
+                    "text": label.text(),
+                    "size": [size.width(), size.height()],
+                    "needed": [needed.width(), needed.height()],
+                }
+            )
+    return found
+
+
 def noise_check_text(window: QtWidgets.QWidget) -> list[str]:
     """Visible texts that carry the noise-power check, in the run line or a row."""
     return [
@@ -214,6 +248,7 @@ class Session:
                 "appearance": appearance,
                 "file": name,
                 "window": window_record(self.window),
+                "clipped": clipped_labels(self.window),
                 **measures,
             }
         )
@@ -299,6 +334,7 @@ def run(output: Path, sizes, appearances) -> list[dict[str, Any]]:
     report = {
         "dataset": str(DATA.relative_to(ROOT)),
         "units": "Qt logical pixels; window.dpr converts to device pixels",
+        "type_scale": asdict(type_scale()),
         "contrast": {"Light": theme_contrast(LIGHT), "Dark": theme_contrast(DARK)},
         "captures": session.records,
     }
@@ -312,12 +348,20 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True, help="outside the repository")
     parser.add_argument("--sizes", nargs="+", default=list(SIZES), metavar="WxH")
     parser.add_argument("--appearance", nargs="+", default=list(APPEARANCES), choices=APPEARANCES)
+    parser.add_argument(
+        "--body-px",
+        type=int,
+        metavar="PX",
+        help="simulate a system font of this body size (logical px) to check clipping",
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT):
         parser.error("captures stay outside the repository; choose another --output")
     app = QtWidgets.QApplication([])
     app.setStyle("Fusion")
+    if args.body_px:
+        use_type_scale(TypeScale.for_body(args.body_px))
     records = run(output, args.sizes, args.appearance)
     for record in records:
         window = record["window"]
