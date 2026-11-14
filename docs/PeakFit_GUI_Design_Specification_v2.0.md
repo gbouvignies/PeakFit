@@ -92,8 +92,18 @@ column at the sampled horizontal coordinate. Neither is a projection or sum. Sli
 are lines through the native samples, without markers or values between samples:
 measured data and, in Overlay, the total model at the same samples in common units.
 Residual lanes under each slice show the whole-spectrum residual; in Residual the
-slices show it and the lanes hide. Dividers between slice and plot resize each
-slice independently (collapse below 48 px). Scales are in §8. Plot labels use the
+slices show it and the lanes hide. Slice sizes are shares of the spectral view,
+the row slice's of its height and the column slice's of its width, so the slices
+grow with the window and neither the 2D plot nor the slices has a fixed priority.
+Overview and cluster focus have separate defaults (22 % row / 18 % column in the
+overview, 30 % / 26 % in focus, provisional until visual validation); focus gives
+the slices and lanes more room while the 2D contours stay large enough to judge
+overlap and peak geometry. A share resolves within the slice minimum (72 px) and
+maximum (45 % of the view). Dividers between slice and plot, and Cmd/Ctrl+Alt+arrows,
+resize each slice independently (collapse below 48 px); the result is kept as a
+share, so it survives window resizes and panel toggles, and double-click on a
+divider restores the default of the current context. Saved view state records the
+overview and focus shares. Scales are in §8. Plot labels use the
 loaded axis/nucleus names, not hard-coded H/N/F2/F3.
 
 Both side panels are splitter panes with remembered widths (an application
@@ -187,8 +197,8 @@ recorded cluster. The default frame is the displayed member positions ± max(3 �
 fitted FWHM, 8 native samples) per axis (samples only when a linewidth is
 unavailable), at most a quarter of the spectral width and clipped to the spectrum;
 it is independent of the optimizer's fitting samples, which **Fitting region**
-shows separately. Focus shows residual lanes by default and keeps its own slice
-sizes between focuses. Modes, marks, legend, pin, plane and display settings are
+shows separately. Focus shows residual lanes by default, starts from its own slice
+shares and keeps them between focuses. Modes, marks, legend, pin, plane and display settings are
 those of the one view. A bar above it names the cluster and its run with **‹
 Spectrum**. Escape (when no draft, gesture or dialog is active) or ‹ Spectrum
 restores the overview's viewport, slice sizes and scales, mode, region display and
@@ -1069,7 +1079,7 @@ views share one plot-style function and an AxisItem subclass for tick formatting
 
 | Element | Design rule |
 | --- | --- |
-| Typography | System UI family; 13 px body/controls, 12 px secondary text and plot labels, 11 px minimum for dense captions, 15 px selected identity; respect system font scaling. Tabular numerals (OpenType `tnum`) in every numeric field, table, axis and status. One shared number formatter (§5 display precision; engineering axis scaling, never `2e+06`). Semibold only for selected identity and section titles. Never shrink labels to fit. |
+| Typography | System UI family. Sizes derive once at start-up from the system general font: its size in logical pixels is the body/controls size, and secondary text and plot labels, dense captions and selected identity keep the ratios 12 : 11 : 15 to a 13 px body (13/12/11/15 px at the default font). A system font below 13 px keeps those reference sizes, so captions never fall below 11 px. Stylesheet, plot axes, the corner readout and Profiles tiles use only these derived sizes; exported Profiles PDF pages keep the reference sizes. Tabular numerals (OpenType `tnum`) in every numeric field, table, axis and status. One shared number formatter (§5 display precision; engineering axis scaling, never `2e+06`). Semibold only for selected identity and section titles. Never shrink labels to fit. |
 | Rhythm | 4/8/12/16/24 logical-pixel spacing; 24–26 px controls, 28–30 px navigator rows, 10–14 px panel padding. |
 | Surfaces | Window, chrome, panel and plot surfaces only; thin dividers; 4–6 px radii; no shadows, gradients or nested cards inside the window. |
 | Commands | One filled accent **Fit** action. Canvas tools are icon buttons from one permissively licensed SVG set, tinted from tokens, with tooltips naming shortcuts; the comparison selector is a joined segmented control. Unavailable commands are disabled with an explanation; a command is hidden only when it cannot apply to the dataset (plane controls for a 2D spectrum). |
