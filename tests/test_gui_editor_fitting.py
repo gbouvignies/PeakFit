@@ -2564,9 +2564,12 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert f"σ_stat residual · residual of {tag}" in c.view.accessibleDescription()
     legend = c.legend.text()
     assert tag in legend
-    assert "not in this model" in legend
+    assert "☆</span>&nbsp;not in this model" in legend
     assert "position in this model" in legend
-    # ◇ marks the added peak; × the run's position of the moved one, linked to it.
+    # ◇ means only a review highlight; the added peak has its own mark.
+    assert "◇" not in legend
+    assert c.added_marks.opts["symbol"] == "star"
+    # ☆ marks the added peak; × the run's position of the moved one, linked to it.
     assert list(zip(*c.added_marks.getData(), strict=True)) == [c.display(added)]
     assert list(zip(*c.recorded_marks.getData(), strict=True)) == [c.display(recorded)]
     moved = next(p for p in w.peaks if p.id == "1")
@@ -2610,6 +2613,16 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     names = {p.id: p.name for p in w.peaks}
     detail = _unexplained_links(w)[0].parent().findChildren(QtWidgets.QLabel)
     assert any(f"{distance:.1f} pts from {names[nearest]}" in label.text() for label in detail)
+    note = w.panel.unexplained_note.text()
+    assert "☆ marks a peak added since that run" in note
+    assert "◇" not in note
+    # A peak added on the first region becomes its nearest, marked ☆ and never ◇.
+    on_region = w.edits.add((float(c.ppm_y[first.row]), float(c.ppm_x[first.column])))
+    w._refresh()
+    detail = _unexplained_links(w)[0].parent().findChildren(QtWidgets.QLabel)
+    assert any(f"from {on_region.name} ☆" in label.text() for label in detail)
+    assert not any("◇" in label.text() for label in detail)
+    w.history(False)
 
     # Undo restores the run's peaks: no marks, yet the run stays Outdated.
     w.history(False)
@@ -2762,9 +2775,9 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
         assert after[ids[name]] == before[ids[name]]
     assert len(w.canvas.unadopted.data) == len(retained)
     assert "fitted position, not adopted" in w.canvas.legend.text()
-    # A small model-coloured □, distinct from the ◇ of a peak absent from a historical model.
+    # A small model-coloured □, distinct from the ☆ of a peak absent from a historical model.
     assert w.canvas.unadopted.opts["symbol"] == "s"
-    assert w.canvas.added_marks.opts["symbol"] == "d"
+    assert w.canvas.added_marks.opts["symbol"] == "star"
     # The peak page states it, and the review lists the pair as a measure.
     w.select_peak(ids["53N-H"])
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]

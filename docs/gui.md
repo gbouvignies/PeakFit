@@ -233,7 +233,7 @@ places the slices through its extreme, keeping the plane, the comparison mode an
 selection. A list belongs to one plane, run and threshold: another plane needs
 another request. For an Outdated run the list is that run's historical residual,
 titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
-and follow each edit, and a nearest peak added since the run is marked ◇. The list is descriptive,
+and follow each edit, and a nearest peak added since the run is marked ☆. The list is descriptive,
 captioned “Diagnostic only · residual beyond ±5 σ_stat”; the tooltip adds that it never
 adds or proposes peaks and never flags clusters, and that a signal may be left
 unmodelled on purpose.
@@ -270,7 +270,7 @@ persists through hover, planes and zoom until a double-click on the slice,
 **Default slice intensities**, a new dataset or focusing another cluster; the wheel
 over a lane sets the lane scale. A caption above the row slice appears only when
 there is something to say: the residual or lane scale, the gain, and counts of
-clipped samples, ▲ for data and △ for the model. The corner readout gives the exact
+clipped samples in words (“3 data samples clipped · 1 model sample clipped”). The corner readout gives the exact
 values at the sample, intensity and model in one power of ten (the status bar
 repeats them only when a collapsed column slice leaves no room for the readout). Drag the
 divider between a slice and the plot to resize it (below 48 px it collapses; drag
@@ -521,7 +521,8 @@ Drafts retain the accepted comparison. A committed manual scientific change mark
 the run **Outdated**; Overlay and Residual stay selectable and keep showing that
 run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
 legend, the pending label and the mode tooltips. On
-the spectrum, ◇ marks a working peak the model does not contain, and × the
+the spectrum, ☆ marks a working peak the model does not contain (legend
+“☆ not in this model”; ◇ is kept for review highlights), and × the
 model's recorded position of a peak moved or deleted since, with a dotted line to
 the peak. The cluster and peak pages still report that run's statistics as
 “Recorded by an outdated run”. The historical comparison is withdrawn, with the

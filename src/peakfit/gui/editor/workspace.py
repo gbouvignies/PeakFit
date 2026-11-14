@@ -26,7 +26,7 @@ from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.editor.spectral_geometry import SliceSizes
-from peakfit.gui.editor.spectral_view import SpectralView
+from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
     UnexplainedRegion,
@@ -1503,7 +1503,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             # The residual is the run's; distances are to today's working peaks.
             note = (
                 f"Residual of {comparison.label}. Distances are to the current working "
-                "peaks; ◇ marks a peak added since that run. " + note
+                f"peaks; {NOT_IN_MODEL} marks a peak added since that run. " + note
             )
         found_key, outcome = self._unexplained
         if found_key != key:
@@ -1542,7 +1542,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             nearest = (
                 f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
-                + (" ◇" if region.nearest in comparison.added else "")
+                + (f" {NOT_IN_MODEL}" if region.nearest in comparison.added else "")
                 if region.nearest is not None
                 else ""
             )

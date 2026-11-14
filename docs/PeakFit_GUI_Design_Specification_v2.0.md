@@ -628,7 +628,8 @@ unchanged.
   mode-button tooltips, the focus bar, and the unexplained
   list title.
 - **What changed since.** Compared with the run's adopted working peaks by stable
-  ID, a working peak the run did not fit is marked ◇ (“not in this model”); a
+  ID, a working peak the run did not fit is marked ☆ (“not in this model”, with
+  its own legend entry; ◇ means only a review highlight); a
   model peak moved or deleted since is drawn as × at its recorded position, with a
   dotted line to its working marker. The marks show only with a model on show.
 - **Compatible data only.** The run's input snapshot must match the working data:
@@ -659,7 +660,8 @@ Annotations are minimal: a zero baseline, no intensity axis, a caption only for 
 residual or lane scale, a gain or clipping counts, and exact values in a corner
 readout; the 2D ppm axes and profile axes stay quantitative. Clipped samples are
 marked at the edge, data (filled) and model (hollow) distinctly; no silent
-clipping. Slice updates extract only the native row/column and its strip over the
+clipping. The caption counts them in words (“3 data samples clipped · 1 model
+sample clipped”), never with ▲, which keeps its meaning of numerical warning. Slice updates extract only the native row/column and its strip over the
 planes. Model tails remain visible
 without silent cutoffs.
 
@@ -739,7 +741,7 @@ working peak.
   historical residual of that run, titled with it (“· Run 5d7b4768 · historical”);
   the regions are the run's, while distances are to the **current** working peaks,
   recomputed after each edit and stated in the note, and a nearest peak added since
-  the run carries ◇. Distances to working peaks are what tell the scientist whether
+  the run carries ☆. Distances to working peaks are what tell the scientist whether
   a correction already covers a region.
 
 The list never adds or proposes peaks, never flags a cluster and does not imply a
