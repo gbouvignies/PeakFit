@@ -2841,3 +2841,77 @@ def test_the_run_status_reports_a_noise_power_mismatch(workspace, scientific):
     publish(w, warned)
     assert "▲ Noise check (F2)" in w.summary.text()
     assert str(checked.power_warning) in w.summary.toolTip()
+
+
+def _with_noise_check(result, first: NoisePowerStatus):
+    """``result`` with a recorded noise-power check: ``first`` on F2, consistent on F1."""
+    axes = tuple(AxisProcessing(16, 64, "sine_bell", offset=0.4) for _ in range(2))
+    checked = NoiseModel(
+        axes=axes,
+        power_check=(
+            AxisNoisePower(first, 900, 0.6, 0.01, 9),
+            AxisNoisePower(NoisePowerStatus.CONSISTENT, 900, 1.0, 0.01),
+        ),
+    )
+    return replace(
+        result,
+        completed_fit=replace(
+            result.completed_fit, outcome=replace(result.outcome, noise_model=checked)
+        ),
+    )
+
+
+def _review_caption(grid, label: str) -> str:
+    """The caption under a review row's value, or "" when it has none."""
+    for row in range(grid.rowCount()):
+        item = grid.itemAtPosition(row, 0)
+        if item is not None and item.widget().text() == label:
+            below = grid.itemAtPosition(row + 1, 1)
+            title = grid.itemAtPosition(row + 1, 0)
+            if below is None or title is not None:
+                return ""
+            return below.widget().text()
+    raise KeyError(label)
+
+
+def test_a_noise_power_mismatch_is_shown_where_errors_are_read(workspace, scientific):
+    w = workspace
+    warned = _with_noise_check(scientific[-1], NoisePowerStatus.MISMATCH)
+    model = warned.outcome.noise_model
+    publish(w, warned)
+    # The Analysis page: a row in the warning style naming the axis, with what was
+    # found and what to do as its caption, in the wording the run-line tooltip uses.
+    rows = w.panel.run_rows
+    cell = _review_cell(rows, "Noise check")
+    assert cell.text().startswith("▲ F2")
+    assert "errors" in cell.text()
+    assert cell.objectName() == "warning"
+    caption = _review_caption(rows, "Noise check")
+    assert caption == model.power_finding
+    assert str(model.power_warning).endswith(caption[1:])
+    assert str(model.power_warning) in w.summary.toolTip()
+    assert "Check how F2 was processed" in caption
+    assert "Fitted values are not affected" in caption
+    # The peak page: a short qualifier where the profile σ is read; About explains.
+    cluster = next(c for c in warned.outcome.clusters if c.usable)
+    identities = {i.engine_name: i.working_id for i in warned.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[0]])
+    profile = w.panel.profile
+    assert "noise check ▲ F2" in profile.note.text()
+    assert str(model.power_warning) in profile.about.text()
+
+
+@pytest.mark.parametrize("status", [NoisePowerStatus.CONSISTENT, NoisePowerStatus.INCONCLUSIVE])
+def test_a_consistent_or_inconclusive_noise_check_shows_no_warning(workspace, scientific, status):
+    w = workspace
+    checked = _with_noise_check(scientific[-1], status)
+    publish(w, checked)
+    with pytest.raises(KeyError):
+        _review_cell(w.panel.run_rows, "Noise check")
+    assert "Noise check" not in w.summary.text()
+    cluster = next(c for c in checked.outcome.clusters if c.usable)
+    identities = {i.engine_name: i.working_id for i in checked.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[0]])
+    profile = w.panel.profile
+    assert "noise check" not in profile.note.text()
+    assert "Noise-power check" not in profile.about.text()
