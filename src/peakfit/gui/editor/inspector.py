@@ -39,6 +39,7 @@ from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import correlation_matrix
 from peakfit.gui.editor.setup import FitSetup
+from peakfit.gui.failures import log_path
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
@@ -411,6 +412,23 @@ class Inspector(QtWidgets.QScrollArea):
         analysis.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
         self._analysis_layout = analysis
+        # A failed attempt leads the page, above the two blocks that follow.
+        self.failure_block = QtWidgets.QWidget()
+        failure = QtWidgets.QVBoxLayout(self.failure_block)
+        failure.setContentsMargins(0, 0, 0, 0)
+        failure.setSpacing(themes.SPACE_S)
+        section(failure, "Last fit attempt")
+        self.failure_rows = QtWidgets.QGridLayout()
+        self.failure_rows.setHorizontalSpacing(themes.SPACE_S)
+        self.failure_rows.setVerticalSpacing(3)
+        failure.addLayout(self.failure_rows)
+        self.copy_details = QtWidgets.QPushButton("Copy details")
+        self.copy_details.setToolTip("Copy the stage, message and diagnostic context")
+        self.copy_details.clicked.connect(self._copy_failure_details)
+        failure.addWidget(self.copy_details, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self._failure_details = ""
+        self.failure_block.hide()
+        analysis.addWidget(self.failure_block)
         # Two blocks: the fit setup leads before the first fit, the run review after.
         self.setup_block = QtWidgets.QWidget()
         setup = QtWidgets.QVBoxLayout(self.setup_block)
@@ -567,8 +585,8 @@ class Inspector(QtWidgets.QScrollArea):
             return
         layout = self._analysis_layout
         first = self.review_block if fitted else self.setup_block
-        if layout.indexOf(first) != 0:
-            layout.insertWidget(0, first)
+        if layout.indexOf(first) != 1:  # after the failure block
+            layout.insertWidget(1, first)
         for widget in (self.unexplained_section, self.unexplained_button, self.unexplained_note):
             widget.setVisible(fitted)
         self.kind.setText("ANALYSIS")
@@ -582,6 +600,23 @@ class Inspector(QtWidgets.QScrollArea):
         _clear(self.run_rows)
         label_rows(self.run_rows, run)
         self.next_button.setVisible(warned)
+
+    def show_failure(self, rows: list[Row], details: str) -> None:
+        """Lead the analysis page with a failed attempt, or hide it with no rows.
+
+        ``details`` is the plain text **Copy details** puts on the clipboard.
+        """
+        self._failure_details = details
+        self.failure_block.setVisible(bool(rows))
+        path = log_path()
+        if rows and path is not None:
+            rows = [*rows, ("Log", str(path), "caption", "", "The traceback is in this file")]
+        _clear(self.failure_rows)
+        label_rows(self.failure_rows, rows)
+
+    def _copy_failure_details(self) -> None:
+        clipboard = QtGui.QGuiApplication.clipboard()
+        clipboard.setText(self._failure_details)
 
     def show_result(
         self,
@@ -770,7 +805,7 @@ class Inspector(QtWidgets.QScrollArea):
         self._reveal = False
 
         def scroll():  # once the reordered page has its geometry
-            if self._analysis_layout.indexOf(target) == 0:  # keep the page header in view
+            if self._analysis_layout.indexOf(target) == 1:  # keep the page header in view
                 self.verticalScrollBar().setValue(0)
                 return
             body = self.widget()

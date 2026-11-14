@@ -167,37 +167,52 @@ class NoiseModel:
         return f"Noise correlation modelled from the recorded processing ({axes})."
 
     @property
-    def power_warning(self) -> str | None:
-        """What the noise-power check found and what to do, or None when nothing was."""
-        if not self.power_check:
+    def power_mismatch(self) -> tuple[str, ...]:
+        """The labels of the axes whose noise-power check found a mismatch."""
+        return tuple(
+            get_dimension_label(i)
+            for i, check in enumerate(self.power_check)
+            if check.status is NoisePowerStatus.MISMATCH
+        )
+
+    @property
+    def power_finding(self) -> str | None:
+        """What the noise-power check found and what to do, or None when nothing was.
+
+        The one wording of the warning: ``power_warning`` titles it for reports, and
+        the GUI shows it under its own "Noise check" label.
+        """
+        if not self.power_mismatch:
             return None
         found = [
-            (
-                get_dimension_label(i),
-                f"{get_dimension_label(i)}: the late FID carries {check.late_power:.2f}× "
-                "the noise power predicted relative to the early FID"
-                + (
-                    f", as if only about {check.acquired_estimate} of the "
-                    f"{axis.acquired} recorded points were acquired and the rest "
-                    "extended, for example by linear prediction"
-                    if check.acquired_estimate is not None
-                    else ""
-                ),
+            f"{get_dimension_label(i)}: the late FID carries {check.late_power:.2f}× "
+            "the noise power predicted relative to the early FID"
+            + (
+                f", as if only about {check.acquired_estimate} of the "
+                f"{axis.acquired} recorded points were acquired and the rest "
+                "extended, for example by linear prediction"
+                if check.acquired_estimate is not None
+                else ""
             )
             for i, (axis, check) in enumerate(zip(self.axes, self.power_check, strict=True))
             if check.status is NoisePowerStatus.MISMATCH
         ]
-        if not found:
-            return None
-        labels = " and ".join(label for label, _ in found)
         return (
-            "Noise-power check: the spectrum's noise does not match its recorded "
-            f"processing. {'. '.join(text for _, text in found)}. Processing the header "
-            "does not record, such as linear prediction or an earlier window, makes the "
-            "modelled noise correlation inaccurate, so the published errors may be "
-            f"miscalibrated. Check how {labels} was processed. Fitted values are not "
+            "The spectrum's noise does not match its recorded processing. "
+            f"{'. '.join(found)}. Processing the header does not record, such as linear "
+            "prediction or an earlier window, makes the modelled noise correlation "
+            "inaccurate, so the published errors may be miscalibrated. Check how "
+            f"{' and '.join(self.power_mismatch)} was processed. Fitted values are not "
             "affected."
         )
+
+    @property
+    def power_warning(self) -> str | None:
+        """The noise-power check's finding as one report line, or None when nothing was."""
+        finding = self.power_finding
+        if finding is None:
+            return None
+        return f"Noise-power check: {finding[0].lower()}{finding[1:]}"
 
 
 def not_modelled(reason: str) -> NoiseModel:
