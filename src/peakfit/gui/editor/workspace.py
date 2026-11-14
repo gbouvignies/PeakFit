@@ -1,6 +1,7 @@
 """Three columns: navigator, spectrum and inspector, around one editing workflow."""
 
 import math
+import sys
 from collections import Counter
 from dataclasses import replace
 from threading import Event
@@ -223,7 +224,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         # place the next peak at once. Coordinate fields keep focus and show the
         # exact committed value.
         self.inspector.name.returnPressed.connect(self._focus_spectral_area)
-        self.inspector.deleted.connect(self.delete_peaks)
         self.inspector.fields_changed.connect(self._fields_changed)
         self.fitting.state_changed.connect(self.render_fitting)
         self._refresh()
@@ -683,7 +683,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.redo_action.triggered.connect(lambda: self.history(True))
         self.add_action = QtGui.QAction("Add peak", self)
         self.add_action.triggered.connect(self.start_placing)
+        # Deletion: the Delete key on the canvas or the list (shown in the Edit menu),
+        # Edit ▸ Delete selected peaks and both context menus; one Undo entry each.
         self.delete_action = QtGui.QAction("Delete selected peaks", self)
+        keys = [QtGui.QKeySequence("Delete"), QtGui.QKeySequence("Backspace")]
+        # The menu shows the first: the key labelled delete on a Mac is Backspace.
+        self.delete_action.setShortcuts(keys[::-1] if sys.platform == "darwin" else keys)
+        self.delete_action.setShortcutContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.delete_action.triggered.connect(self.delete_peaks)
         self.actions_for_menu = [
             self.undo_action,
@@ -691,13 +697,17 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.add_action,
             self.delete_action,
         ]
-        for action in self.actions_for_menu:
+        for action in self.actions_for_menu[:-1]:
             self.addAction(action)
+        # The Delete key acts only where peaks are selected, never in a text field
+        # or on an inspector control.
         for widget in (self.canvas.view, self.navigator.list):
-            for key, callback in (("Delete", self.delete_peaks), ("Backspace", self.delete_peaks)):
-                shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), widget)
-                shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
-                shortcut.activated.connect(callback)
+            widget.addAction(self.delete_action)
+        self.canvas.context_menu_requested.connect(self._peak_menu)
+        self.navigator.list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.navigator.list.customContextMenuRequested.connect(
+            lambda position: self._peak_menu(self.navigator.list.viewport().mapToGlobal(position))
+        )
         for key, callback in (("A", self.start_placing), ("Escape", self._escape)):
             shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.view)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -1231,6 +1241,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.edits.update(identity, peak.name, positions)
         self._refresh()
         self.canvas.select(identity)
+
+    def _peak_menu(self, position: QtCore.QPoint) -> None:
+        """The canvas and list context menu: what applies to the selected peaks."""
+        menu = QtWidgets.QMenu(self)
+        menu.addAction(self.delete_action)
+        menu.popup(position)
+        self._context_menu = menu
 
     def delete_peaks(self) -> None:
         """Deletion owns the selected draft; multi-delete is list-only."""

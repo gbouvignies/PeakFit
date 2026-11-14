@@ -293,13 +293,26 @@ def test_the_correlated_profile_flag_reads_alike_on_profile_tiles_and_cluster_pa
     profile = w.panel.profile
     note = profile.correlated.text()
     assert profile.correlated.isVisible()
-    assert "correlated across planes" in note
-    assert "|ρ| 0.17" in note
-    # A limit of the approximation, not a verdict on the data.
-    assert "not of the data" in note
-    assert "independent" in note
-    assert all(word not in note.lower() for word in ("discard", "bad", "unreliable"))
-    assert "intensity_err" in profile.correlated.toolTip()  # the full meaning on hover
+    # One plain sentence naming the flagged members, selected peak first: the bars
+    # do not show the covariance between planes. It never says σ is understated.
+    names = {i.engine_name: i.assignment for i in result.inputs.identities}
+    first, second = names[pair.peak_names[0]], names[pair.peak_names[1]]
+    assert note == (
+        f"Errors of {first} and {second} are correlated across planes; "
+        "error bars alone do not show this covariance."
+    )
+    assert all(
+        word not in note.lower()
+        for word in ("understat", "underestimat", "too small", "discard", "bad", "unreliable")
+    )
+    # The findings and the downstream consequence stay one step away.
+    assert "|ρ| 0.17" in profile.correlated.toolTip()
+    assert "intensity_err" in profile.correlated.toolTip()
+    profile.about_toggle.setChecked(True)
+    about = profile.about.text()
+    assert "intensity_err" in about
+    assert "downstream" in about.lower()
+    assert "not of the data" in about
     assert profile.legend.text().count("↔") == 2  # both members carry the mark
     show_profiles(w)
     assert "↔ errors correlated across planes" in _tile_text(w, member)

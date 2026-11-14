@@ -1393,3 +1393,21 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Shown, not hidden.** The failure section of the analysis page shows the path,
   and **Copy details** includes it. If the file cannot be created, PeakFit starts
   anyway and logs to the terminal only.
+
+## 2026-11-14: Peak page brings fitted values into view (#189)
+- **Review cluster › in the header.** It sits beside the peak's name, under the
+  cluster size, instead of on a row of its own above the editor.
+- **No Delete peak button.** Deletion is the Delete key (Backspace on a Mac
+  keyboard) on the spectrum or the Peaks list, **Edit → Delete selected peaks**,
+  which now shows the key, and a context menu on the spectrum and the list (new:
+  the specification already treated context menus as shortcuts to menu commands).
+  Each is one Undo entry without confirmation. Right-clicking a marker selects it
+  first, so the menu never acts on a peak other than the one under the pointer.
+  The key is bound only to the spectrum and the list, never to inspector controls.
+- **Correlated-profile caption in one sentence.** “Errors of 53N-H and 147N-H are
+  correlated across planes; error bars alone do not show this covariance.” It
+  names the flagged members and makes no claim about the size of any σ: the
+  marginal and profile σ are correct as recorded; what independent bars cannot
+  carry is the covariance between planes. The diagnostic found is in the tooltip;
+  the consequence for downstream fits that treat `intensity_err` as independent
+  moved to **About these error bars**.

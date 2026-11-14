@@ -117,7 +117,9 @@ The inspector shows one page, chosen by selection and never by hover:
   the working settings, the active run's summary, warning counts and changes from
   its parent run. Reachable at any time by clearing selection (Escape on the canvas),
   from the toolbar settings summary or from Analysis → Fit settings.
-- **Peak:** identity and working-position editor (group commit, §5); an expandable
+- **Peak:** a header with the cluster size, the identity and **Review cluster ›**
+  on the identity's line; the working-position editor (group commit, §5), with no
+  Delete button (the Delete key, Edit menu and context menus delete); an expandable
   Parameters section with working starts, bounds and fixed/vary flags; accepted
   values of the active run with value, σ and unit, labeled by run; the review items
   of its cluster; and the amplitude profile with the other cluster members.
@@ -382,7 +384,7 @@ losing the sole result. Closing unsaved work retains the normal save guard.
 | Full spectrum | Reset ppm ranges only; retain plane, selection and pin. No ambiguous “Reset” that restores scientific inputs. |
 | Pin slices / canvas Space | Toggle preview/pinned. Resuming preview keeps selection and editor contents. Space in text inputs remains ordinary input. |
 | Add peak / canvas A | One-shot placement cursor; next click places a working peak with a unique placeholder name and selects it. Escape cancels without history. No automatic peak picking. |
-| Delete/Backspace in canvas/list | Delete selected peak, one undo entry, no routine confirmation; text fields keep normal text deletion. Multi-selection for deletion is list-only with native modifier keys and a visible count. |
+| Delete/Backspace in canvas/list, Edit → Delete selected peaks, canvas/list context menu | Delete selected peak, one undo entry, no routine confirmation; text fields keep normal text deletion. The Edit menu shows the key. Right-clicking a marker selects it before the menu opens. Multi-selection for deletion is list-only with native modifier keys and a visible count. |
 | Double-click marker, or Enter on a Peaks row | Focus the coordinate editor, revealing the inspector explicitly if hidden. |
 | Enter or double-click on a Clusters row | Focus that cluster; Escape returns to the overview exactly as it was. |
 
