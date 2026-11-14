@@ -497,8 +497,9 @@ was not assessed; runs with one plane show no flag. Where the run models the
 processed noise correlation the errors are sandwich errors; otherwise they assume
 independent points. The note beside the plot says so in a few words (“±1 profile
 σ · noise correlation modelled”), followed by “noise check ▲ F2”, naming the axes,
-when the run's noise-power check found a mismatch, and with any points off scale, by
-plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
+when the run's noise-power check found a mismatch, then any points off scale, by
+plane, and whether the current plane is one of them, in the same note, which wraps
+only between phrases; χ²ᵣ is with the cluster's measures; **About these
 error bars** below it gives the noise model and the noise-power finding in full. The inspector's provenance states it once for the
 run.
 

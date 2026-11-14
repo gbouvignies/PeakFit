@@ -111,9 +111,8 @@ def correlated_note(series: Sequence[ProfileSeries]) -> tuple[str, str]:
         return text, ""
     if not selected.flagged:
         return "", ""
-    members = [s for s in series if s.flagged and s.identifiability.determined]
-    if selected not in members:
-        members.insert(0, selected)
+    # The selected peak first, then the other flagged members the legend shows.
+    members = [selected] + [s for s in series[1:] if s.flagged and s.identifiability.determined]
     note = (
         f"Errors of {_names([s.assignment for s in members])} are correlated across planes; "
         "error bars alone do not show this covariance."
@@ -890,7 +889,7 @@ class ProfilePlot(QtWidgets.QWidget):
             self.plane_line.setValue(float(profile.x[columns[0]]))
         off = bool(self._hidden_text) and columns.size > 0 and not shown
         # The qualifiers that change what a bar means, in a few words (About has the
-        # full explanation); what is unusual about the data on the next line. χ²ᵣ is
+        # full explanation); then what is unusual about the data. χ²ᵣ is
         # with the cluster's measures.
         noise = "modelled" if profile.noise_model.modelled else "not modelled"
         # The run's noise-power check found processing the modelled correlation
@@ -914,8 +913,9 @@ class ProfilePlot(QtWidgets.QWidget):
             for part in (self._hidden_text, "current plane is off scale" if off else "")
             if part
         ]
-        # Wraps only between phrases, so no qualifier is split across lines.
-        self.note.setText(phrases((*quantity.split(" · "), extra), tuple(states)))
+        # One paragraph: what the bars are, then what is off scale. It wraps only
+        # between phrases, so no qualifier is split across lines.
+        self.note.setText(phrases((*quantity.split(" · "), extra, *states)))
         # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
         if shown is None:
             quantity_text = (

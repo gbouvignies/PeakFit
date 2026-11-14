@@ -15,6 +15,7 @@ from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import workspace as workspace_module
+from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, peak_profile
 from peakfit.gui.editor.profiles_view import (
     TILE_ASPECT,
     TILE_MAX_WIDTH,
@@ -550,3 +551,24 @@ def test_short_series_tiles_carry_every_plane(build, planes):
         assert tile.profile is not None
         assert tile.profile.x.size == planes
         assert all(s.amplitudes.size == planes for s in tile.profile.series)
+
+
+def test_what_the_bars_are_and_what_is_off_scale_share_one_note(qapp):
+    _spectra, _peaks, _config, prepared = cpmg_like_dataset()
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    peak = result.inputs.identities[0].working_id
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    # The first plane lies far from the rest, so it is framed out; it is the current one.
+    x = np.concatenate(([-12000.0], np.arange(shown.x.size - 1) * 25.0))
+    panel = ProfilePlot()
+    panel.show()
+    panel.show_profile(replace(shown, x=x), int(shown.source_planes[0]))
+    qapp.processEvents()
+    note = panel.note.text()
+    assert "±1 profile σ" in note
+    assert "1 point off scale" in note
+    assert "current plane is off scale" in note
+    # One paragraph that wraps only between phrases, not a line for each kind.
+    assert "<br>" not in note
+    panel.close()
