@@ -485,16 +485,18 @@ class FocusRing(QtCore.QObject):
             or new.property(OWN_FOCUS_FRAME)
         ):
             return
-        self.target = new
         host = self._host(new)
+        ring.color = self.color
+        # Reparent before watching anything: a move during the reparent must not
+        # place and raise the ring mid-reparent (a native crash on macOS).
+        ring.setParent(host)
+        self.target = new
         # The target and its ancestors below the host: any of them moving moves the ring.
         widget: QtWidgets.QWidget | None = new
         while widget is not None and widget is not host:
             widget.installEventFilter(self)
             self.watched.append(widget)
             widget = widget.parentWidget()
-        ring.color = self.color
-        ring.setParent(host)
         self._place()
 
     def _rect(self, target: QtWidgets.QWidget, host: QtWidgets.QWidget) -> QtCore.QRect:

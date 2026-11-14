@@ -208,3 +208,57 @@ def test_focused_checkbox_keeps_its_outline_and_gets_the_shared_ring(qapp, theme
         for y in range(area.top(), area.bottom() + 1)
     ) >= 1.5 * _perimeter(box)
     host.close()
+
+
+class _Shifting(QtWidgets.QWidget):
+    """A container that moves its control when a child arrives, as a native relayout can."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.armed = False
+        self.control = QtWidgets.QPushButton("Control", self)
+        self.control.move(20, 20)
+        self.armed = True
+
+    def childEvent(self, event) -> None:  # noqa: N802
+        if self.armed and event.type() == QtCore.QEvent.Type.ChildAdded:
+            self.control.move(self.control.x() + 1, self.control.y())
+        super().childEvent(event)
+
+
+class _Events(QtCore.QObject):
+    def __init__(self) -> None:
+        super().__init__()
+        self.kinds: list[QtCore.QEvent.Type] = []
+
+    def eventFilter(self, _watched, event) -> bool:  # noqa: N802
+        self.kinds.append(event.type())
+        return False
+
+
+def test_ring_is_not_placed_while_it_is_being_reparented(qapp):
+    # Native macOS crashed when a move during the ring's reparent placed and raised
+    # the ring before the reparent finished (Tab out of the inspector).
+    host = QtWidgets.QWidget()
+    inner = _Shifting()
+    QtWidgets.QVBoxLayout(host).addWidget(inner)
+    themes.apply(host, themes.LIGHT)
+    host.resize(200, 120)
+    host.show()
+    host.activateWindow()
+    ring = themes.FocusRing.install(qapp, themes.LIGHT)._painter()
+    events = _Events()
+    ring.installEventFilter(events)
+    _focus(inner.control)
+    qapp.processEvents()
+    kinds = events.kinds
+    reparented = kinds.index(QtCore.QEvent.Type.ParentChange)
+    early = {QtCore.QEvent.Type.ZOrderChange, QtCore.QEvent.Type.Move, QtCore.QEvent.Type.Show}
+    assert not early & set(kinds[:reparented])
+    # Once reparented, the ring still lands on the control where it moved to.
+    host_of_ring = ring.parentWidget()
+    assert host_of_ring is not None
+    origin = inner.control.mapTo(host_of_ring, QtCore.QPoint(0, 0))
+    assert ring.geometry().contains(QtCore.QRect(origin, inner.control.size()))
+    ring.removeEventFilter(events)
+    host.close()
