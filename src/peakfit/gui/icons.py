@@ -48,7 +48,7 @@ def _pixmap(name: str, color: str, size: int, ratio: float) -> QtGui.QPixmap:
 
 
 def icon(name: str, theme: Theme, size: int = 18) -> QtGui.QIcon:
-    """Secondary tint at rest, accent when checked, faint when disabled."""
+    """Secondary tint at rest, accent when checked, the disabled role when unavailable."""
     ratio = 2.0
     result = QtGui.QIcon()
     for mode, state, value in (
@@ -56,8 +56,8 @@ def icon(name: str, theme: Theme, size: int = 18) -> QtGui.QIcon:
         (QtGui.QIcon.Mode.Active, QtGui.QIcon.State.Off, theme.text),
         (QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.On, theme.accent),
         (QtGui.QIcon.Mode.Active, QtGui.QIcon.State.On, theme.accent),
-        (QtGui.QIcon.Mode.Disabled, QtGui.QIcon.State.Off, theme.faint),
-        (QtGui.QIcon.Mode.Disabled, QtGui.QIcon.State.On, theme.faint),
+        (QtGui.QIcon.Mode.Disabled, QtGui.QIcon.State.Off, theme.disabled),
+        (QtGui.QIcon.Mode.Disabled, QtGui.QIcon.State.On, theme.disabled),
     ):
         result.addPixmap(_pixmap(name, value, size, ratio), mode, state)
     return result
