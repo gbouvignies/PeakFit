@@ -218,9 +218,9 @@ class Navigator(QtWidgets.QWidget):
         header = self.tree.header()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for column, width in ((0, 24), (2, 26), (3, 48), (4, 52), (5, 42)):
+        for column in (0, 2, 3, 4, 5):
             header.setSectionResizeMode(column, QtWidgets.QHeaderView.ResizeMode.Fixed)
-            self.tree.setColumnWidth(column, width)
+        self._fit_columns()
         for column in (2, 3, 4, 5):
             self.tree.headerItem().setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
@@ -543,6 +543,25 @@ class Navigator(QtWidgets.QWidget):
         target = self._selected if self._selected in members else item.data(1, _ID)
         if target:
             self.focus_requested.emit(target)
+
+    def _fit_columns(self) -> None:
+        """Numeric columns hold their header beside the sort indicator, never under it."""
+        header = self.tree.header()
+        style = header.style()
+        room = style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_HeaderMarkSize) + 3 * (
+            style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_HeaderMargin)
+        )
+        metrics = QtGui.QFontMetrics(header.font())
+        for column, width in ((0, 24), (2, 26), (3, 48), (4, 52), (5, 42)):
+            label = self.tree.headerItem().text(column)
+            needed = metrics.horizontalAdvance(label) + room if label else 0
+            self.tree.setColumnWidth(column, max(width, needed))
+
+    def changeEvent(self, event) -> None:  # noqa: N802
+        """Refit the numeric columns when the font or style changes."""
+        super().changeEvent(event)
+        if event.type() in (QtCore.QEvent.Type.FontChange, QtCore.QEvent.Type.StyleChange):
+            self._fit_columns()
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """Clear row hover on leave; Enter explicitly opens precise editing."""

@@ -96,7 +96,9 @@ def test_profiles_follow_the_run_navigator_order_and_selection(workspace, scient
 
     # Choosing a tile selects its cluster; a selection elsewhere marks its tile.
     last = len(w.profiles.tile_ids()) - 1
-    w.profiles.list.setCurrentIndex(w.profiles.model.index(last))
+    point = w.profiles.list.visualRect(w.profiles.model.index(last)).center()
+    viewport = w.profiles.list.viewport()
+    QtTest.QTest.mouseClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=point)
     assert w.selected_id in w.profiles.tile_ids()[last]
     assert w.panel.cluster_view
     other = w.profiles.tile_ids()[0][0]
@@ -338,3 +340,67 @@ def test_withheld_lineshape_factors_leave_the_profile_not_assessed(workspace, sc
     assert "correlation across planes not assessed" in _tile_text(w, member)
     w.select_peak(member, cluster=True)
     assert _review_value(w.panel.cluster_page, "Profile errors").text() == "not assessed"
+
+
+def _activate(w):
+    """Make the workspace the active window, so focus changes deliver focus events."""
+    w.activateWindow()
+    assert QtTest.QTest.qWaitForWindowActive(w)
+
+
+def test_showing_profiles_keeps_the_selected_peak_both_ways(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    _activate(w)
+    # A member of the last cluster, so the first tile can never be mistaken for it.
+    last = [r.ids for r in w.navigator.shown_reviews()][-1]
+    chosen = last[-1]
+    w.select_peak(chosen)
+    assert w.selected_id == chosen
+
+    show_profiles(w)
+    wait_until(lambda: w.profiles.list.hasFocus())
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id == chosen
+    current = w.profiles.list.currentIndex()
+    assert current.isValid()
+    assert chosen in w.profiles.tile_ids()[current.row()]
+    assert w.profiles.list.selectionModel().isSelected(current)
+
+    w.show_view(profiles=False)
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id == chosen
+    show_profiles(w)  # a second opening reuses the built tiles
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id == chosen
+
+
+def test_showing_profiles_with_nothing_selected_selects_nothing(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    _activate(w)
+    w.select_peak(None)
+    show_profiles(w)
+    wait_until(lambda: w.profiles.list.hasFocus())
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id is None
+    assert not w.profiles.list.selectionModel().hasSelection()
+
+
+def test_keys_and_clicks_on_tiles_still_choose_a_cluster(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    _activate(w)
+    show_profiles(w)
+    wait_until(lambda: w.profiles.list.hasFocus())
+    tiles = w.profiles.tile_ids()
+    assert len(tiles) >= 2
+    viewport = w.profiles.list.viewport()
+    point = w.profiles.list.visualRect(w.profiles.model.index(1)).center()
+    QtTest.QTest.mouseClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=point)
+    assert w.selected_id in tiles[1]
+    assert w.panel.cluster_view
+    QtTest.QTest.keyClick(w.profiles.list, QtCore.Qt.Key.Key_Left)
+    assert w.selected_id in tiles[0]
+    QtTest.QTest.keyClick(w.profiles.list, QtCore.Qt.Key.Key_Right)
+    assert w.selected_id in tiles[1]
