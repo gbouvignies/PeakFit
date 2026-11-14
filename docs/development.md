@@ -143,6 +143,25 @@ The desktop application keeps the Qt event loop free of scientific and disk work
 Measured latencies are local evidence, not portable guarantees; native
 measurements and screenshots are recorded under `docs/validation/`.
 
+### GUI acceptance captures
+
+`uv run python tools/validate_gui_layout.py --output <dir>` drives the real window
+on the bundled `02-advanced-fitting` dataset and writes WebP captures and
+`measurements.json` to `<dir>`, which must lie outside the repository. States: fit
+setup before the fit, a failed first fit, then after a real two-pass fit the
+overview, the noise-check text when present, the peak pages of 158EN-H, 53N-H and
+22N-H, the cluster page and cluster focus (Overlay, Residual) of 22N-H, and the
+Profiles view (raw, normalized to plane 1). `--sizes 1280x800 1440x900` and
+`--appearance Light Dark` choose the matrix (defaults: 1280×800, 1440×900,
+1160×720, both appearances). Each capture records platform, Qt platform plugin,
+logical window size and device-pixel ratio (`1280×800 logical @ DPR 2.0`), plus its
+measurements in Qt logical pixels: 2D plot, slice and lane sizes; inspector
+viewport height and the Fitted table's top and bottom (inspector content
+coordinates, the bottom of its last value row); Profiles columns and tile size.
+The report also gives the theme's text/surface and control-border/surface contrast
+ratios. Run it on a desktop; offscreen captures are not native acceptance evidence.
+Its measurements are tested in `tests/test_gui_layout_validation.py`.
+
 ## Whole-dataset desktop fitting and review
 
 The GUI runs `run_pipeline_iter` in its existing disposable-process bridge, with a
