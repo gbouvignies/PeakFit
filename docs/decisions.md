@@ -139,8 +139,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - It is shown only on the data the run recorded: spectral axes, source plane
   indices, plane values and the spectrum's identity, shape and source files must
   match the run's input snapshot. Otherwise it is withdrawn with the reason.
-- Working peaks are compared with the run's adopted working peaks by stable ID: ◇
-  marks a peak the model does not contain; × the model's position of a peak moved or
+- Working peaks are compared with the run's adopted working peaks by stable ID: ☆
+  (◇ until 2026-11-14) marks a peak the model does not contain; × the model's position of a peak moved or
   deleted since, so a residual centred on the old position is read correctly.
 - The unexplained list keeps the run's regions but measures distances to the
   current working peaks, recomputed after every edit and said in its note: the
@@ -1361,3 +1361,15 @@ Short records of non‑obvious design choices and trade‑offs.
   gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.
+
+## 2026-11-14: One meaning per review glyph (#188)
+- ◇ means only a review highlight (navigator, cluster page, tiles, run changes).
+  A working peak a historical model does not contain was also marked ◇ (spectrum,
+  legend, unexplained list, its note); it is now ☆, drawn as a hollow star in the
+  warning colour with its own legend entry “☆ not in this model”. A star is
+  distinct in shape from every other spectrum mark (+ peak, □ unadopted, × recorded
+  position, ◇ highlight) and renders in the system fonts.
+- ▲ means only a numerical warning. The slice caption counted clipped samples as
+  “▲ 3 clipped · △ 1 model clipped”; it now says “3 data samples clipped · 1 model
+  sample clipped”. The edge marks themselves (filled for data, hollow for model)
+  are unchanged.
