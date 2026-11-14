@@ -420,23 +420,33 @@ In the pairs, the partner peak decays at 0.2 instead of 1.0.
 
 Any series (T1, T2, CPMG, CEST) may contain *duplicate planes*: planes whose recorded
 plane values are exactly equal. `peakfit replicates <run>` checks the published
-covariance against them, and runs the baseline method of §5.1 only where there are
+conditional σ against them, and runs the baseline method of §5.1 only where there are
 none or with `--baseline` (`engine.scientific.replicates`). It reads the run without
 refitting and changes no error.
 
 - **Matching:** exact equality of the recorded plane values; no tolerance and no
   manual pairing. A run without repeats reports "no duplicate planes".
 - **Statistic, per peak:** for groups of m_g copies, all k = Σ_g (m_g − 1)
-  orthonormal within-group contrasts C are stacked and whitened jointly by their
-  covariance CΣCᵀ, Σ being the peak's covariance between planes reconstructed from
-  the covariance factors (§3.1):
-  q = (Ca)ᵀ(CΣCᵀ)⁻¹(Ca), with E[q] = k at first order.
-  - Joint whitening removes the correlation between groups that shared parameters
-    introduce.
-  - q depends neither on the contrast basis nor on the plane order. Individual
-    whitened coordinates do, so none is reported.
-- **Result:** the pooled RMS √(Σq / Σk), 1 when the uncertainty of contrasts is
-  calibrated, separately for peaks without and with the correlated-profile flag
+  orthonormal within-group contrasts C are stacked and standardized by the peak's
+  conditional variance c_ll, the diagonal of σ²MRMᵀ (§3.1):
+  q = |Ca_l|²/c_ll, with E[q] = k at first order.
+  - **Why the conditional variance.** In the covariance of §3.1, every lineshape
+    term enters through G_s = M D_s and T_s, linear in the cluster's amplitudes on
+    plane s. True copies have equal true amplitudes, so the orthonormal contrasts
+    annihilate those terms exactly and the true contrast covariance is c_ll·I:
+    no lineshape term, no correlation between groups through shared parameters.
+    Built from the fitted amplitudes instead, CΣCᵀ brings those terms back driven
+    by noise, along the observed contrast d itself: V ≈ c_ll(I + βddᵀ/c_ll), so
+    dᵀV⁻¹d = x/(1 + βx) with x = |d|²/c_ll, biased low by about β(k + 2). That was
+    the statistic of the first implementation, and its bias explains the shortfall
+    T8 resolved in it (§8.2).
+  - q depends neither on the contrast basis nor on the plane order.
+- **What it validates:** the conditional σ only, the noise part of the published
+  uncertainty. It is blind to the lineshape-parameter part of the marginal and
+  profile σ, which cancels between copies at first order: a miscalibration of that
+  part goes undetected.
+- **Result:** the pooled RMS √(Σq / Σk), 1 when the conditional σ is calibrated,
+  separately for peaks without and with the correlated-profile flag
   (§6), with each pool's counts of contrasts, peaks and clusters.
   - Contrasts from peaks of one cluster are correlated, so the effective sample is
     smaller than the count and the result is descriptive.
@@ -444,14 +454,29 @@ refitting and changes no error.
     exceeds 0.1; it is a lower bound on the sampling uncertainty of the RMS.
   - No robust companion, confidence interval or signed statistic: PeakFit does not
     know the acquisition order.
-- **Exclusions,** each listed with its reason, nothing regularized: unusable
-  clusters; withheld covariance factors; a contrast covariance that is not positive
-  definite or has a direction weaker than √ε of the largest. That is the codebase's
-  weak-direction convention s ≤ √ε·s₁ (`varpro`, `sampling`, `identifiability`)
-  applied to the singular values of the matrix inverted, here the eigenvalues of
-  CΣCᵀ: equivalently cond(CΣCᵀ) ≥ 1/√ε, the test `evaluation` applies to the shapes.
+- **Exclusions,** each listed with its reason, nothing regularized:
+  - an unusable cluster;
+  - a non-finite amplitude on any plane of the peak;
+  - a conditional variance withheld or not positive. The fit publishes the
+    conditional covariance only where the shapes are full rank with
+    s_min > √ε·s_max (`linear_algebra.factorize_shapes`), and otherwise withholds
+    all of it as NaN: a coincident pair is excluded this way. A published
+    conditional is computed from the SVD without squaring the condition number, so
+    it is numerically accurate whenever finite; no further threshold applies.
+  - Withheld lineshape factors do not exclude a peak: q does not use them.
+  - **Open: finite but beyond the first order.** Numerical accuracy is not first-order
+    validity. A truly coincident pair that the fit separates has a finite
+    conditional, but its contrasts exceed c_ll by 50–90% (§8.2); near coalescence
+    the first order weakens, as for every σ (§8.1). Where its lineshape factors are
+    also withheld, its flag is not assessed and it joins the unflagged pool.
+    Proposed rule, not adopted: a peak whose lineshape factors are withheld is
+    excluded ("lineshape parameters not identifiable"). It reuses the fit's own
+    identifiability rule, with no new threshold, and in T8 it would have removed
+    797 of the 882 realizations that put the coincident pair in the unflagged pool.
 - **Limits:**
   - repeatability, not accuracy: an error common to the copies is invisible;
+  - the conditional σ only: the lineshape-parameter part of the marginal and
+    profile σ cancels between copies;
   - contrasts, not marginal σ: a scale uncertainty shared by the copies cancels;
   - raw amplitudes, not normalized profiles directly;
   - equal plane values do not prove independent, equivalent acquisitions;
@@ -599,7 +624,7 @@ In every row, the bias is at most 0.06 SD.
 | T5 | The noise-power check: LP, an earlier window and `SP -size` (`correlated-noise.md` §2.5) on NMRPipe-processed noise | Detects each case; no false alarm on correctly recorded processing |
 | T6 | The estimator comparison (§2), rerunnable | Reproduces §2 and §5 |
 | T7 | Known truth through real processing: synthetic pseudo-3D FIDs (isolated and overlapping peaks, differing profiles) processed by NMRPipe with and without LP, fitted by OLS and GLS | Bias and scatter of relative intensities and downstream rates; separates lineshape, LP-extrapolation and LP-noise effects |
-| T8 | The duplicate-plane check (§5.3): duplicates through the exact processing operators and the engine fit, two and three copies, isolated and overlapping peaks, a shared parameter, exclusions; the contrast covariance from the factors against its Monte Carlo value; unmodelled correlation between copies, recorded (§8.2) | Mean q/k over realizations within ±3 SE of 1, SE from the realizations; contrast variances within ±3 SE |
+| T8 | The duplicate-plane check (§5.3): duplicates through the exact processing operators and the engine fit, two and three copies, isolated and overlapping peaks, a shared parameter, exclusions; the stated contrast covariance c_ll·I against its Monte Carlo value; unmodelled correlation between copies, recorded (§8.2) | Mean q/k over realizations within ±3 SE of 1, SE from the realizations; contrast variances within ±3 SE of c_ll |
 
 ### 8.1 T3: coverage and the correlated-profile thresholds
 
@@ -718,8 +743,9 @@ derived from its fit, as `peakfit replicates` reads a run.
 
 **Criterion.** The mean of q/k = Σq/Σk over realizations within ±3 SE of 1, the SE
 from the realizations' spread; and, the analytical check, each contrast's Monte
-Carlo variance against the CΣCᵀ the factors state (averaged over realizations)
-within ±3 SE, SE √(2/(N − 1)). A gated case passes only if both hold: the gate is
+Carlo variance against the c_ll the check states (averaged over realizations)
+within ±3 SE, SE √(2/(N − 1)), with the off-diagonal covariances recorded against
+0. A gated case passes only if both hold: the gate is
 stricter than the criterion of spec #172, which asks for the mean q/k alone.
 
 **Confirmation protocol (fixed 2026-11-14, before the run).** The first record
@@ -739,62 +765,76 @@ or changing the criterion:
   miscalibration if the replication deviates beyond 3 SE in the same direction as
   the first record.
 
+**Statistic change (2026-11-14).** The first implementation standardized each
+peak's contrasts by CΣCᵀ built from the fitted amplitudes; §5.3 explains why that
+biased q low and why q = |Ca_l|²/c_ll replaced it. The protocol above was re-applied
+unchanged (same cases, seeds, N, gate and diagnostics) after the statistic change on
+2026-11-14. The table is that record.
+
 **Gate: passed** on all 40,000 realizations of every gated case. The
 replication is blocks 2–10 alone (36,000 realizations); the block χ² has 9 degrees
-of freedom.
+of freedom. The worst contrast variance is against c_ll.
 
 | Case | Pool | Mean q/k | SE | Deviation | Replication | Block χ² (p) | Contrast variances, worst |
 |---|---|---|---|---|---|---|---|
-| `sp2`, isolated, two copies | all | 0.988 | 0.005 | −2.5 SE | 0.991, −1.7 SE | 20.3 (0.02) | 2.3 SE |
-| `sp2`, isolated, three copies | all | 0.998 | 0.004 | −0.6 SE | 0.998, −0.5 SE | 4.4 (0.88) | 2.1 SE |
-| `sp1`, isolated, two copies | all | 1.005 | 0.005 | +1.0 SE | 1.006, +1.1 SE | 9.0 (0.44) | 2.0 SE |
-| `no_apod`, isolated, two copies | all | 1.002 | 0.005 | +0.4 SE | 1.002, +0.4 SE | 6.5 (0.68) | 1.4 SE |
-| `sp2`, pair 3 points, two copies | all | 0.997 | 0.004 | −0.9 SE | 0.996, −1.1 SE | 3.3 (0.95) | 1.5 SE |
-| `sp2`, pair 3 points, three copies | all | 0.994 | 0.003 | −2.3 SE | 0.995, −2.0 SE | 3.6 (0.94) | 1.8 SE |
-| `sp2`, pair 3 points, shared phase, three copies | all | 0.994 | 0.003 | −2.6 SE | 0.994, −2.5 SE | 10.0 (0.35) | 1.4 SE |
-| `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.001 | 0.004 | +0.2 SE | 0.999, −0.2 SE | 9.4 (0.40) | 1.4 SE |
-| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 0.992 | 0.005 | −1.7 SE | 0.989, −2.1 SE | 8.7 (0.47) | 2.3 SE |
+| `sp2`, isolated, two copies | all | 0.989 | 0.005 | −2.2 SE | 0.993, −1.3 SE | 20.3 (0.02) | 2.2 SE |
+| `sp2`, isolated, three copies | all | 1.001 | 0.004 | +0.2 SE | 1.001, +0.3 SE | 4.4 (0.88) | 2.1 SE |
+| `sp1`, isolated, two copies | all | 1.007 | 0.005 | +1.3 SE | 1.008, +1.5 SE | 9.0 (0.44) | 2.0 SE |
+| `no_apod`, isolated, two copies | all | 1.003 | 0.005 | +0.7 SE | 1.003, +0.6 SE | 6.5 (0.68) | 1.4 SE |
+| `sp2`, pair 3 points, two copies | all | 1.000 | 0.004 | +0.1 SE | 0.999, −0.2 SE | 3.3 (0.95) | 1.5 SE |
+| `sp2`, pair 3 points, three copies | all | 1.000 | 0.003 | −0.1 SE | 1.000, +0.0 SE | 3.6 (0.94) | 1.7 SE |
+| `sp2`, pair 3 points, shared phase, three copies | all | 1.000 | 0.003 | +0.2 SE | 1.000, +0.1 SE | 9.9 (0.36) | 1.3 SE |
+| `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.009 | 0.004 | +2.4 SE | 1.007, +1.8 SE | 9.4 (0.40) | 1.8 SE |
+| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 1.001 | 0.005 | +0.3 SE | 0.999, −0.2 SE | 9.3 (0.41) | 2.3 SE |
 
+- **The shortfall is gone.** The first implementation's record (the previous
+  version of `duplicate_check.json`) left six of the seven `sp2` gated cases below 1, an inverse-variance weighted mean q/k of 0.995 ± 0.0013
+  (−4.0 SE). Its mechanism is the bias of §5.3: the lineshape terms of CΣCᵀ,
+  evaluated at the fitted amplitudes, return along the observed contrast and lower
+  q by about β(k + 2), most where the lineshape term is largest (the pairs and the
+  shared phase, −2.3 to −2.6 SE in that record). With q = |Ca_l|²/c_ll the same
+  seven cases give 1.0005 ± 0.0013 (+0.4 SE), and the pairs and the shared phase lie
+  within 0.2 SE of 1; the `sp1` and `no_apod` cases give 1.005 ± 0.004.
 - **The edge case: sampling variability, by the protocol's rule.** `sp2`, isolated,
-  two copies passes on all 40,000 (−2.5 SE); its independent replication passes
-  (−1.7 SE); its blocks are consistent (p = 0.02 > 0.01). The first record is
-  block 1, at −3.0 SE; the other nine lie between −2.5 and +1.3 SE. The block χ² is
-  the largest of the gated cases and the margin over the rule is small.
-- **A small conservative shortfall in the `sp2` cases (post hoc, not part of the
-  protocol).** At this resolution, six of the seven `sp2` gated cases lie below 1.
-  Their inverse-variance weighted mean q/k is 0.995 ± 0.0013 (−4.0 SE); the `sp1`
-  and `no_apod` cases give 1.004 ± 0.004. The stated contrast covariance is then
-  about 0.5% larger than the observed one: the RMS is about 0.997 and the stated
-  contrast σ is about 0.25% too large, on the conservative side. It is small
-  against the sampling uncertainty of the RMS on a real dataset, at least
-  1/√(2n) for n contrasts (0.022 even at n = 1,000), and every case passes on its
-  own; but it is a resolved effect, not noise. Its mechanism was not established;
-  §8.1 found no shortfall of this size in T3's marginal and profile σ.
-- **Exclusions,** end to end: the coincident pair's factors were withheld in 36,804
-  of 40,000 realizations; its contrast covariance was not positive definite in 300
-  and had a direction weaker than √ε in 176. Each was listed with its reason, and the
-  pool of the remaining peaks passed the gate. The fourth reason, an unusable
-  cluster, has no end-to-end case (the fits start at the truth and succeed): it is
+  two copies passes on all 40,000 (−2.2 SE); its replication passes (−1.3 SE); its
+  blocks are consistent (p = 0.02 > 0.01). Block 1, the first 4,000-realization
+  record, is at −2.9 SE; the other nine lie between −2.4 and +1.4 SE. For an
+  isolated peak the old bias was smallest, so the case barely moved.
+- **Exclusions,** end to end: the coincident pair's conditional covariance was
+  withheld (the shapes too ill-conditioned) in 36,007 of 40,000 realizations, and
+  its peaks were listed as such; no other reason occurred. In the other 3,993 the
+  pair fitted apart, the fit published a finite conditional covariance, and its
+  peaks were pooled: in the flagged pool in 3,165 realizations (6,276 peaks, pooled
+  q/k 1.91) and in the unflagged pool in 882 (1,710 peaks, pooled q/k 1.51). In 797
+  realizations the pair was pooled with its lineshape factors withheld, so its flag
+  was not assessed and the peaks counted as unflagged. The first implementation
+  excluded those 797 as "covariance factors withheld" and 476 more for its
+  contrast covariance, and pooled the pair in 2,720 realizations. The gated
+  unflagged pool, isolated peak and pooled pair together, still passes (+0.3 SE),
+  but a coincident pair fitted apart is beyond the first order: its contrasts
+  exceed c_ll by about 50% in the unflagged pool and 90% in the flagged one. The unusable-cluster and non-finite-amplitude reasons
+  have no end-to-end case (the fits start at the truth and succeed): they are
   covered by the tests of `tests/test_duplicate_planes.py` only.
-- **The flagged pool** passes too: the check uses each peak's full covariance between
-  planes, which the flag does not concern.
-- **Off-diagonal contrast covariances** agree with the stated ones to within 0.014
-  of the variances in every gated case.
+- **The flagged pool** passes too: the conditional variance does not depend on the
+  flag.
+- **Off-diagonal contrast covariances** agree with 0, as c_ll·I states, to within
+  0.014 of the variances in every gated case.
 
 **Recorded, not gated.**
-- **Near-coalescent pair** (`sp2`, 1 point apart, flagged): mean q/k 1.001 ± 0.004
-  (+0.2 SE), but its worst contrast variance lies 5.9 SE (about 4%) from the stated
-  one. The pooled statistic stays calibrated while single contrasts depart from the
-  first order, as the marginal σ do in §8.1.
+- **Near-coalescent pair** (`sp2`, 1 point apart, flagged): mean q/k 1.059 ± 0.005
+  (+12.4 SE); its contrast variances lie 5–7% above c_ll, the worst 9.3 SE. The
+  first-order cancellation of the lineshape terms fails this close to coalescence,
+  as the first order does for the marginal σ in §8.1. The first implementation gave
+  1.001 here, its downward bias offsetting this excess.
 - **Unmodelled correlation between planes:** the noise of each group's copies
   correlated with ρ, which the model omits. q/k is then about 1 − ρ:
 
 | Case | ρ | Mean q/k | RMS |
 |---|---|---|---|
-| `sp2`, isolated, two copies | +0.3 | 0.697 ± 0.004 | 0.835 |
-| `sp2`, isolated, two copies | −0.3 | 1.298 ± 0.007 | 1.139 |
-| `sp2`, pair 3 points, three copies | +0.3 | 0.698 ± 0.002 | 0.835 |
-| `sp2`, pair 3 points, three copies | −0.3 | 1.290 ± 0.003 | 1.136 |
+| `sp2`, isolated, two copies | +0.3 | 0.698 ± 0.004 | 0.835 |
+| `sp2`, isolated, two copies | −0.3 | 1.301 ± 0.007 | 1.141 |
+| `sp2`, pair 3 points, three copies | +0.3 | 0.700 ± 0.002 | 0.837 |
+| `sp2`, pair 3 points, three copies | −0.3 | 1.299 ± 0.003 | 1.140 |
 
   Positive correlation pushes the RMS below 1, negative above. This illustrates
   unmodelled covariance in general; it is not a model of joint pseudo-3D NUS

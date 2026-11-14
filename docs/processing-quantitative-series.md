@@ -257,22 +257,23 @@ names the method that ran.
 
 **Duplicate planes** (any series; the default when the run has them). Planes whose
 recorded plane values are exactly equal are copies. For each peak, the differences
-between copies are standardized by the uncertainty the published covariance
-predicts for them, which accounts for the correlation from shared lineshape
-parameters
+between copies are standardized by its conditional σ, the noise part of the
+published uncertainty. Errors in the fitted positions and linewidths shift the
+copies of one plane value alike, so they cancel in the differences and the check
+cannot see them
 ([profile-uncertainty §5.3](profile-uncertainty.md#53-duplicate-planes)). The
 result is an RMS of standardized contrasts, reported separately for peaks without
 and with the correlated-profile flag.
-- **About 1:** the differences between copies scatter as the published covariance
+- **About 1:** the differences between copies scatter as the conditional σ
   predicts. In synthetic series with the validated processing, the check gives 1
   within its sampling error
   ([profile-uncertainty §8.2](profile-uncertainty.md#82-t8-the-duplicate-plane-check)).
-- **Clearly above 1:** the copies differ more than the errors allow. Possible
+- **Clearly above 1:** the copies differ more than the conditional σ allows. Possible
   causes: errors that are too small for the processing used, copies that are not
   equivalent (drift, temperature, a change between acquisitions), or noise
   anticorrelated between copies.
-- **Clearly below 1:** the copies agree better than the errors allow: errors that
-  are too large, or noise positively correlated between copies, as after a
+- **Clearly below 1:** the copies agree better than the conditional σ allows:
+  errors that are too large, or noise positively correlated between copies, as after a
   reconstruction or processing that couples them. In the synthetic study, a
   correlation of +0.3 between copies gave an RMS of 0.83, and −0.3 gave 1.14.
 - **How clearly:** with n contrasts the sampling SE of the RMS is at least
@@ -292,6 +293,9 @@ Drift, residual saturation and minor-state dips can only raise it.
 - **Repeatability, not accuracy.** An error common to every copy, or to every
   baseline plane, is invisible: a lineshape misfit, or the bias LP caused for
   overlapping peaks in T7. A result of 1 is not evidence against bias.
+- **The conditional σ only.** The duplicate check tests the noise part of the
+  errors. The lineshape-parameter part of the marginal and profile σ cancels in the
+  differences between copies, so a miscalibration of it goes undetected.
 - **Contrasts, not marginal σ.** A scale uncertainty shared by the copies cancels in
   their differences, so the duplicate check says nothing about the marginal σ of
   absolute amplitudes.
@@ -311,10 +315,12 @@ profile of the experiment
 ([profile-uncertainty §6a](profile-uncertainty.md#what-chemex-does-today)).
 - Both use the same duplicates, so neither is independent evidence for the other,
   and both measure repeatability only.
-- If PeakFit's duplicate check is close to 1, its profile σ (`error = "file"`)
-  agree with the duplicates on average, and they keep what one shared σ discards:
-  the larger errors of overlapping or weaker peaks.
-- If it is clearly above 1, the profile σ understate the scatter between copies,
+- If PeakFit's duplicate check is close to 1, the noise part of its profile σ
+  (`error = "file"`) agrees with the duplicates on average; for an isolated peak
+  that is the whole profile σ. The profile σ keep what one shared σ discards: the
+  larger errors of overlapping or weaker peaks. Their lineshape-parameter part, the
+  extra error of overlapping peaks, is not tested by either.
+- If it is clearly above 1, the conditional σ understate the scatter between copies,
   and the processing sections above may say why. ChemEx's estimate follows the
   observed scatter, but as one uniform σ, estimated from few copies per profile when
   `global_error` is off.
