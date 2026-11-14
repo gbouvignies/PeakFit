@@ -92,8 +92,18 @@ column at the sampled horizontal coordinate. Neither is a projection or sum. Sli
 are lines through the native samples, without markers or values between samples:
 measured data and, in Overlay, the total model at the same samples in common units.
 Residual lanes under each slice show the whole-spectrum residual; in Residual the
-slices show it and the lanes hide. Dividers between slice and plot resize each
-slice independently (collapse below 48 px). Scales are in §8. Plot labels use the
+slices show it and the lanes hide. Slice sizes are shares of the spectral view,
+the row slice's of its height and the column slice's of its width, so the slices
+grow with the window and neither the 2D plot nor the slices has a fixed priority.
+Overview and cluster focus have separate defaults (22 % row / 18 % column in the
+overview, 30 % / 26 % in focus, provisional until visual validation); focus gives
+the slices and lanes more room while the 2D contours stay large enough to judge
+overlap and peak geometry. A share resolves within the slice minimum (72 px) and
+maximum (45 % of the view). Dividers between slice and plot, and Cmd/Ctrl+Alt+arrows,
+resize each slice independently (collapse below 48 px); the result is kept as a
+share, so it survives window resizes and panel toggles, and double-click on a
+divider restores the default of the current context. Saved view state records the
+overview and focus shares. Scales are in §8. Plot labels use the
 loaded axis/nucleus names, not hard-coded H/N/F2/F3.
 
 Both side panels are splitter panes with remembered widths (an application
@@ -187,8 +197,8 @@ recorded cluster. The default frame is the displayed member positions ± max(3 �
 fitted FWHM, 8 native samples) per axis (samples only when a linewidth is
 unavailable), at most a quarter of the spectral width and clipped to the spectrum;
 it is independent of the optimizer's fitting samples, which **Fitting region**
-shows separately. Focus shows residual lanes by default and keeps its own slice
-sizes between focuses. Modes, marks, legend, pin, plane and display settings are
+shows separately. Focus shows residual lanes by default, starts from its own slice
+shares and keeps them between focuses. Modes, marks, legend, pin, plane and display settings are
 those of the one view. A bar above it names the cluster and its run with **‹
 Spectrum**. Escape (when no draft, gesture or dialog is active) or ‹ Spectrum
 restores the overview's viewport, slice sizes and scales, mode, region display and

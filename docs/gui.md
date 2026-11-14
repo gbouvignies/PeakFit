@@ -272,9 +272,13 @@ over a lane sets the lane scale. A caption above the row slice appears only when
 there is something to say: the residual or lane scale, the gain, and counts of
 clipped samples, ▲ for data and △ for the model. The corner readout gives the exact
 values at the sample, intensity and model in one power of ten (the status bar
-repeats them only when a collapsed column slice leaves no room for the readout). Drag the
-divider between a slice and the plot to resize it (below 48 px it collapses; drag
-it back to reopen), double-click a divider for the default size. **View → Slices**
+repeats them only when a collapsed column slice leaves no room for the readout).
+Slices take a share of the spectral view (by default 22 % of its height for the row
+slice and 18 % of its width for the column slice; 30 % and 26 % in cluster focus),
+so they grow with the window. Drag the divider between a slice and the plot to
+resize it (below 48 px it collapses; drag it back to reopen); the new size is kept
+as a share, so it follows window resizes and panel toggles. Double-click a divider
+for the default of the overview or of focus, whichever you are in. **View → Slices**
 offers all of these from the menu and keyboard.
 
 Model planes compute asynchronously. Old-plane model/residual graphics disappear
@@ -341,7 +345,9 @@ scales, mode, fitting-region display and sample. Leaving focus never reverts an
 edit or a fit. In an inspector field with a draft, or during a drag or placement,
 the first Escape cancels that and the next one leaves focus. **Full spectrum**
 (Cmd/Ctrl+0) reframes the cluster while in focus. Focus keeps its own slice sizes
-from one focus to the next; Save records the overview it returns to.
+from one focus to the next; Save records the overview it returns to and both sets
+of slice shares. An analysis saved before slice sizes became shares reopens with
+the default shares.
 
 Corrections happen in focus with the overview's edits and the same Undo/Redo:
 dragging the selected marker shows a ghost at the proposed position while the

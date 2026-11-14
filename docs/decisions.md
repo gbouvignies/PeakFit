@@ -1370,3 +1370,22 @@ Short records of non‑obvious design choices and trade‑offs.
   spectrum to 8.03–12.03 ppm on data spanning 6.50–10.50 ppm, leaving 40–50 % of
   the 2D plot and part of both slices empty.
 - A click on the spectrum keeps the minimal reveal; cluster focus keeps its frame.
+
+## 2026-11-14: Native slices take shares of the spectral view (#190)
+- Replaces the fixed slice sizes of 2026-11-06 (row 150 px, column 130 px at every
+  window size, so a larger window enlarged only the 2D plot). A slice size is now a
+  share of the spectral view: the row slice's of its height, the column slice's of
+  its width. Defaults: 22 % / 18 % in the overview, 30 % / 26 % in cluster focus,
+  which gives lineshape, model and signed residual more room while the 2D contours
+  stay large enough to judge overlap. These are provisional named constants in
+  `spectral_geometry` until visual validation on the bundled dataset (#179).
+- The space rules hold: slice minimum 72 px, collapse below 48 px, maximum 45 % of
+  the view, lanes 24 px minimum, 2D plot 360×300 minimum, compression lanes →
+  slices → other side panel, and the window is never enlarged. Lanes keep a fixed
+  thickness in pixels.
+- Divider drags and Cmd/Ctrl+Alt+arrows are stored as shares, so proportions
+  survive window resizes and panel toggles; double-click restores the default of
+  the current context (overview or focus).
+- **Breaking.** Saved view state stores `row_share`/`column_share` for the overview
+  and for focus. Slice sizes saved in pixels (`row`/`column`) are ignored: those
+  analyses reopen at the default shares, with no migration.

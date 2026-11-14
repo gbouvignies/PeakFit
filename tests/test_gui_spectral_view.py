@@ -16,7 +16,11 @@ import peakfit.gui.editor.workspace as workspace_module
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import slices
-from peakfit.gui.editor.spectral_geometry import SLICE_COLLAPSE, SliceSizes
+from peakfit.gui.editor.spectral_geometry import (
+    SLICE_COLLAPSE,
+    SliceSizes,
+    default_sizes,
+)
 from peakfit.gui.editor.spectral_view import LANE_SIGMA
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.spectrum import Dataset
@@ -196,25 +200,26 @@ def test_dividers_resize_each_slice_independently_and_collapse(fitted, qapp):
     viewport = c.view.viewport()
     changed = []
     c.sizes_changed.connect(lambda: changed.append(True))
-    column = c.arrangement.sizes.column
+    row, column = c.arrangement.sizes.row, c.arrangement.sizes.column
 
     def center(divider):
         return c.view.mapFromScene(divider.sceneBoundingRect().center())
 
     start = center(c.row_divider)
     _drag(qapp, viewport, start, start + QtCore.QPoint(0, 40))
-    assert c.sizes.row == SliceSizes().row + 40
-    assert c.sizes.column == column
+    assert c.arrangement.sizes.row == row + 40
+    assert c.sizes.row == pytest.approx((row + 40) / c.view.height())
+    assert c.arrangement.sizes.column == column
     start = center(c.column_divider)
     _drag(qapp, viewport, start, start + QtCore.QPoint(-30, 0))
-    assert c.sizes.column == column + 30
+    assert c.arrangement.sizes.column == column + 30
     start = center(c.row_divider)
     _drag(qapp, viewport, start, start - QtCore.QPoint(0, 1000))
     assert c.sizes.row == 0
     assert not c.row_box.isVisible()
     start = center(c.row_divider)
     _drag(qapp, viewport, start, start + QtCore.QPoint(0, SLICE_COLLAPSE + 30))
-    assert c.sizes.row == SLICE_COLLAPSE + 30
+    assert c.arrangement.sizes.row == SLICE_COLLAPSE + 30
     assert changed
     # Every placement keeps the shared extents aligned.
     assert c.row_box.sceneBoundingRect().left() == c.box.sceneBoundingRect().left()
@@ -227,7 +232,7 @@ def test_slice_sizes_lanes_and_scales_are_saved_and_restored(fitted, qapp, scien
     # The synthetic spectrum has no source file; its header is not what this checks.
     monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
     c = fitted.canvas
-    c.set_sizes(SliceSizes(row=120, column=90, lanes=True))
+    c.set_sizes(SliceSizes(row=0.31, column=0.12, lanes=True))
     c.scale_lanes(120)
     c.scale_intensity(120)
     saved = fitted.capture()
@@ -239,7 +244,53 @@ def test_slice_sizes_lanes_and_scales_are_saved_and_restored(fitted, qapp, scien
         other.restore(saved)
         qapp.processEvents()
         assert other.canvas.slice_state() == state
+        assert (other.canvas.sizes.row, other.canvas.sizes.column) == (0.31, 0.12)
         assert other.canvas.slice_bounds() == c.slice_bounds()
+    finally:
+        other.stop()
+        other.close()
+        other.deleteLater()
+
+
+def test_reopening_restores_the_overview_and_focus_shares(fitted, qapp, scientific, monkeypatch):
+    monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
+    c = fitted.canvas
+    c.set_sizes(SliceSizes(row=0.27, column=0.14))
+    fitted.open_focus(fitted.peaks[0].id)
+    c.set_sizes(SliceSizes(row=0.35, column=0.2, lanes=True))
+    fitted.close_focus()
+    saved = fitted.capture()
+    other = _workspace(qapp, scientific)
+    try:
+        other.restore(saved)
+        qapp.processEvents()
+        assert (other.canvas.sizes.row, other.canvas.sizes.column) == (0.27, 0.14)
+        assert (other.focus_sizes.row, other.focus_sizes.column) == (0.35, 0.2)
+    finally:
+        other.stop()
+        other.close()
+        other.deleteLater()
+
+
+def test_an_analysis_saved_with_pixel_sizes_reopens_at_the_defaults(
+    fitted, qapp, scientific, monkeypatch
+):
+    monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
+    saved = fitted.capture()
+    # The view state written before slice sizes became shares of the view.
+    saved.view["slices"] = {"row": 150, "column": 130, "lanes": True, "gain": 1.0}
+    saved.view["focus_slices"] = {"row": 220, "column": 160, "lanes": True}
+    other = _workspace(qapp, scientific)
+    try:
+        other.restore(saved)
+        qapp.processEvents()
+        overview, focus = default_sizes(focus=False), default_sizes(focus=True)
+        assert (other.canvas.sizes.row, other.canvas.sizes.column) == (
+            overview.row,
+            overview.column,
+        )
+        assert other.canvas.sizes.lanes
+        assert other.focus_sizes == focus
     finally:
         other.stop()
         other.close()
@@ -259,7 +310,7 @@ def test_focus_keeps_its_own_slice_sizes_and_save_records_the_overview(fitted, m
     saved = fitted.capture().view
     assert saved["ranges"] == ranges
     assert saved["slices"]["lanes"] == overview.lanes
-    assert saved["focus_slices"]["row"] == focused.row
+    assert saved["focus_slices"]["row_share"] == focused.row
     fitted.close_focus()
     assert c.sizes == overview
     assert c.box.viewRange() == ranges
@@ -284,11 +335,46 @@ def test_double_clicks_reset_scales_and_sizes_with_real_events(fitted, qapp):
     QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_lane))
     qapp.processEvents()
     assert c.lane_sigma == LANE_SIGMA
-    c.set_sizes(SliceSizes(row=200, column=130, lanes=True))
+    c.set_sizes(SliceSizes(row=0.4, column=0.1, lanes=True))
     qapp.processEvents()
     QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_divider))
     qapp.processEvents()
-    assert c.sizes.row == SliceSizes().row
+    assert c.sizes.row == default_sizes(focus=False).row
+    assert c.sizes.column == 0.1
+
+
+def test_double_click_on_a_divider_restores_the_focus_default_in_focus(fitted, qapp):
+    c = fitted.canvas
+    fitted.open_focus(fitted.peaks[0].id)
+    qapp.processEvents()
+    focus = default_sizes(focus=True)
+    assert (c.sizes.row, c.sizes.column) == (focus.row, focus.column)
+    c.resize_slice("column", -24)
+    assert c.sizes.column < focus.column
+    viewport = c.view.viewport()
+    pos = _at(c, c.column_divider)
+    QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=pos)
+    qapp.processEvents()
+    assert c.sizes.column == focus.column
+
+
+def test_a_dragged_proportion_survives_window_resizes_and_panel_toggles(fitted, qapp):
+    c = fitted.canvas
+    c.resize_slice("row", 40)
+    c.resize_slice("column", 30)
+    shares = (c.sizes.row, c.sizes.column)
+    fitted.resize(1500, 950)
+    qapp.processEvents()
+    assert (c.sizes.row, c.sizes.column) == shares
+    assert c.arrangement.sizes.row == round(shares[0] * c.view.height())
+    assert c.arrangement.sizes.column == round(shares[1] * c.view.width())
+    width = c.view.width()
+    fitted.inspector_button.setChecked(False)
+    fitted.toggle_inspector()
+    qapp.processEvents()
+    assert c.view.width() > width
+    assert (c.sizes.row, c.sizes.column) == shares
+    assert c.arrangement.sizes.column == round(shares[1] * c.view.width())
 
 
 def test_a_wheel_zoom_rescales_the_slices_to_the_new_view(fitted, qapp):
@@ -331,11 +417,20 @@ def test_the_readout_shares_one_power_of_ten_and_the_status_bar_stays_quiet(fitt
     assert status[-1] == ""  # the readout shows it; the status bar does not repeat it
     assert "a.u." in c.view.accessibleDescription()
     # Without room for the readout, the status bar carries the sample instead.
-    c.set_sizes(SliceSizes(row=150, column=0))
+    c.set_sizes(SliceSizes(row=0.2, column=0))
     qapp.processEvents()
     assert not c.readout.isVisible()
     c.sample(float(c.ppm_x[7]), float(c.ppm_y[6]))
     assert "ppm" in status[-1]
+
+
+def test_readout_units_stay_on_the_line_of_their_value(fitted):
+    c = fitted.canvas
+    c.sample(float(c.ppm_x[5]), float(c.ppm_y[6]))
+    text = c.readout.text()
+    for unit in ("ppm", "a.u.", "σ"):
+        assert f"\u00a0{unit}" in text
+        assert f" {unit}" not in text
 
 
 def test_run_identity_is_not_repeated_where_the_toolbar_already_names_it(fitted):
