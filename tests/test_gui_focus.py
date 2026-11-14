@@ -146,6 +146,34 @@ def test_navigator_list_shows_focus_on_the_view_distinct_from_selection(workspac
     assert _ring_pixels(w, tree) >= 2 * _perimeter(tree) - 64
 
 
+def test_ring_marks_keyboard_focus_only_like_focus_visible(workspace):
+    # A keyboard focus ring: a click focuses without a ring, the keyboard brings it.
+    w = workspace
+    tree = w.navigator.tree
+    _focus(w.fit_button)
+    QtTest.QTest.mouseClick(tree.viewport(), QtCore.Qt.MouseButton.LeftButton)
+    wait_until(tree.hasFocus)
+    assert _ring_pixels(w, tree) == 0
+    QtTest.QTest.keyClick(tree, QtCore.Qt.Key.Key_Down)
+    assert _ring_pixels(w, tree) >= 2 * _perimeter(tree) - 64
+    QtTest.QTest.mouseClick(tree.viewport(), QtCore.Qt.MouseButton.LeftButton)
+    assert _ring_pixels(w, tree) == 0
+    QtTest.QTest.keyClick(tree, QtCore.Qt.Key.Key_Tab)
+    wait_until(lambda: not tree.hasFocus())
+    after = QtWidgets.QApplication.focusWidget()
+    assert after is not None
+    assert _ring_pixels(w, after) > 0
+
+
+def test_canvas_frames_its_plot_area_after_a_click_too(workspace):
+    # Single-key shortcuts act on the spectrum after a click, so its frame shows then.
+    w, c = workspace, workspace.canvas
+    _focus(w.fit_button)
+    QtTest.QTest.mouseClick(c.view.viewport(), QtCore.Qt.MouseButton.LeftButton)
+    wait_until(c.view.hasFocus)
+    assert _focus_pixels(w, _area(w, c.view)) > 0
+
+
 def test_checked_controls_do_not_look_focused(workspace):
     w = workspace
     checked = [b for b in w.mode_buttons if b.isChecked()]

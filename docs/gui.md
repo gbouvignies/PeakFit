@@ -625,8 +625,10 @@ shortcuts. Delete and Space in text fields retain their ordinary text behavior.
 
 The control that has keyboard focus carries a blue ring, separate from the
 selected-row and checked-button fills; a list or tree shows it on the view's
-edge. When the spectrum has keyboard focus, a frame in the same colour surrounds
-the 2D plot: A, Space, E/O/R and the arrow keys then act on the spectrum.
+edge. The ring appears when you move focus with Tab, Backtab or a shortcut, or
+press a key, and stays hidden after a mouse click. When the spectrum has focus,
+even after a click, a frame in the same colour surrounds the 2D plot: A, Space,
+E/O/R and the arrow keys then act on the spectrum.
 
 See [the approved design](PeakFit_GUI_Design_Specification_v2.0.md) and
 [editor validation](validation/gui-v2-editor.md) and

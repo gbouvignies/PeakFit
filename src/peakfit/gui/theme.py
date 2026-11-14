@@ -414,7 +414,7 @@ class _Ring(QtWidgets.QWidget):
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_NoSystemBackground)
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
-        self.color = QtGui.QColor(LIGHT.focus)
+        self.color = QtGui.QColor()
         self.radius = 0.0
 
     def paintEvent(self, _event) -> None:  # noqa: N802
@@ -441,6 +441,10 @@ class FocusRing(QtCore.QObject):
     one-pixel borders. A list, tree or other scroll area fills its panel, so the
     ring is drawn on the view's own edge instead. Widgets marked OWN_FOCUS_FRAME
     draw their own frame.
+
+    Like CSS ``:focus-visible``, the ring marks keyboard focus only: it shows once
+    focus arrives by Tab, Backtab or a shortcut, or a key is pressed, and hides
+    while focus came from, or follows, a mouse press.
     """
 
     _instance: FocusRing | None = None
@@ -451,6 +455,9 @@ class FocusRing(QtCore.QObject):
         self.target: QtWidgets.QWidget | None = None
         self.watched: list[QtWidgets.QWidget] = []
         self.color = QtGui.QColor(LIGHT.focus)
+        self.keyboard = False
+        self.modality = _Modality(self)
+        app.installEventFilter(self.modality)
         app.focusChanged.connect(self._follow)
 
     @classmethod
@@ -535,7 +542,7 @@ class FocusRing(QtCore.QObject):
             return
         ring.radius = 0.0 if isinstance(target, QtWidgets.QAbstractScrollArea) else 6.0
         ring.setGeometry(self._rect(target, host))
-        ring.setVisible(target.isVisibleTo(host))
+        ring.setVisible(self.keyboard and target.isVisibleTo(host))
         ring.raise_()
         ring.update()
 
@@ -551,4 +558,57 @@ class FocusRing(QtCore.QObject):
             QtCore.QEvent.Type.Hide,
         ):
             self._place()
+        return False
+
+    def set_keyboard(self, keyboard: bool) -> None:
+        """Record the input modality and show or hide the ring to match."""
+        if keyboard != self.keyboard:
+            self.keyboard = keyboard
+            self._place()
+
+
+_KEYBOARD_REASONS = (
+    QtCore.Qt.FocusReason.TabFocusReason,
+    QtCore.Qt.FocusReason.BacktabFocusReason,
+    QtCore.Qt.FocusReason.ShortcutFocusReason,
+)
+_MODIFIERS = (
+    QtCore.Qt.Key.Key_Shift,
+    QtCore.Qt.Key.Key_Control,
+    QtCore.Qt.Key.Key_Meta,
+    QtCore.Qt.Key.Key_Alt,
+    QtCore.Qt.Key.Key_AltGr,
+    QtCore.Qt.Key.Key_CapsLock,
+)
+
+
+class _Modality(QtCore.QObject):
+    """Whether the user is working by keyboard or by pointer, as `FocusRing` needs it.
+
+    An application-wide filter: key presses and keyboard focus reasons mean
+    keyboard, mouse presses and mouse focus mean pointer. Programmatic focus keeps
+    the current modality.
+    """
+
+    def __init__(self, ring: FocusRing) -> None:
+        super().__init__(ring)
+        self.ring = ring
+
+    def eventFilter(self, _watched, event) -> bool:  # noqa: N802
+        """Update the ring's modality from input and focus events; never consume them."""
+        kind = event.type()
+        if kind == QtCore.QEvent.Type.KeyPress:
+            if event.key() not in _MODIFIERS:
+                self.ring.set_keyboard(True)
+        elif kind in (
+            QtCore.QEvent.Type.MouseButtonPress,
+            QtCore.QEvent.Type.MouseButtonDblClick,
+        ):
+            self.ring.set_keyboard(False)
+        elif kind == QtCore.QEvent.Type.FocusIn:
+            reason = event.reason()
+            if reason in _KEYBOARD_REASONS:
+                self.ring.set_keyboard(True)
+            elif reason == QtCore.Qt.FocusReason.MouseFocusReason:
+                self.ring.set_keyboard(False)
         return False
