@@ -150,9 +150,9 @@ accuracy. `--ref` and `--window` belong to the baseline method.
 offset, CEST planes are approximate replicates. The command compares their
 plane-to-plane scatter (a robust SD of second differences across offsets, planes
 within `--window` Hz of the peak's offset and the reference planes excluded) with the
-published profile σ. A median observed / stated near 1 means the errors are calibrated; `--verbose` lists
-every peak. Plane values must be offsets in Hz from the carrier of the first spectral
-axis. It measures repeatability, not accuracy: an error common to every baseline
+published profile σ. A median observed / stated near 1 means the errors are
+calibrated; `--verbose` lists every peak. Plane values must be offsets in Hz from the
+carrier of the first spectral axis. It measures repeatability, not accuracy: an error common to every baseline
 plane, such as a lineshape misfit, is invisible, and drift or minor-state dips only
 raise the observed scatter ([profile-uncertainty §5.1](docs/profile-uncertainty.md)).
 
