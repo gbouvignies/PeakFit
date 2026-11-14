@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from builders import two_cluster_dataset
 from gui_helpers import wait_until
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -170,3 +170,38 @@ def test_canvas_frames_its_plot_area_while_focused(workspace):
         assert _focus_pixels(w, edge) == 0
     _focus(w.navigator.tree)
     assert _focus_pixels(w, canvas) == 0
+
+
+@pytest.mark.parametrize("theme", [themes.LIGHT, themes.DARK], ids=["light", "dark"])
+def test_focused_checkbox_keeps_its_outline_and_gets_the_shared_ring(qapp, theme):
+    # One focus treatment: the style draws no focus of its own, so the checkbox
+    # keeps its token outline and the shared ring marks focus around it.
+    host = QtWidgets.QWidget()
+    host.setObjectName("navigator")  # a panel surface
+    host.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
+    layout = QtWidgets.QVBoxLayout(host)
+    layout.setContentsMargins(12, 12, 12, 12)
+    box = QtWidgets.QCheckBox()
+    layout.addWidget(box)
+    themes.apply(host, theme)
+    host.resize(160, 60)
+    host.show()
+    host.activateWindow()
+    _focus(box)
+    QtTest.QTest.keyClick(box, QtCore.Qt.Key.Key_Tab)  # a keyboard focus change
+    _focus(box)
+    qapp.processEvents()
+    image = box.grab().toImage()
+    outline = QtGui.QColor(theme.outline).rgb()
+    assert any(
+        image.pixel(x, y) == outline for y in range(image.height()) for x in range(image.width())
+    )
+    ring = QtGui.QColor(theme.focus).rgb()
+    whole = host.grab().toImage()
+    area = QtCore.QRect(box.mapTo(host, QtCore.QPoint()), box.size()).adjusted(-4, -4, 4, 4)
+    assert sum(
+        whole.pixel(x, y) == ring
+        for x in range(area.left(), area.right() + 1)
+        for y in range(area.top(), area.bottom() + 1)
+    ) >= 1.5 * _perimeter(box)
+    host.close()
