@@ -19,7 +19,15 @@ from validate_gui_editor import settle, wait_until
 
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.spectrum import read_dataset
-from peakfit.gui.theme import DARK, LIGHT, Theme, TypeScale, type_scale, use_type_scale
+from peakfit.gui.theme import (
+    DARK,
+    LIGHT,
+    Theme,
+    TypeScale,
+    contrast_ratio,
+    type_scale,
+    use_type_scale,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "examples/02-advanced-fitting/data"
@@ -32,7 +40,6 @@ REFERENCE = (0,)  # the off-resonance reference plane of the CEST series
 PASSES = 2  # the default fit setup
 FAILURE = "Validation tool: simulated worker failure on a first fit"
 
-_SRGB_KNEE = 0.04045  # sRGB transfer function: linear segment below this value
 # Text and control-border pairs of the theme, as (foreground, surface) token names;
 # ``outline`` bounds editable controls, ``border`` buttons and tooltips.
 _CONTRAST_PAIRS = (
@@ -49,22 +56,6 @@ _CONTRAST_PAIRS = (
     ("border", "panel"),
     ("border", "chrome"),
 )
-
-
-def _luminance(value: str) -> float:
-    """WCAG 2.2 relative luminance of an sRGB colour."""
-    color = QtGui.QColor(value)
-    red, green, blue = (
-        channel / 12.92 if channel <= _SRGB_KNEE else ((channel + 0.055) / 1.055) ** 2.4
-        for channel in (color.redF(), color.greenF(), color.blueF())
-    )
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-
-
-def contrast_ratio(foreground: str, background: str) -> float:
-    """WCAG contrast ratio of two colours, from 1 (none) to 21 (black on white)."""
-    light, dark = sorted((_luminance(foreground), _luminance(background)), reverse=True)
-    return (light + 0.05) / (dark + 0.05)
 
 
 def theme_contrast(theme: Theme) -> dict[str, float]:

@@ -130,6 +130,26 @@ def color(value: str, alpha: float = 1.0) -> QtGui.QColor:
     return result
 
 
+_SRGB_KNEE = 0.04045  # sRGB transfer function: linear segment below this value
+
+
+def _luminance(value: QtGui.QColor) -> float:
+    """WCAG 2.2 relative luminance of an sRGB colour."""
+    red, green, blue = (
+        channel / 12.92 if channel <= _SRGB_KNEE else ((channel + 0.055) / 1.055) ** 2.4
+        for channel in (value.redF(), value.greenF(), value.blueF())
+    )
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def contrast_ratio(foreground: QtGui.QColor | str, background: QtGui.QColor | str) -> float:
+    """WCAG contrast ratio of two colours, from 1 (none) to 21 (black on white)."""
+    light, dark = sorted(
+        (_luminance(QtGui.QColor(foreground)), _luminance(QtGui.QColor(background))), reverse=True
+    )
+    return (light + 0.05) / (dark + 0.05)
+
+
 # Specification §12 sizes at its reference 13 px body: body and controls, secondary
 # text and plot labels, dense captions, selected identity, and the welcome heading.
 _REFERENCE_BODY = 13

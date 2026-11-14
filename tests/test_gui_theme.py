@@ -11,23 +11,14 @@ APPEARANCES = [pytest.param(themes.LIGHT, id="light"), pytest.param(themes.DARK,
 SURFACES = ("window", "chrome", "panel", "plot")
 
 
-def _luminance(value: QtGui.QColor) -> float:
-    """WCAG 2.x relative luminance of an sRGB colour."""
-
-    def linear(channel: float) -> float:
-        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
-
-    r, g, b = (linear(c) for c in (value.redF(), value.greenF(), value.blueF()))
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def contrast(a: QtGui.QColor | str, b: QtGui.QColor | str) -> float:
-    high, low = sorted((_luminance(QtGui.QColor(a)), _luminance(QtGui.QColor(b))), reverse=True)
-    return (high + 0.05) / (low + 0.05)
+contrast = themes.contrast_ratio
 
 
 def test_contrast_matches_known_wcag_values():
     assert contrast("#000000", "#ffffff") == pytest.approx(21.0)
+    assert contrast("#ffffff", "#000000") == pytest.approx(21.0)
+    assert contrast("#5f6a76", "#5f6a76") == pytest.approx(1.0)
+    # WCAG's documented threshold grey: #767676 on white is 4.54:1.
     assert contrast("#767676", "#ffffff") == pytest.approx(4.54, abs=0.01)
 
 

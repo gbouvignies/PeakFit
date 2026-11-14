@@ -20,24 +20,12 @@ from peakfit.gui.spectrum import Dataset
 pytestmark = pytest.mark.gui
 
 
-def _luminance(value: str) -> float:
-    """WCAG 2 relative luminance of a #rrggbb colour."""
-    channels = [int(value[i : i + 2], 16) / 255 for i in (1, 3, 5)]
-    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
-    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
-
-
-def _contrast(a: str, b: str) -> float:
-    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
-    return (high + 0.05) / (low + 0.05)
-
-
 @pytest.mark.parametrize("theme", [themes.LIGHT, themes.DARK], ids=["light", "dark"])
 def test_focus_token_reaches_three_to_one_against_what_it_touches(theme):
     # The ring sits on a surface (outside a control, past a one-pixel gap) or, inside
     # a list, beside its rows: plain, hovered or selected.
     for name in ("window", "chrome", "panel", "plot", "selection", "hover"):
-        assert _contrast(theme.focus, getattr(theme, name)) >= 3, name
+        assert themes.contrast_ratio(theme.focus, getattr(theme, name)) >= 3, name
     # A dedicated token, not the accent that marks checked and selected states.
     assert theme.focus != theme.accent
 

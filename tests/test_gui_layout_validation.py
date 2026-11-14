@@ -23,26 +23,12 @@ def tool():
         yield importlib.import_module("validate_gui_layout")
 
 
-@pytest.mark.parametrize(
-    ("foreground", "background", "ratio"),
-    [
-        ("#000000", "#ffffff", 21.0),
-        ("#ffffff", "#000000", 21.0),
-        ("#5f6a76", "#5f6a76", 1.0),
-        # WCAG's documented threshold grey: #767676 on white is 4.54:1.
-        ("#767676", "#ffffff", 4.54),
-    ],
-)
-def test_contrast_ratio_follows_wcag(tool, foreground, background, ratio):
-    assert tool.contrast_ratio(foreground, background) == pytest.approx(ratio, abs=0.01)
-
-
 def test_contrast_records_text_and_control_border_pairs_of_each_appearance(tool):
-    from peakfit.gui.theme import DARK, LIGHT  # noqa: PLC0415
+    from peakfit.gui.theme import DARK, LIGHT, contrast_ratio  # noqa: PLC0415
 
     record = tool.theme_contrast(LIGHT)
-    assert record["text/panel"] == pytest.approx(tool.contrast_ratio(LIGHT.text, LIGHT.panel))
-    assert record["border/panel"] == pytest.approx(tool.contrast_ratio(LIGHT.border, LIGHT.panel))
+    assert record["text/panel"] == pytest.approx(contrast_ratio(LIGHT.text, LIGHT.panel))
+    assert record["border/panel"] == pytest.approx(contrast_ratio(LIGHT.border, LIGHT.panel))
     assert {"text/chrome", "secondary/panel", "faint/panel", "border/chrome"} <= set(record)
     # Editable controls are bounded by the outline token.
     assert {"outline/panel", "outline/chrome", "outline/plot"} <= set(record)
