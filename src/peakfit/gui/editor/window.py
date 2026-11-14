@@ -816,7 +816,6 @@ def launch(
     assert isinstance(app, QtWidgets.QApplication)
     app.setApplicationName("PeakFit")
     app.setOrganizationName("PeakFit")
-    app.setStyle("Fusion")
     try:
         install_log()
     except OSError as error:  # the terminal still receives every failure

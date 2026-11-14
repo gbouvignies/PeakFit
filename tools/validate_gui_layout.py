@@ -349,8 +349,7 @@ def main() -> None:
     output = args.output.resolve()
     if output.is_relative_to(ROOT):
         parser.error("captures stay outside the repository; choose another --output")
-    app = QtWidgets.QApplication([])
-    app.setStyle("Fusion")
+    _app = QtWidgets.QApplication([])  # alive for the run
     if args.body_px:
         use_type_scale(TypeScale.for_body(args.body_px))
     records = run(output, args.sizes, args.appearance)
