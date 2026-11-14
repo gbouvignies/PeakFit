@@ -1,4 +1,6 @@
-"""Readable chrome: secondary text and control boundaries meet WCAG contrast (spec §12)."""
+"""Readable chrome: text and control contrast, and type sizes from the system font (spec §12)."""
+
+import re
 
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -81,3 +83,52 @@ def _boundary_contrast(qapp, theme, make) -> float:
 )
 def test_rendered_controls_show_their_boundary(qapp, theme, make):
     assert _boundary_contrast(qapp, theme, make) >= 3.0
+
+
+def _system_font(qapp, pixels: int) -> QtGui.QFont:
+    font = QtGui.QFont(qapp.font())
+    font.setPixelSize(pixels)
+    return font
+
+
+def test_the_specification_sizes_hold_at_the_default_system_font(qapp):
+    sizes = themes.TypeScale.from_font(_system_font(qapp, 13))
+    assert (sizes.body, sizes.small, sizes.caption, sizes.title) == (13, 12, 11, 15)
+
+
+def test_a_larger_system_font_enlarges_every_size_in_proportion(qapp):
+    # 17 px body: 17·12/13 ≈ 15.7, 17·11/13 ≈ 14.4, 17·15/13 ≈ 19.6, 17·30/13 ≈ 39.2.
+    sizes = themes.TypeScale.from_font(_system_font(qapp, 17))
+    assert (sizes.body, sizes.small, sizes.caption, sizes.title, sizes.display) == (
+        17,
+        16,
+        14,
+        20,
+        39,
+    )
+
+
+def test_a_system_font_in_points_is_read_in_logical_pixels(qapp):
+    font = QtGui.QFont(qapp.font())
+    font.setPointSizeF(20.0)
+    expected = QtGui.QFontInfo(font).pixelSize()
+    assert expected > 13
+    assert themes.TypeScale.from_font(font).body == expected
+
+
+def test_a_smaller_system_font_keeps_the_specification_minimums(qapp):
+    sizes = themes.TypeScale.from_font(_system_font(qapp, 9))
+    assert (sizes.body, sizes.caption) == (13, 11)
+
+
+@pytest.mark.parametrize("theme", APPEARANCES)
+def test_the_stylesheet_sizes_text_only_from_the_derived_sizes(qapp, theme):
+    sizes = themes.TypeScale.from_font(_system_font(qapp, 17))
+    sheet = themes.stylesheet(theme, sizes)
+    used = {int(px) for px in re.findall(r"font-size:\s*(\d+)px", sheet)}
+    assert used == {sizes.body, sizes.small, sizes.caption, sizes.title, sizes.display}
+
+
+def test_the_application_font_follows_the_derived_body_size(qapp):
+    sizes = themes.TypeScale.from_font(_system_font(qapp, 17))
+    assert themes.ui_font(sizes).pixelSize() == 17

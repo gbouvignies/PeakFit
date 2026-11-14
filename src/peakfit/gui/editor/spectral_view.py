@@ -32,7 +32,7 @@ from peakfit.gui.editor.spectral_geometry import (
 )
 from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
-from peakfit.gui.theme import FOCUS_WIDTH, FONT_CAPTION, LIGHT, OWN_FOCUS_FRAME, Theme, color
+from peakfit.gui.theme import FOCUS_WIDTH, LIGHT, OWN_FOCUS_FRAME, Theme, color, type_scale
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -349,7 +349,7 @@ class SpectralView(QtWidgets.QWidget):
         outer.addWidget(self.view)
         scene = cast("pg.GraphicsScene", self.view.scene())
         font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION)
+        font.setPixelSize(type_scale().caption)
         metrics = QtGui.QFontMetrics(font)
         self.extents = Extents(
             left=metrics.horizontalAdvance("000.0") + metrics.height() + 18,
@@ -1335,7 +1335,7 @@ class SpectralView(QtWidgets.QWidget):
         if len(self.unadopted.data):
             items.append(key(t.model, "□", "fitted position, not adopted"))
         self.legend.setText(
-            f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
+            f'<div style="color:{t.secondary};font-size:{type_scale().caption}px">'
             + "&nbsp;&nbsp; ".join(items)
             + "</div>"
         )
@@ -1357,7 +1357,7 @@ class SpectralView(QtWidgets.QWidget):
         for axis in (self.bottom_axis, self.left_axis):
             axis.setPen(pg.mkPen(t.divider))
             axis.setTextPen(pg.mkPen(t.secondary))
-        style = {"color": t.secondary, "font-size": f"{FONT_CAPTION + 1}px"}
+        style = {"color": t.secondary, "font-size": f"{type_scale().small}px"}
         for axis, spectral in ((self.bottom_axis, self.x_axis), (self.left_axis, self.y_axis)):
             axis.labelStyle = style
             axis.setLabel(f"{self.axis_title(spectral)}  (ppm)")
@@ -1389,7 +1389,7 @@ class SpectralView(QtWidgets.QWidget):
         for label, value in ((self.hover_label, t.text), (self.selection_label, t.accent)):
             label.setColor(value)
         font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION + 1)
+        font.setPixelSize(type_scale().small)
         self.hover_label.setFont(font)
         bold = QtGui.QFont(font)
         bold.setWeight(QtGui.QFont.Weight.DemiBold)
