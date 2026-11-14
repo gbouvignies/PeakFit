@@ -96,7 +96,8 @@ slices show it and the lanes hide. Slice sizes are shares of the spectral view,
 the row slice's of its height and the column slice's of its width, so the slices
 grow with the window and neither the 2D plot nor the slices has a fixed priority.
 Overview and cluster focus have separate defaults (22 % row / 18 % column in the
-overview, 30 % / 26 % in focus, provisional until visual validation); focus gives
+overview, 30 % / 26 % in focus, kept after the
+[matrix validation](validation/gui-audit-followup.md)); focus gives
 the slices and lanes more room while the 2D contours stay large enough to judge
 overlap and peak geometry. A share resolves within the slice minimum (72 px) and
 maximum (45 % of the view). Dividers between slice and plot, and Cmd/Ctrl+Alt+arrows,
@@ -1147,6 +1148,11 @@ p95 was about 9.8 ms over 21 events, whereas production uncached complete-plane
 projection was about 1.35 s and some dialog/finalization heartbeats exceeded 300 ms.
 Both need representative end-to-end testing. Synthetic Qt replay is not a native
 input latency measurement. Native Linux Qt acceptance is still required.
+
+The layout gates (UX-3, and the visual parts of UX-4) are measured across window
+sizes, scale factors, appearances and a larger system font in the
+[configuration-matrix validation](validation/gui-audit-followup.md), which also
+lists the configurations not yet verified.
 
 ## 14. Delivery sequence and intentional changes
 

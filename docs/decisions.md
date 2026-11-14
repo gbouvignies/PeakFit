@@ -1465,3 +1465,17 @@ Short records of non‑obvious design choices and trade‑offs.
   1920×921 [808]. At 1280×800 a single peak's table is now in view; for clusters it
   needs 37–53 px of scrolling, which the ticket accepts. The profile plot keeps its
   176 px height and the inspector width.
+
+## 2026-11-15: Slice shares and tile limits kept after matrix validation (#190, #191, #192)
+- **Slice shares unchanged**: 22 % / 18 % in the overview, 30 % / 26 % in cluster
+  focus. At 1280×800 logical @ DPR 2.0 focus leaves the 2D plot at 384×350, close
+  to its 360×300 floor, with 198/176 px slices; larger focus shares would push the
+  plot to its floor at the common laptop size, smaller ones bring the slices under
+  200 px. At 1920×1080 and 2560×1440 (offscreen, DPR 1.0) all three stay useful.
+- **Tile limits unchanged**: 210–320 px wide, 0.72 × width, at least 156 px. On
+  screen tiles are 213–267 px; narrow CEST dips, multi-member clusters and the
+  synthetic 20- and 10-plane series stay distinguishable at the minimum.
+- Evidence, the matrix and what was not verified (native DPR 1, full-height large
+  screens, Linux, compositor fractional scaling, a real large system font):
+  [validation note](validation/gui-audit-followup.md). The acceptance tool gained
+  `--body-px` (simulated system font) and a per-capture list of clipped labels.

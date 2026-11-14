@@ -296,7 +296,7 @@ values at the sample, intensity and model in one power of ten (the status bar
 repeats them only when a collapsed column slice leaves no room for the readout).
 Slices take a share of the spectral view (by default 22 % of its height for the row
 slice and 18 % of its width for the column slice; 30 % and 26 % in cluster focus),
-so they grow with the window. Drag the divider between a slice and the plot to
+so they grow with the window ([measured sizes](validation/gui-audit-followup.md)). Drag the divider between a slice and the plot to
 resize it (below 48 px it collapses; drag it back to reopen); the new size is kept
 as a share, so it follows window resizes and panel toggles. Double-click a divider
 for the default of the overview or of focus, whichever you are in. **View → Slices**
@@ -433,7 +433,7 @@ order and filter: sort or filter the list and the tiles follow. Tiles adapt to t
 width: as many columns as keep each tile at least 210 px wide (logical pixels), tiles
 at most 320 px wide, height following width; a wider window or panel adds columns
 rather than enlarging tiles, and the selected tile stays selected and in view as
-the columns reflow. Each tile overlays
+the columns reflow ([validation across window sizes](validation/gui-audit-followup.md)). Each tile overlays
 every member's recorded signed amplitudes on one vertical scale that includes zero,
 so a dip shared between correlated members, opposite signs or a large/small split
 show at a glance; members keep the cluster page's colours and order, named under the
