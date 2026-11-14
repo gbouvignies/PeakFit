@@ -374,7 +374,8 @@ losing the sole result. Closing unsaved work retains the normal save guard.
 | Move over spectrum | Continuous sampled slice preview while unpinned; peak hover feedback independently of pin state. |
 | Hover list row | Highlight corresponding marker; preview slices at that peak only when unpinned. No selection or scrolling of the list. Clear feedback on leave. |
 | Click blank spectrum | Pin sampled crosshair; retain selection. Dragging from blank space pans and must not create a pin on release. |
-| Click marker/list row | Select stable peak and pin nearest native sample to its working position. Reveal an offscreen peak with minimum pan, preserving zoom. Keyboard row navigation does the same. |
+| Click marker | Select stable peak and pin nearest native sample to its working position. Reveal an offscreen peak with minimum pan, preserving zoom. |
+| Choose list row, link, change summary or warning | Select and pin as for a marker click; centre at the current zoom within the data: on each axis narrower than the data's extent the centred range is clamped inside it, and an axis showing the whole extent does not move. Keyboard row navigation does the same. Cluster focus keeps its own frame. |
 | Drag already-selected marker | Preview free continuous ppm movement with a ghost marker and Draft label; keep accepted comparison, update nearest native slices; release commits one edit and marks results Outdated. Escape or window deactivation restores the exact pre-drag position/pin. Unselected-marker drag pans. |
 | Drag pinned crosshair | Move sampled inspection position; no peak edit. Unpinned crosshair cannot capture pan gestures. Peak handle takes precedence when coincident. |
 | Wheel / trackpad | Zoom about pointer; continuous wheel input coalesces to latest view. Do not also change a focused numeric field under the pointer. |

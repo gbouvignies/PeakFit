@@ -1361,3 +1361,12 @@ Short records of non‑obvious design choices and trade‑offs.
   gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.
+
+## 2026-11-14: Centring from lists stays within the data (#181)
+- Choosing a peak or cluster away from the spectrum (lists, links, change summary,
+  warning navigation) centres it at the current zoom, then clamps the range inside
+  the data's extent on each axis narrower than the data; an axis already showing
+  the whole extent does not move. Plain centring panned an edge cluster at full
+  spectrum to 8.03–12.03 ppm on data spanning 6.50–10.50 ppm, leaving 40–50 % of
+  the 2D plot and part of both slices empty.
+- A click on the spectrum keeps the minimal reveal; cluster focus keeps its frame.
