@@ -13,6 +13,7 @@ from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
 from peakfit.engine.scientific.replicates import (
     BASELINE_HZ,
     BaselineScatter,
+    ExclusionReason,
     duplicate_groups,
     run_baseline_scatter,
     run_duplicate_check,
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.engine.scientific.replicates import DuplicatePool, ExclusionReason
+    from peakfit.engine.scientific.replicates import DuplicatePool
 
 _DEFAULT_REFERENCE = f"|offset| ≥ {CEST_REFERENCE_HZ / 1000:g} kHz"
 _DUPLICATE_METHOD = "duplicate planes"
@@ -165,7 +166,9 @@ def _check_duplicates(
     by_reason: defaultdict[ExclusionReason, list[str]] = defaultdict(list)
     for name, reason in check.excluded.items():
         by_reason[reason].append(name)
-    for reason, names in sorted(by_reason.items(), key=lambda item: item[0].value):
+    for reason in ExclusionReason:  # in their fixed precedence
+        if not (names := by_reason[reason]):
+            continue
         warning(
             f"Excluded {_plural(len(names), 'peak')}, {reason.value}: {', '.join(sorted(names))}"
         )
