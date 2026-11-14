@@ -20,6 +20,26 @@ calls they cannot check. Scientific-rigor and storage rules live in `AGENTS.md`.
   constant (e.g. CEST reference offset, flag thresholds), and user-facing text
   formatted from that constant, not hard-coded.
 
+## Scientific review
+
+Apply these to any change in a statistic, estimator, uncertainty or diagnostic.
+Matching the spec is not evidence of correctness: the spec may be wrong.
+
+- **Independent expectation.** Check the quantity's expected value against known
+  truth with a simulation you write yourself, from the model and not from the
+  change's own helpers. For a standardized statistic, check that E[q] = k.
+- **Plug-in independence.** A variance used to standardize a quantity must not
+  depend on the noise in that same quantity. Watch for covariance terms evaluated
+  at fitted values that carry the observation being standardized. Example: the
+  duplicate-plane check's first version built lineshape gains from fitted
+  amplitudes, which put the observed contrast back into its own variance and
+  biased q low (`docs/decisions.md`, 2026-11-14).
+- **Spec as hypothesis.** Verify every mathematical claim the change relies on
+  (a cancellation, an independence, a first-order expectation). Treat a claim
+  quoted from a spec or issue as unverified.
+- **Validation design.** Validation tools follow the protocol in
+  `docs/development.md` ("Validation tools").
+
 ## GUI
 
 - **Off the GUI thread.** Scientific and disk work runs off the Qt event loop, in
@@ -37,8 +57,6 @@ calls they cannot check. Scientific-rigor and storage rules live in `AGENTS.md`.
 - **Statuses as Enums.** A closed set of states (a verdict, a flag status) is an
   `Enum`, consistent across modules, with stored strings kept stable. Small
   records are dataclasses, not unnamed tuples or ad-hoc dicts.
-- **Modern syntax.** No `from __future__ import annotations` (Python 3.14 defers
-  annotations). Use `X | Y`, `list[str]`, `dict[str, float]`.
 - **NumPy.** Accept `numpy.typing.ArrayLike` and normalise immediately with
   `np.asarray(...)`; return `numpy.typing.NDArray[...]` from vectorised
   functions. Enforce shapes at runtime rather than in fragile shape types. Use
