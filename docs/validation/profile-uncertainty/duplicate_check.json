@@ -60,6 +60,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.99443,
@@ -123,6 +127,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.98712,
@@ -188,6 +196,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.99933,
@@ -251,6 +263,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.99613,
@@ -314,6 +330,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      1.01031,
@@ -379,6 +399,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.98799,
@@ -448,6 +472,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.99447,
@@ -517,6 +545,10 @@
    },
    "flagged_fraction": 1.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      1.0087,
@@ -538,46 +570,46 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.00139,
-    "se": 0.00502,
-    "deviation_se": 0.27706,
-    "rms": 1.00069,
+    "mean_q_over_k": 0.99383,
+    "se": 0.00501,
+    "deviation_se": -1.23179,
+    "rms": 0.99691,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     1.34086,
-     0.14865,
-     0.62122,
-     1.03603,
-     -1.7254,
-     -0.50127,
-     1.23703,
-     -0.18189,
-     -1.10436,
-     -0.12969
+     0.94974,
+     -0.23543,
+     0.07903,
+     0.49804,
+     -1.95174,
+     -1.06071,
+     0.69943,
+     -0.60604,
+     -1.77982,
+     -0.6279
     ],
-    "chi2": 9.27067,
-    "p_value": 0.41267,
+    "chi2": 8.822,
+    "p_value": 0.45387,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.99912,
-     "se": 0.00527,
-     "deviation_se": -0.16663,
-     "rms": 0.99956,
+     "mean_q_over_k": 0.99143,
+     "se": 0.00526,
+     "deviation_se": -1.62715,
+     "rms": 0.99571,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.00139,
-     "se": 0.00502,
-     "deviation_se": 0.27706,
-     "rms": 1.00069,
+     "mean_q_over_k": 0.99383,
+     "se": 0.00501,
+     "deviation_se": -1.23179,
+     "rms": 0.99691,
      "passes": true,
-     "peaks_per_realization": 1.04275
+     "peaks_per_realization": 1.0029
     },
     "flagged": {
      "realizations_used": 3165,
@@ -591,20 +623,40 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {
-    "conditional variance withheld or not positive": 36007
+    "conditional variance withheld or not positive": 36007,
+    "lineshape covariance withheld": 797
+   },
+   "lineshape_covariance_withheld": {
+    "realizations": 797,
+    "peaks": {
+     "C1": 797,
+     "C2": 797
+    },
+    "would_join_unflagged": {
+     "realizations": 797,
+     "peaks": 1594,
+     "pooled_q_over_k": 1.51136
+    },
+    "statistic_with_them": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00139,
+     "se": 0.00502,
+     "deviation_se": 0.27706,
+     "rms": 1.00069,
+     "passes": true
+    }
    },
    "coincident_pair_pooled": {
     "unflagged": {
-     "realizations": 882,
-     "peaks": 1710,
-     "pooled_q_over_k": 1.50852
+     "realizations": 85,
+     "peaks": 116,
+     "pooled_q_over_k": 1.4695
     },
     "flagged": {
      "realizations": 3165,
      "peaks": 6276,
      "pooled_q_over_k": 1.91035
-    },
-    "realizations_lineshape_factors_withheld": 797
+    }
    },
    "analytical": {
     "variance_ratios": [
@@ -669,6 +721,10 @@
    },
    "flagged_fraction": 1.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      1.04951,
@@ -734,6 +790,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.69461,
@@ -797,6 +857,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      1.29031,
@@ -860,6 +924,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      0.70103,
@@ -929,6 +997,10 @@
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
    "analytical": {
     "variance_ratios": [
      1.29696,

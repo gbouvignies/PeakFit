@@ -454,25 +454,31 @@ refitting and changes no error.
     exceeds 0.1; it is a lower bound on the sampling uncertainty of the RMS.
   - No robust companion, confidence interval or signed statistic: PeakFit does not
     know the acquisition order.
-- **Exclusions,** each listed with its reason, nothing regularized:
-  - an unusable cluster;
-  - a non-finite amplitude on any plane of the peak;
-  - a conditional variance withheld or not positive. The fit publishes the
-    conditional covariance only where the shapes are full rank with
-    s_min > √ε·s_max (`linear_algebra.factorize_shapes`), and otherwise withholds
-    all of it as NaN: a coincident pair is excluded this way. A published
-    conditional is computed from the SVD without squaring the condition number, so
-    it is numerically accurate whenever finite; no further threshold applies.
-  - Withheld lineshape factors do not exclude a peak: q does not use them.
-  - **Open: finite but beyond the first order.** Numerical accuracy is not first-order
-    validity. A truly coincident pair that the fit separates has a finite
-    conditional, but its contrasts exceed c_ll by 50–90% (§8.2); near coalescence
-    the first order weakens, as for every σ (§8.1). Where its lineshape factors are
-    also withheld, its flag is not assessed and it joins the unflagged pool.
-    Proposed rule, not adopted: a peak whose lineshape factors are withheld is
-    excluded ("lineshape parameters not identifiable"). It reuses the fit's own
-    identifiability rule, with no new threshold, and in T8 it would have removed
-    797 of the 882 realizations that put the coincident pair in the unflagged pool.
+- **Exclusions,** each listed with its reason and count, nothing regularized. A peak
+  takes the first reason that applies, in this fixed order:
+  1. an unusable cluster;
+  2. a non-finite amplitude on any plane of the peak;
+  3. a conditional variance withheld or not positive. The fit publishes the
+     conditional covariance only where the shapes are full rank with
+     s_min > √ε·s_max (`linear_algebra.factorize_shapes`), and otherwise withholds
+     all of it as NaN: a coincident pair is excluded this way. A published
+     conditional is computed from the SVD without squaring the condition number, so
+     it is numerically accurate whenever finite; no further threshold applies.
+  4. a lineshape covariance withheld: the cluster's lineshape covariance factors
+     (§3.1) are withheld by the fit's own rule, its rank and conditioning rule on
+     the projected Jacobian (`covariance_factors`).
+  - **Why the fourth reason (decided 2026-11-14).** It is a conservative
+    fit-quality safeguard, not a mathematical requirement of the statistic: q uses
+    only c_ll, which stays finite and accurate. But numerical accuracy is not
+    first-order validity, and a finite c_ll alone does not make a fit trustworthy,
+    least where the fit has difficulty separating overlapping peaks. A truly
+    coincident pair that the fit separates has a finite conditional, yet its
+    contrasts exceed c_ll by about 50% (§8.2); with its lineshape factors also
+    withheld, its flag is not assessed and it would join the unflagged pool. The
+    rule reuses the fit's existing withholding criterion and introduces no new
+    threshold. Being flagged excludes nothing: the flagged and unflagged pools stay,
+    and a near-coalescent pair whose factors are available stays in its pool, with
+    its departure from the first order visible (§8.2).
 - **Limits:**
   - repeatability, not accuracy: an error common to the copies is invisible;
   - the conditional σ only: the lineshape-parameter part of the marginal and
@@ -769,7 +775,10 @@ or changing the criterion:
 peak's contrasts by CΣCᵀ built from the fitted amplitudes; §5.3 explains why that
 biased q low and why q = |Ca_l|²/c_ll replaced it. The protocol above was re-applied
 unchanged (same cases, seeds, N, gate and diagnostics) after the statistic change on
-2026-11-14. The table is that record.
+2026-11-14, and again, unchanged, after the lineshape-covariance exclusion of
+§5.3 (2026-11-14). The table is that last record. Realization i of a case draws the
+same noise in every record, so a case without that exclusion reproduces its
+previous numbers exactly: only the exclusions case changed.
 
 **Gate: passed** on all 40,000 realizations of every gated case. The
 replication is blocks 2–10 alone (36,000 realizations); the block χ² has 9 degrees
@@ -785,7 +794,7 @@ of freedom. The worst contrast variance is against c_ll.
 | `sp2`, pair 3 points, three copies | all | 1.000 | 0.003 | −0.1 SE | 1.000, +0.0 SE | 3.6 (0.94) | 1.7 SE |
 | `sp2`, pair 3 points, shared phase, three copies | all | 1.000 | 0.003 | +0.2 SE | 1.000, +0.1 SE | 9.9 (0.36) | 1.3 SE |
 | `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.009 | 0.004 | +2.4 SE | 1.007, +1.8 SE | 9.4 (0.40) | 1.8 SE |
-| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 1.001 | 0.005 | +0.3 SE | 0.999, −0.2 SE | 9.3 (0.41) | 2.3 SE |
+| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 0.994 | 0.005 | −1.2 SE | 0.991, −1.6 SE | 8.8 (0.45) | 2.3 SE |
 
 - **The shortfall is gone.** The first implementation's record (the previous
   version of `duplicate_check.json`) left six of the seven `sp2` gated cases below 1, an inverse-variance weighted mean q/k of 0.995 ± 0.0013
@@ -800,21 +809,36 @@ of freedom. The worst contrast variance is against c_ll.
   blocks are consistent (p = 0.02 > 0.01). Block 1, the first 4,000-realization
   record, is at −2.9 SE; the other nine lie between −2.4 and +1.4 SE. For an
   isolated peak the old bias was smallest, so the case barely moved.
-- **Exclusions,** end to end: the coincident pair's conditional covariance was
-  withheld (the shapes too ill-conditioned) in 36,007 of 40,000 realizations, and
-  its peaks were listed as such; no other reason occurred. In the other 3,993 the
-  pair fitted apart, the fit published a finite conditional covariance, and its
-  peaks were pooled: in the flagged pool in 3,165 realizations (6,276 peaks, pooled
-  q/k 1.91) and in the unflagged pool in 882 (1,710 peaks, pooled q/k 1.51). In 797
-  realizations the pair was pooled with its lineshape factors withheld, so its flag
-  was not assessed and the peaks counted as unflagged. The first implementation
-  excluded those 797 as "covariance factors withheld" and 476 more for its
-  contrast covariance, and pooled the pair in 2,720 realizations. The gated
-  unflagged pool, isolated peak and pooled pair together, still passes (+0.3 SE),
-  but a coincident pair fitted apart is beyond the first order: its contrasts
-  exceed c_ll by about 50% in the unflagged pool and 90% in the flagged one. The unusable-cluster and non-finite-amplitude reasons
-  have no end-to-end case (the fits start at the truth and succeed): they are
-  covered by the tests of `tests/test_duplicate_planes.py` only.
+- **Exclusions,** end to end, by reason (realizations with at least one peak
+  excluded): conditional variance withheld, 36,007 of 40,000 (the coincident pair's
+  shapes too ill-conditioned); lineshape covariance withheld, 797 (both peaks of
+  the pair, 1,594 peaks). No other reason occurred in any case. In the remaining
+  3,196 realizations the pair fitted apart with its lineshape factors available and
+  was pooled: in the flagged pool in 3,165 (6,276 peaks, pooled q/k 1.91) and in the
+  unflagged pool in 85 (116 peaks, pooled q/k 1.47), one peak in each in 54. The gated unflagged pool is now
+  the isolated peak plus those 116 peaks (1.003 peaks per realization; 1.043
+  before the exclusion), and passes at −1.2 SE. The unusable-cluster and
+  non-finite-amplitude reasons have no end-to-end case (the fits start at the truth
+  and succeed): they are covered by the tests of `tests/test_duplicate_planes.py`
+  only.
+- **What the lineshape-covariance exclusion hides.** The 797 excluded fits are a
+  truly coincident pair that the fit separated, with a finite conditional variance
+  but lineshape parameters the fit's own rule cannot identify; the flag is then not
+  assessed, so before the exclusion both peaks joined the unflagged pool. The tool
+  still computes their q from c_ll: pooled q/k 1.51 (1,594 peaks in 797
+  realizations), their contrasts about 50% larger than c_ll states. With them, the
+  gated statistic would be 1.001 ± 0.005 (+0.3 SE), the previous record's value;
+  without them, 0.994 ± 0.005 (−1.2 SE). Diluted by 40,000 isolated peaks, they did
+  not fail the gate, but they are not calibrated: the exclusion removes them as a
+  fit-quality safeguard (§5.3). The previous record listed the same fits as 797 of
+  882 realizations that put the pair in the unflagged pool (1,710 peaks, pooled q/k
+  1.51).
+- **Remaining coincident-pair fits are not calibrated either.** The 85 unflagged
+  realizations whose pair fitted apart with available factors give pooled q/k 1.47,
+  and the 3,165 flagged ones 1.91: a coincident pair fitted apart is beyond the
+  first order even when its lineshape parameters are identified. The exclusion does
+  not reach them; in this case they are too few to move the gated pool, and the
+  flagged ones stay in the flagged pool, which this case does not gate.
 - **The flagged pool** passes too: the conditional variance does not depend on the
   flag.
 - **Off-diagonal contrast covariances** agree with 0, as c_ll·I states, to within
@@ -822,7 +846,8 @@ of freedom. The worst contrast variance is against c_ll.
 
 **Recorded, not gated.**
 - **Near-coalescent pair** (`sp2`, 1 point apart, flagged): mean q/k 1.059 ± 0.005
-  (+12.4 SE); its contrast variances lie 5–7% above c_ll, the worst 9.3 SE. The
+  (+12.4 SE), unchanged by the lineshape-covariance exclusion, which excludes none
+  of its 80,000 peaks; its contrast variances lie 5–7% above c_ll, the worst 9.3 SE. The
   first-order cancellation of the lineshape terms fails this close to coalescence,
   as the first order does for the marginal σ in §8.1. The first implementation gave
   1.001 here, its downward bias offsetting this excess.
