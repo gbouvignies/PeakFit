@@ -165,9 +165,14 @@ def test_clipped_data_and_model_are_counted_separately(fitted):
     data, model = c.clips["row"]
     assert data > 0
     assert model > 0
-    # The caption counts both slices.
-    assert f"▲ {sum(d for d, _m in c.clips.values())} clipped" in c.caption.text()
-    assert f"△ {sum(m for _d, m in c.clips.values())} model clipped" in c.caption.text()
+    # The caption counts both slices, in words: ▲ stays a numerical warning.
+    caption = c.caption.text()
+    total_data = sum(d for d, _m in c.clips.values())
+    total_model = sum(m for _d, m in c.clips.values())
+    assert f"{total_data} data sample{'s' if total_data != 1 else ''} clipped" in caption
+    assert f"{total_model} model sample{'s' if total_model != 1 else ''} clipped" in caption
+    assert "▲" not in caption
+    assert "△" not in caption
     assert len(c.clip_x.data) == data
 
 
