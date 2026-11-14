@@ -169,8 +169,9 @@ NUS methods (NMRPipe's IST, also hmsIST and SMILE).
 - **Accurate rates under specific conditions:** planes sorted by increasing delay,
   no repeated delays, exponentially spaced delays to about twice the decay time,
   Poisson-gap schedules and 9–12 planes, at 25% sampling.
-- **Systematic error:** some of the schemes tested overestimated the decay time by
-  about 10% (T2, and similarly T1). The conditions above come from the search for
+- **Systematic error:** some of the schemes tested overestimated the decay time α by
+  about 10% (T2, and similarly T1); the error the article reports is in α, not in the
+  rate. The conditions above come from the search for
   schemes that avoid it.
 - **Their uncertainties** came from Monte Carlo trials of the exponential fit. The
   article does not compare them with the observed scatter, so their calibration was
