@@ -42,6 +42,7 @@ the uncertainty of contrasts is calibrated.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -163,14 +164,20 @@ def run_baseline_scatter(
     return results
 
 
-# Below this many contrasts, the independent-case SE of the RMS, 1/√(2n), exceeds 0.1.
-MIN_DUPLICATE_CONTRASTS = 50
+# The pooled RMS warns of a small sample when its independent-case SE, 1/√(2n), exceeds
+# RMS_STANDARD_ERROR_LIMIT: below MIN_DUPLICATE_CONTRASTS = 1/(2·0.1²) = 50 contrasts.
+RMS_STANDARD_ERROR_LIMIT = 0.1
+MIN_DUPLICATE_CONTRASTS = round(0.5 / RMS_STANDARD_ERROR_LIMIT**2)
 _WEAK = float(np.sqrt(np.finfo(float).eps))
 
-UNUSABLE_CLUSTER = "unusable cluster"
-FACTORS_WITHHELD = "covariance factors withheld"
-NOT_POSITIVE_DEFINITE = "contrast covariance not positive definite"
-WEAK_DIRECTION = "contrast covariance has a direction weaker than √ε of the largest"
+
+class ExclusionReason(Enum):
+    """Why a peak with duplicate planes is left out of the duplicate check."""
+
+    UNUSABLE_CLUSTER = "unusable cluster"
+    FACTORS_WITHHELD = "covariance factors withheld"
+    NOT_POSITIVE_DEFINITE = "contrast covariance not positive definite"
+    WEAK_DIRECTION = "contrast covariance has a direction weaker than √ε of the largest"
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +194,18 @@ class RecordedCluster:
     amplitudes: FloatArray | None
     factors: CovarianceFactors | None
     flagged: tuple[bool, ...]
+
+    @classmethod
+    def fitted(
+        cls,
+        peak_names: tuple[str, ...],
+        plane_values: FloatArray,
+        amplitudes: FloatArray,
+        factors: CovarianceFactors,
+    ) -> RecordedCluster:
+        """A fitted cluster, its peaks flagged as ``profile_correlations`` judges them."""
+        flags = tuple(flag.flagged for flag in profile_correlations(factors, amplitudes))
+        return cls(peak_names, plane_values, amplitudes, factors, flags)
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,7 +229,10 @@ class DuplicatePool:
 
     @property
     def low_sample(self) -> bool:
-        """Whether that lower bound exceeds 0.1: fewer than 50 contrasts."""
+        """Whether that lower bound exceeds ``RMS_STANDARD_ERROR_LIMIT``.
+
+        That is, fewer than ``MIN_DUPLICATE_CONTRASTS`` contrasts.
+        """
         return 0 < self.contrasts < MIN_DUPLICATE_CONTRASTS
 
 
@@ -220,7 +242,7 @@ class DuplicateCheck:
 
     unflagged: DuplicatePool = field(default_factory=DuplicatePool)
     flagged: DuplicatePool = field(default_factory=DuplicatePool)
-    excluded: dict[str, str] = field(default_factory=dict)
+    excluded: dict[str, ExclusionReason] = field(default_factory=dict)
 
 
 def duplicate_groups(plane_values: FloatArray) -> tuple[tuple[int, ...], ...]:
@@ -234,8 +256,12 @@ def duplicate_groups(plane_values: FloatArray) -> tuple[tuple[int, ...], ...]:
     return tuple(tuple(group) for group in groups.values() if len(group) > 1)
 
 
-def _contrasts(groups: tuple[tuple[int, ...], ...], n_planes: int) -> FloatArray:
-    """Orthonormal within-group (Helmert) contrasts, stacked: Σ_g (m_g − 1) × S."""
+def orthonormal_contrasts(groups: Sequence[Sequence[int]], n_planes: int) -> FloatArray:
+    """Orthonormal within-group (Helmert) contrasts, stacked: Σ_g (m_g − 1) × S.
+
+    ``groups`` are plane-index groups such as ``duplicate_groups`` returns; each row is
+    zero outside its group and blind to equal copies.
+    """
     rows = []
     for group in groups:
         for j in range(1, len(group)):
@@ -246,16 +272,13 @@ def _contrasts(groups: tuple[tuple[int, ...], ...], n_planes: int) -> FloatArray
     return np.array(rows).reshape(-1, n_planes)
 
 
-def _standardized(contrast: FloatArray, covariance: FloatArray) -> float | str:
-    """The standardized norm dᵀV⁻¹d, or why the contrast covariance V cannot whiten d."""
-    if not np.all(np.isfinite(covariance)):
-        return FACTORS_WITHHELD
-    eigenvalues, vectors = np.linalg.eigh(covariance)
+def _whitening_failure(eigenvalues: FloatArray) -> ExclusionReason | None:
+    """Why a contrast covariance with these ascending eigenvalues cannot whiten, if so."""
     if eigenvalues[0] <= 0.0:
-        return NOT_POSITIVE_DEFINITE
+        return ExclusionReason.NOT_POSITIVE_DEFINITE
     if eigenvalues[0] <= _WEAK * eigenvalues[-1]:
-        return WEAK_DIRECTION
-    return float(np.sum((vectors.T @ contrast) ** 2 / eigenvalues))
+        return ExclusionReason.WEAK_DIRECTION
+    return None
 
 
 @dataclass(slots=True)
@@ -273,33 +296,35 @@ def duplicate_plane_check(clusters: Sequence[RecordedCluster]) -> DuplicateCheck
     """Pool the standardized contrasts between duplicate planes over every peak.
 
     Each cluster's duplicates are the groups of its exactly equal plane values; a
-    cluster without them contributes nothing and excludes nothing. Nothing is
+    cluster without them contributes nothing and excludes nothing. A peak's standardized
+    norm is q = dᵀV⁻¹d for its contrasts d and their covariance V. Nothing is
     regularized: a peak whose contrasts cannot be whitened is left out with its reason.
     """
     tallies = {False: _Tally(), True: _Tally()}
-    excluded: dict[str, str] = {}
+    excluded: dict[str, ExclusionReason] = {}
     for index, cluster in enumerate(clusters):
         groups = duplicate_groups(cluster.plane_values)
         if not groups:
             continue
         if cluster.amplitudes is None or cluster.factors is None:
-            excluded.update(dict.fromkeys(cluster.peak_names, UNUSABLE_CLUSTER))
+            excluded.update(dict.fromkeys(cluster.peak_names, ExclusionReason.UNUSABLE_CLUSTER))
             continue
-        if not cluster.factors.available:
-            excluded.update(dict.fromkeys(cluster.peak_names, FACTORS_WITHHELD))
-            continue
-        contrasts = _contrasts(groups, cluster.amplitudes.shape[1])
+        contrasts = orthonormal_contrasts(groups, cluster.amplitudes.shape[1])
+        # All NaN where the factors are withheld.
         covariances = peak_covariances_between_planes(cluster.factors, cluster.amplitudes)
         for peak, name in enumerate(cluster.peak_names):
-            q = _standardized(
-                contrasts @ cluster.amplitudes[peak],
-                contrasts @ covariances[peak] @ contrasts.T,
-            )
-            if isinstance(q, str):
-                excluded[name] = q
+            covariance = contrasts @ covariances[peak] @ contrasts.T
+            if not np.all(np.isfinite(covariance)):
+                excluded[name] = ExclusionReason.FACTORS_WITHHELD
                 continue
+            eigenvalues, vectors = np.linalg.eigh(covariance)
+            failure = _whitening_failure(eigenvalues)
+            if failure is not None:
+                excluded[name] = failure
+                continue
+            contrast = contrasts @ cluster.amplitudes[peak]
             tally = tallies[bool(cluster.flagged[peak])]
-            tally.q += q
+            tally.q += float(np.sum((vectors.T @ contrast) ** 2 / eigenvalues))
             tally.contrasts += contrasts.shape[0]
             tally.peaks += 1
             tally.clusters.add(index)
@@ -320,26 +345,27 @@ def run_duplicate_check(outcome: FinalFitOutcome, context: Mapping[str, Any]) ->
         if not cluster.usable or evaluation is None:
             clusters.append(RecordedCluster(names, plane_values, None, None, (False,) * len(names)))
             continue
-        factors, amplitudes = evaluation.covariance_factors, evaluation.amplitudes
-        flags = tuple(flag.flagged for flag in profile_correlations(factors, amplitudes))
-        clusters.append(RecordedCluster(names, plane_values, amplitudes, factors, flags))
+        clusters.append(
+            RecordedCluster.fitted(
+                names, plane_values, evaluation.amplitudes, evaluation.covariance_factors
+            )
+        )
     return duplicate_plane_check(clusters)
 
 
 __all__ = [
     "BASELINE_HZ",
-    "FACTORS_WITHHELD",
     "MIN_DUPLICATE_CONTRASTS",
-    "NOT_POSITIVE_DEFINITE",
-    "UNUSABLE_CLUSTER",
-    "WEAK_DIRECTION",
+    "RMS_STANDARD_ERROR_LIMIT",
     "BaselineScatter",
     "DuplicateCheck",
     "DuplicatePool",
+    "ExclusionReason",
     "RecordedCluster",
     "baseline_scatter",
     "duplicate_groups",
     "duplicate_plane_check",
+    "orthonormal_contrasts",
     "robust_sd",
     "run_baseline_scatter",
     "run_duplicate_check",
