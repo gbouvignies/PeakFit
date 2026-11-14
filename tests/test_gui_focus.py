@@ -126,6 +126,9 @@ def test_link_button_shows_a_ring_when_focused(workspace):
     ]
     assert links
     link = links[0]
+    # The inspector lays out a new selection's page in a later turn of the event
+    # loop; measure the ring around the link at its laid-out size, as a user sees it.
+    wait_until(lambda: link.height() >= link.sizeHint().height())
     assert _ring_pixels(w, link) == 0
     _focus(link)
     assert _ring_pixels(w, link) >= 1.5 * _perimeter(link)
