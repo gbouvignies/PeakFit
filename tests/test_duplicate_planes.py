@@ -30,7 +30,7 @@ from peakfit.engine.scientific.replicates import (
     orthonormal_contrasts,
     run_duplicate_check,
 )
-from peakfit.io.scientific import read_scientific
+from peakfit.io.scientific import read_scientific, write_scientific
 
 DATA = Path(__file__).resolve().parents[1] / "examples" / "04-uncertainty-analysis" / "data"
 
@@ -73,13 +73,12 @@ def test_one_pair_is_standardized_by_the_conditional_variance():
 
 def test_q_does_not_depend_on_the_lineshape_factors():
     # Two pairs, d = (√2, 3/√2): q = |d|²/c = 6.5 for every gain, parameter
-    # covariance and cross gain, and with the lineshape factors withheld.
+    # covariance and cross gain.
     planes, amplitudes = [1.0, 1.0, 2.0, 2.0], [3.0, 1.0, 5.0, 2.0]
     variants = [
         _factors(gain=0.0, variance=0.0),
         _factors(gain=3.0, variance=2.0, cross=0.4),
         _factors(variance=0.0, cross=1.0),
-        CovarianceFactors(np.array([[1.0]]), None, None, None),
     ]
     for factors in variants:
         check = duplicate_plane_check([_cluster(planes, amplitudes, factors)])
@@ -100,7 +99,8 @@ def test_three_copies_give_two_contrasts_and_use_every_copy():
 def test_each_peak_is_standardized_by_its_own_conditional_variance():
     # Two peaks, one pair: d = √2 for A and 2√2 for B, c = 2 and 4 (the off-diagonal
     # term plays no part): q = 1 + 2 = 3 over k = 2.
-    factors = CovarianceFactors(np.array([[2.0, 1.5], [1.5, 4.0]]), None, None, None)
+    zeros = np.zeros((2, 2, 1))
+    factors = CovarianceFactors(np.array([[2.0, 1.5], [1.5, 4.0]]), zeros, zeros, np.array([[1.0]]))
     cluster = RecordedCluster(
         ("A", "B"),
         np.array([0.0, 0.0, 1.0]),
@@ -205,12 +205,51 @@ def test_a_withheld_conditional_covariance_excludes_every_peak_of_its_cluster():
     assert check.unflagged.peaks == check.flagged.peaks == 0
 
 
+def test_withheld_lineshape_factors_exclude_a_peak_with_a_finite_conditional_variance():
+    # A conservative fit-quality safeguard, not a requirement of q: c = 1 is finite
+    # and q would be 6.5, but the fit withheld the lineshape factors.
+    planes, amplitudes = [1.0, 1.0, 2.0, 2.0], [3.0, 1.0, 5.0, 2.0]
+    withheld = CovarianceFactors(np.array([[1.0]]), None, None, None)
+    check = duplicate_plane_check(
+        [_cluster(planes, amplitudes, withheld, name="L"), _cluster(planes, amplitudes)]
+    )
+    assert check.excluded == {"L": ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD}
+    assert (check.unflagged.peaks, check.unflagged.contrasts) == (1, 2)
+    assert np.isclose(check.unflagged.q, 6.5)
+    assert check.flagged.peaks == 0
+
+
+def test_each_peak_takes_the_first_reason_in_the_fixed_precedence():
+    # Unusable cluster, then non-finite amplitude, then conditional variance, then
+    # lineshape covariance: every peak below has withheld lineshape factors too.
+    planes = np.array([1.0, 1.0, 2.0])
+    unusable = RecordedCluster(("U",), planes, None, None, (False,))
+    amplitudes = np.array([[3.0, 1.0, 5.0], [np.nan, 1.0, 5.0], [3.0, 1.0, 5.0]])
+    conditional = np.diag([1.0, 1.0, np.nan])
+    withheld = CovarianceFactors(conditional, None, None, None)
+    cluster = RecordedCluster(("L", "A", "C"), planes, amplitudes, withheld, (False,) * 3)
+    check = duplicate_plane_check([unusable, cluster])
+    assert check.excluded == {
+        "U": ExclusionReason.UNUSABLE_CLUSTER,
+        "A": ExclusionReason.NON_FINITE_AMPLITUDE,
+        "C": ExclusionReason.NO_CONDITIONAL_VARIANCE,
+        "L": ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD,
+    }
+    assert list(ExclusionReason) == [
+        ExclusionReason.UNUSABLE_CLUSTER,
+        ExclusionReason.NON_FINITE_AMPLITUDE,
+        ExclusionReason.NO_CONDITIONAL_VARIANCE,
+        ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD,
+    ]
+
+
 def test_exclusion_reasons_keep_their_stated_wording():
-    assert {reason.value for reason in ExclusionReason} == {
+    assert [reason.value for reason in ExclusionReason] == [
         "unusable cluster",
         "non-finite amplitude",
         "conditional variance withheld or not positive",
-    }
+        "lineshape covariance withheld",
+    ]
 
 
 def test_signed_zeros_are_one_plane_value_and_nan_matches_nothing():
@@ -252,6 +291,8 @@ def test_flagged_peaks_are_pooled_apart_with_their_own_counts():
         last.peak_names, last.plane_values, last.amplitudes, last.factors, (True, False)
     )
     check = duplicate_plane_check([clusters[0], clusters[1], flagged])
+    # Being flagged excludes no peak: with its lineshape factors available, it is pooled.
+    assert check.excluded == {}
     unflagged, correlated = check.unflagged, check.flagged
     assert (unflagged.contrasts, unflagged.peaks, unflagged.clusters) == (15, 5, 3)
     assert (correlated.contrasts, correlated.peaks, correlated.clusters) == (3, 1, 1)
@@ -479,38 +520,104 @@ def test_a_published_run_accounts_for_every_peak_of_its_duplicates(repeated_run)
                 assert check.excluded[name] is ExclusionReason.UNUSABLE_CLUSTER
 
 
+def _withhold_lineshape(cluster):
+    """``cluster`` with its lineshape covariance factors withheld, its conditional kept."""
+    evaluation = cluster.analytical_evaluation
+    factors = CovarianceFactors(evaluation.amplitude_covariance, None, None, None)
+    return replace(cluster, analytical_evaluation=replace(evaluation, covariance_factors=factors))
+
+
+def _with_available_factors(outcome):
+    """The usable clusters whose lineshape covariance factors are available."""
+    return [
+        cluster
+        for cluster in outcome.clusters
+        if cluster.usable
+        and cluster.analytical_evaluation is not None
+        and cluster.analytical_evaluation.covariance_factors.available
+    ]
+
+
 @pytest.mark.slow
 def test_a_published_run_lists_peaks_it_cannot_check(repeated_run):
     outcome, _samples, context = read_scientific(repeated_run / "scientific.npz")
-    first, second, *rest = outcome.clusters
+    first, second, third, *_ = _with_available_factors(outcome)
     evaluation = first.analytical_evaluation
     assert evaluation is not None
     # A conditional covariance withheld as the fit withholds it: all NaN.
     conditional = np.full_like(evaluation.amplitude_covariance, np.nan)
     withheld = CovarianceFactors(conditional, None, None, None)
+    edits = {
+        first.peak_names: replace(
+            first, analytical_evaluation=replace(evaluation, covariance_factors=withheld)
+        ),
+        second.peak_names: replace(
+            second,
+            classification=FitOutcomeClassification.UNUSABLE,
+            analytical_evaluation=None,
+            unusable_reason="edited for the test",
+        ),
+        third.peak_names: _withhold_lineshape(third),
+    }
     edited = replace(
         outcome,
-        clusters=(
-            replace(
-                first,
-                analytical_evaluation=replace(evaluation, covariance_factors=withheld),
-            ),
-            replace(
-                second,
-                classification=FitOutcomeClassification.UNUSABLE,
-                analytical_evaluation=None,
-                unusable_reason="edited for the test",
-            ),
-            *rest,
-        ),
+        clusters=tuple(edits.get(cluster.peak_names, cluster) for cluster in outcome.clusters),
     )
     check = run_duplicate_check(edited, context)
+    whole = run_duplicate_check(outcome, context)
     expected = dict.fromkeys(first.peak_names, ExclusionReason.NO_CONDITIONAL_VARIANCE)
     expected |= dict.fromkeys(second.peak_names, ExclusionReason.UNUSABLE_CLUSTER)
-    assert check.excluded == expected
-    whole = run_duplicate_check(outcome, context)
+    expected |= dict.fromkeys(third.peak_names, ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD)
+    assert check.excluded == whole.excluded | expected
     pooled = check.unflagged.peaks + check.flagged.peaks
     assert pooled == whole.unflagged.peaks + whole.flagged.peaks - len(expected)
+
+
+@pytest.fixture(scope="module")
+def lineshape_withheld_run(repeated_run, tmp_path_factory):
+    """The repeated run, republished with two clusters' lineshape factors withheld."""
+    outcome, samples, context = read_scientific(repeated_run / "scientific.npz")
+    edits = {c.peak_names: _withhold_lineshape(c) for c in _with_available_factors(outcome)[:2]}
+    edited = replace(
+        outcome,
+        clusters=tuple(edits.get(cluster.peak_names, cluster) for cluster in outcome.clusters),
+    )
+    folder = tmp_path_factory.mktemp("withheld")
+    write_scientific(
+        folder / "scientific.npz", edited, samples, context=context, evidence="results"
+    )
+    names = sorted(name for peaks in edits for name in peaks)
+    return folder, names
+
+
+@pytest.mark.slow
+def test_a_published_run_reads_back_withheld_lineshape_factors_as_an_exclusion(
+    lineshape_withheld_run, repeated_run
+):
+    folder, names = lineshape_withheld_run
+    outcome, _samples, context = read_scientific(folder / "scientific.npz")
+    check = run_duplicate_check(outcome, context)
+    whole = run_duplicate_check(*read_scientific(repeated_run / "scientific.npz")[::2])
+    expected = dict.fromkeys(names, ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD)
+    assert check.excluded == whole.excluded | expected
+
+
+@pytest.mark.slow
+def test_the_command_lists_peaks_excluded_for_withheld_lineshape_covariance(
+    lineshape_withheld_run, repeated_run
+):
+    folder, names = lineshape_withheld_run
+    result, text = _replicates(str(folder))
+    assert result.exit_code == 0, result.output
+    count = len(names) + sum(
+        reason is ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD
+        for reason in run_duplicate_check(
+            *read_scientific(repeated_run / "scientific.npz")[::2]
+        ).excluded.values()
+    )
+    assert f"Excluded {count} peaks, lineshape covariance withheld: " in text
+    for name in names:
+        assert name in text
 
 
 def _replicates(*args: str):

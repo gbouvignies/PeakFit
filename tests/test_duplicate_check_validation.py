@@ -7,6 +7,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
+from peakfit.engine.scientific.replicates import (
+    ExclusionReason,
+    RecordedCluster,
+    duplicate_plane_check,
+)
+
 TOOL = Path(__file__).resolve().parents[1] / "tools" / "profile_uncertainty"
 RECORD = (
     Path(__file__).resolve().parents[1] / "docs/validation/profile-uncertainty/duplicate_check.json"
@@ -66,7 +73,7 @@ def test_one_realization_reads_the_fit_as_a_published_run(study):
     assert q > 0
     assert row.excluded == {}
     assert row.coincident == {}
-    assert not row.coincident_unassessed
+    assert row.withheld == {}
     # The stated contrast covariance is each peak's conditional variance times I.
     assert row.stated.shape == (2, 4, 4)
     for stated in row.stated:
@@ -84,6 +91,21 @@ def test_the_exclusions_case_records_where_the_coincident_pair_went(study):
     excluded = sum(name in row.excluded for name in ("C1", "C2"))
     assert pooled + excluded == 2
     assert set(row.excluded) <= {"C1", "C2"}
+
+
+def test_peaks_excluded_for_withheld_lineshape_covariance_keep_their_q(study):
+    # One pair, d = (3 − 1)/√2 and c = 0.5: q = 4 over k = 1, in the unflagged pool
+    # where the run puts a peak whose flag is not assessed.
+    factors = CovarianceFactors(np.array([[0.5]]), None, None, None)
+    cluster = RecordedCluster.fitted(
+        ("L",), np.array([10.0, 10.0, 20.0]), np.array([[3.0, 1.0, 7.0]]), factors
+    )
+    excluded = duplicate_plane_check([cluster]).excluded
+    assert excluded == {"L": ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD}
+    sums = study.withheld_sums([cluster], excluded)
+    assert set(sums) == {"unflagged"}
+    assert (sums["unflagged"].contrasts, sums["unflagged"].peaks) == (1, 1)
+    assert sums["unflagged"].q == pytest.approx(4.0)
 
 
 def test_the_record_passes_its_gate_and_shows_the_illustration(study):

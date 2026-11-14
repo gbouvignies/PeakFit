@@ -14,8 +14,9 @@ sp2, pair 3 points, shared phase, three copies: q/k 1.0004 ± 0.0025 (+0.2 SE), 
   blocks: +0.1 -1.6 -0.3 -0.5 -0.7 +0.1 -0.2 +0.6 +2.4 +0.5 SE; χ² 9.9 (p 0.36); replication q/k 1.0003 (+0.1 SE)
 sp2, pair 2 points (flagged), two copies: q/k 1.0090 ± 0.0038 (+2.4 SE), RMS 1.004; analytical worst 1.8 SE; pass
   blocks: +2.1 +1.2 +0.2 +0.3 +2.7 +0.6 +0.6 +0.7 -0.5 -0.4 SE; χ² 9.4 (p 0.40); replication q/k 1.0072 (+1.8 SE)
-sp2, isolated with a coincident pair (exclusions), two copies: q/k 1.0014 ± 0.0050 (+0.3 SE), RMS 1.001; analytical worst 2.3 SE; pass
-  blocks: +1.3 +0.1 +0.6 +1.0 -1.7 -0.5 +1.2 -0.2 -1.1 -0.1 SE; χ² 9.3 (p 0.41); replication q/k 0.9991 (-0.2 SE)
+sp2, isolated with a coincident pair (exclusions), two copies: q/k 0.9938 ± 0.0050 (-1.2 SE), RMS 0.997; analytical worst 2.3 SE; pass
+  blocks: +0.9 -0.2 +0.1 +0.5 -2.0 -1.1 +0.7 -0.6 -1.8 -0.6 SE; χ² 8.8 (p 0.45); replication q/k 0.9914 (-1.6 SE)
+  lineshape covariance withheld: would join unflagged: 797 realizations, 1594 peaks, pooled q/k 1.511; statistic with them 1.0014 (+0.3 SE)
 sp2, pair 1 point (near-coalescent), two copies: q/k 1.0590 ± 0.0047 (+12.4 SE), RMS 1.029; analytical worst 9.3 SE; recorded
   blocks: +3.9 +3.0 +4.4 +4.9 +4.1 +4.2 +4.7 +4.0 +2.9 +3.2 SE; χ² 5.1 (p 0.83); replication q/k 1.0591 (+11.8 SE)
 sp2, isolated, two copies, copies correlated +0.3: q/k 0.6980 ± 0.0035 (-86.0 SE), RMS 0.835; analytical worst 43.2 SE; recorded

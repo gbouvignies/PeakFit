@@ -33,10 +33,15 @@ the contrast itself and bias q low. q depends on neither the contrast basis nor 
 plane order. The pooled RMS √(Σq / Σk) is 1 when the conditional σ is calibrated.
 
 - **Pools:** peaks without and with the correlated-profile flag, kept apart.
-- **Exclusions:** unusable clusters; a non-finite amplitude on any plane of the
-  peak; a conditional variance that is not finite (the fit withholds the
-  conditional covariance where the shapes are rank-deficient or their condition
-  number reaches 1/√ε) or not positive. Nothing is regularized.
+- **Exclusions,** each peak with the first reason that applies, in this order: an
+  unusable cluster; a non-finite amplitude on any plane of the peak; a conditional
+  variance that is not finite (the fit withholds the conditional covariance where
+  the shapes are rank-deficient or their condition number reaches 1/√ε) or not
+  positive; withheld lineshape covariance factors (``CovarianceFactors.available``).
+  The last is a conservative fit-quality safeguard, not a requirement of q, which
+  does not use those factors: a finite c alone does not make the fit trustworthy,
+  least where it struggles to separate overlapping peaks, and the fit's own
+  withholding rule marks such fits with no new threshold. Nothing is regularized.
 - **Limits:** the conditional σ only: blind to the lineshape-parameter part of the
   marginal and profile σ. Repeatability, not accuracy; raw amplitudes, not
   normalized profiles. Peaks of one cluster have correlated contrasts, so the
@@ -172,11 +177,18 @@ MIN_DUPLICATE_CONTRASTS = round(0.5 / RMS_STANDARD_ERROR_LIMIT**2)
 
 
 class ExclusionReason(Enum):
-    """Why a peak with duplicate planes is left out of the duplicate check."""
+    """Why a peak with duplicate planes is left out of the duplicate check.
+
+    Listed in their fixed precedence: a peak takes the first reason that applies.
+    ``LINESHAPE_COVARIANCE_WITHHELD`` is a fit-quality safeguard: q does not need the
+    lineshape factors, but a fit whose lineshape parameters the fit's own rule cannot
+    identify, such as overlapping peaks it separates with difficulty, is not trusted.
+    """
 
     UNUSABLE_CLUSTER = "unusable cluster"
     NON_FINITE_AMPLITUDE = "non-finite amplitude"
     NO_CONDITIONAL_VARIANCE = "conditional variance withheld or not positive"
+    LINESHAPE_COVARIANCE_WITHHELD = "lineshape covariance withheld"
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,8 +197,9 @@ class RecordedCluster:
 
     ``plane_values`` (S), ``amplitudes`` (L × S), ``factors`` and ``flagged``, the
     correlated-profile flag of each of the L peaks. ``amplitudes`` and ``factors`` are
-    None for an unusable cluster. The check reads only the conditional covariance of
-    the factors; the flags come from all of them.
+    None for an unusable cluster. The check reads the conditional covariance of the
+    factors and whether their lineshape factors are withheld; the flags come from
+    all of them.
     """
 
     peak_names: tuple[str, ...]
@@ -289,7 +302,9 @@ def duplicate_plane_check(clusters: Sequence[RecordedCluster]) -> DuplicateCheck
     Each cluster's duplicates are the groups of its exactly equal plane values; a
     cluster without them contributes nothing and excludes nothing. A peak's standardized
     norm is q = |Ca|²/c for its contrasts Ca and its conditional variance c. Nothing is
-    regularized: a peak that cannot be standardized is left out with its reason.
+    regularized: a peak that cannot be standardized, or whose cluster's lineshape
+    covariance factors are withheld, is left out with the first reason of
+    ``ExclusionReason`` that applies.
     """
     tallies = {False: _Tally(), True: _Tally()}
     excluded: dict[str, ExclusionReason] = {}
@@ -310,6 +325,9 @@ def duplicate_plane_check(clusters: Sequence[RecordedCluster]) -> DuplicateCheck
             variance = float(variances[peak])
             if not (np.isfinite(variance) and variance > 0.0):
                 excluded[name] = ExclusionReason.NO_CONDITIONAL_VARIANCE
+                continue
+            if not cluster.factors.available:
+                excluded[name] = ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD
                 continue
             tally = tallies[bool(cluster.flagged[peak])]
             tally.q += float(np.sum((contrasts @ amplitudes) ** 2)) / variance

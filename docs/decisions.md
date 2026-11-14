@@ -1328,12 +1328,24 @@ Short records of non‑obvious design choices and trade‑offs.
   and is blind to the lineshape-parameter part of the marginal and profile σ; the
   CLI says so. The eigendecomposition, the weak-direction and
   not-positive-definite exclusions and the dependence on the lineshape factors are
-  gone. Exclusions: an unusable cluster, a non-finite amplitude, a conditional
-  variance withheld (as the fit withholds it where cond(Φ) ≥ 1/√ε) or not
-  positive. Nothing is regularized.
-- **Open: coincident peaks fitted apart.** Their conditional is finite but beyond
-  the first order (contrasts 50–90% above c in T8). Proposed, not adopted:
-  exclude peaks whose lineshape factors are withheld.
+  gone. Exclusions, in this fixed precedence: an unusable cluster, a non-finite
+  amplitude, a conditional variance withheld (as the fit withholds it where
+  cond(Φ) ≥ 1/√ε) or not positive, a lineshape covariance withheld. Nothing is
+  regularized.
+- **Peaks whose lineshape covariance is withheld are excluded** (maintainer's
+  decision). A conservative fit-quality safeguard, not a mathematical requirement
+  of q, which uses only the finite conditional variance: a finite c alone does not
+  guarantee a trustworthy fit, particularly where the fit has difficulty separating
+  overlapping peaks. A coincident pair that the fit separates has a finite c but
+  contrasts about 50% above it; with its lineshape factors withheld, its flag is
+  not assessed and it joined the unflagged pool, in 797 of 40,000 T8 realizations.
+  The rule reuses the fit's existing withholding criterion, with no new threshold,
+  under its own reason, "lineshape covariance withheld". Being flagged excludes
+  nothing: both pools stay. In T8 it changes only the exclusions case (unflagged
+  pool 1.001 → 0.994, +0.3 → −1.2 SE) and excludes none of the near-coalescent
+  pair, still recorded at q/k 1.059. T8 records what it hides: the excluded fits'
+  pooled q/k, 1.51. Pair fits with identified lineshape parameters stay pooled
+  and are not calibrated either (85 unflagged realizations, q/k 1.47).
 - **Validation T8** ([§8.2](profile-uncertainty.md#82-t8-the-duplicate-plane-check)):
   synthetic duplicates through the exact processing operators and the engine fit;
   mean q/k within ±3 SE of 1 over realizations, SE from the realizations. Passed in
