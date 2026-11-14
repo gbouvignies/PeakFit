@@ -80,7 +80,7 @@ sits beyond it.
 
 | Area | Permanent responsibility |
 | --- | --- |
-| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
+| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin slices, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
 | Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
 | Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). After a fit, the **Profiles** toggle in the toolbar can show the Profiles view here instead (below). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
@@ -374,7 +374,8 @@ losing the sole result. Closing unsaved work retains the normal save guard.
 | Move over spectrum | Continuous sampled slice preview while unpinned; peak hover feedback independently of pin state. |
 | Hover list row | Highlight corresponding marker; preview slices at that peak only when unpinned. No selection or scrolling of the list. Clear feedback on leave. |
 | Click blank spectrum | Pin sampled crosshair; retain selection. Dragging from blank space pans and must not create a pin on release. |
-| Click marker/list row | Select stable peak and pin nearest native sample to its working position. Reveal an offscreen peak with minimum pan, preserving zoom. Keyboard row navigation does the same. |
+| Click marker | Select stable peak and pin nearest native sample to its working position. Reveal an offscreen peak with minimum pan, preserving zoom. |
+| Choose list row, link, change summary or warning | Select and pin as for a marker click; centre at the current zoom within the data: on each axis narrower than the data's extent the centred range is clamped inside it, and an axis showing the whole extent does not move. Keyboard row navigation does the same. Cluster focus keeps its own frame. |
 | Drag already-selected marker | Preview free continuous ppm movement with a ghost marker and Draft label; keep accepted comparison, update nearest native slices; release commits one edit and marks results Outdated. Escape or window deactivation restores the exact pre-drag position/pin. Unselected-marker drag pans. |
 | Drag pinned crosshair | Move sampled inspection position; no peak edit. Unpinned crosshair cannot capture pan gestures. Peak handle takes precedence when coincident. |
 | Wheel / trackpad | Zoom about pointer; continuous wheel input coalesces to latest view. Do not also change a focused numeric field under the pointer. |
@@ -627,7 +628,8 @@ unchanged.
   mode-button tooltips, the focus bar, and the unexplained
   list title.
 - **What changed since.** Compared with the run's adopted working peaks by stable
-  ID, a working peak the run did not fit is marked ◇ (“not in this model”); a
+  ID, a working peak the run did not fit is marked ☆ (“not in this model”, with
+  its own legend entry; ◇ means only a review highlight); a
   model peak moved or deleted since is drawn as × at its recorded position, with a
   dotted line to its working marker. The marks show only with a model on show.
 - **Compatible data only.** The run's input snapshot must match the working data:
@@ -658,7 +660,8 @@ Annotations are minimal: a zero baseline, no intensity axis, a caption only for 
 residual or lane scale, a gain or clipping counts, and exact values in a corner
 readout; the 2D ppm axes and profile axes stay quantitative. Clipped samples are
 marked at the edge, data (filled) and model (hollow) distinctly; no silent
-clipping. Slice updates extract only the native row/column and its strip over the
+clipping. The caption counts them in words (“3 data samples clipped · 1 model
+sample clipped”), never with ▲, which keeps its meaning of numerical warning. Slice updates extract only the native row/column and its strip over the
 planes. Model tails remain visible
 without silent cutoffs.
 
@@ -738,7 +741,7 @@ working peak.
   historical residual of that run, titled with it (“· Run 5d7b4768 · historical”);
   the regions are the run's, while distances are to the **current** working peaks,
   recomputed after each edit and stated in the note, and a nearest peak added since
-  the run carries ◇. Distances to working peaks are what tell the scientist whether
+  the run carries ☆. Distances to working peaks are what tell the scientist whether
   a correction already covers a region.
 
 The list never adds or proposes peaks, never flags a cluster and does not imply a
@@ -1070,12 +1073,12 @@ views share one plot-style function and an AxisItem subclass for tick formatting
 | Rhythm | 4/8/12/16/24 logical-pixel spacing; 24–26 px controls, 28–30 px navigator rows, 10–14 px panel padding. |
 | Surfaces | Window, chrome, panel and plot surfaces only; thin dividers; 4–6 px radii; no shadows, gradients or nested cards inside the window. |
 | Commands | One filled accent **Fit** action. Canvas tools are icon buttons from one permissively licensed SVG set, tinted from tokens, with tooltips naming shortcuts; the comparison selector is a joined segmented control. Unavailable commands are disabled with an explanation; a command is hidden only when it cannot apply to the dataset (plane controls for a 2D spectrum). |
-| Light UI palette | Window `#EEF0F3`, chrome `#F7F8FA`, panel `#FBFBFC`, plot `#FFFFFF`, divider `#E1E5EA`, text `#1D232B`, secondary `#67717D`, accent `#2F5DA8`, selection `#DBE6F6`. |
-| Dark UI palette | Window `#0F1318`, chrome `#171C22`, panel `#1A2027`, plot `#13171C`, divider `#29313A`, text `#E1E6EC`, secondary `#99A4B0`, accent `#7EA6E8`, selection `#22324A`. |
+| Light UI palette | Window `#EEF0F3`, chrome `#F7F8FA`, panel `#FBFBFC`, plot `#FFFFFF`, divider `#E1E5EA`, text `#1D232B`, secondary `#5F6A76`, caption `#636D79`, control outline `#7D8792`, disabled `#8E98A3`, accent `#2F5DA8`, selection `#DBE6F6`. |
+| Dark UI palette | Window `#0F1318`, chrome `#171C22`, panel `#1A2027`, plot `#13171C`, divider `#29313A`, text `#E1E6EC`, secondary `#A3AEBA`, caption `#86919D`, control outline `#66727F`, disabled `#6F7A86`, accent `#7EA6E8`, selection `#22324A`. |
 | Scientific encoding | Measured positive: graded blue ramp ending at `#1F4F99` light / `#8FB3EA` dark, low levels thinner and lighter. Measured negative: plum `#8E3B8E` / `#D08AD0`, dashed. Model: amber `#C98512` / `#E9A83C`, dotted when negative. Whole-spectrum residual: positive vermilion `#D2492E` / `#F07A5E` solid, negative teal `#1F8A8A` / `#4CC2C2` dashed. Profile members: a categorical set distinct from layer hues. Pinned crosshair amber dashed; selection ring accent. |
 | Markers and labels | Small crosses with a plot-coloured halo, drawn above contours and visible at full view. Labels for the selection, its cluster and hover; all labels when zoom leaves room or when Display requests them. |
 | State | Neutral Pending; amber glyph with text for numerical warnings and Outdated; red for Failed/Invalid; subdued outline glyph with its rule for heuristic highlights. Never colour alone. Current means verified run-derived state match, never “scientifically correct”. |
-| Focus/contrast | Visible keyboard focus distinct from selection: one focus ring, drawn once for every focusable control by a shared indicator that follows the application's focus widget, never per widget or as a stylesheet `:focus` state. It is a 2 px stroke in a dedicated focus token (`#1A56C8` light, `#8AB4FF` dark) that reaches ≥3:1 against the window, chrome, panel and plot surfaces and the selection and hover fills. Around a control the ring sits 1 px outside the control's own border, so it touches only the surface, never an accent fill such as **Fit**; lists, trees and other scroll areas show it on the view's own edge; the 2D canvas instead frames its plot area while it has keyboard focus. Checked and selected states remain fills and 1 px borders, never this ring. Normal text ≥4.5:1 and essential graphics/control boundaries ≥3:1 in both appearances, including disabled explanations, profile plots and residual scale. Every plot follows the appearance. |
+| Focus/contrast | Visible keyboard focus distinct from selection: one focus ring, drawn once for every focusable control by a shared indicator that follows the application's focus widget, never per widget or as a stylesheet `:focus` state. It is a 2 px stroke in a dedicated focus token (`#1A56C8` light, `#8AB4FF` dark) that reaches ≥3:1 against the window, chrome, panel and plot surfaces and the selection and hover fills. Around a control the ring sits 1 px outside the control's own border, so it touches only the surface, never an accent fill such as **Fit**; lists, trees and other scroll areas show it on the view's own edge; the 2D canvas instead frames its plot area while it has keyboard focus. Checked and selected states remain fills and 1 px borders, never this ring. Normal text ≥4.5:1 and essential graphics/control boundaries ≥3:1 in both appearances, including disabled explanations, profile plots and residual scale. Secondary and caption text (section titles, captions, table headers, axis text, placeholders) reach 4.5:1 and the control outline (inputs, spin boxes, combo boxes, checkboxes) 3:1 on window, chrome, panel and plot surfaces; captions stay quieter than values through size and tone. Only disabled controls use the weaker disabled colour. Every plot follows the appearance. |
 
 The hex values are the starting tokens; rendered palettes must be checked for
 contrast before acceptance. Contours are graded antialiased strokes starting at

@@ -2127,6 +2127,82 @@ def test_display_settings_apply_in_focus_without_touching_results(
     assert c.box.viewRange() == view
 
 
+def test_toolbar_names_slices_and_what_display_holds(workspace, scientific):
+    w = workspace
+    pin = w.pin_button
+    # The glossary's word: native slices, not traces.
+    assert pin.toolTip() == "Pin slices at the sampled position (Space)"
+    assert pin.accessibleName() == "Pin slices at the sampled position"
+    w.canvas.set_pinned(True)
+    assert pin.toolTip() == "Slices pinned · click to follow the pointer (Space)"
+    assert pin.accessibleName() == "Slices pinned · click to follow the pointer"
+    w.canvas.set_pinned(False)
+    assert pin.accessibleName() == "Pin slices at the sampled position"
+    tools = w.findChildren(QtWidgets.QToolButton)
+    assert not any("trace" in t.toolTip().lower() for t in tools)
+    display = next(t for t in tools if t.toolTip().startswith("Display"))
+    assert display.toolTip() == "Display: contours, labels, residual levels, highlights"
+    # The Profiles toggle names its state, not the one it had before the fit.
+    profiles = w.profiles_button
+    assert profiles.accessibleName() == "Profiles: available after a fit"
+    publish(w, scientific[-1])
+    assert profiles.isEnabled()
+    assert profiles.accessibleName() == "Profiles: every cluster's amplitude profiles"
+
+
+def test_cluster_list_headers_leave_room_for_the_sort_indicator(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    tree = w.navigator.tree
+    header = tree.header()
+    header.setSortIndicator(3, QtCore.Qt.SortOrder.AscendingOrder)
+    style = header.style()
+    room = style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_HeaderMarkSize) + 3 * (
+        style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_HeaderMargin)
+    )
+    metrics = QtGui.QFontMetrics(header.font())
+    for column in (2, 3, 4, 5):
+        label = tree.headerItem().text(column)
+        assert tree.columnWidth(column) >= metrics.horizontalAdvance(label) + room, label
+
+
+@pytest.fixture
+def comma_locale():
+    previous = QtCore.QLocale()
+    QtCore.QLocale.setDefault(QtCore.QLocale(QtCore.QLocale.Language.French))
+    yield
+    QtCore.QLocale.setDefault(previous)
+
+
+@pytest.mark.usefixtures("comma_locale")
+@pytest.mark.parametrize(("typed", "expected"), [("2500", 2500.0), ("1.5e5", 1.5e5)])
+def test_display_dialog_uses_one_decimal_convention_and_scaled_intensities(
+    workspace, monkeypatch, typed, expected
+):
+    w, c = workspace, workspace.canvas
+    c.contour_threshold = 60349.7535
+    shown = {}
+
+    def accept(dialog):
+        for field in dialog.findChildren(QtWidgets.QAbstractSpinBox):
+            shown[field.accessibleName() or field.text()] = field.text()
+            if field.accessibleName() == "First contour":
+                field.lineEdit().selectAll()
+                QtTest.QTest.keyClicks(field.lineEdit(), typed)
+                field.interpretText()
+        return QtWidgets.QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
+    w.display_dialog()
+    # One decimal point in every field, whatever the locale.
+    assert not [text for text in shown.values() if "," in text], shown
+    assert shown["Level factor"] == "1.60"
+    # The first contour reads through the shared ×10ⁿ formatter.
+    assert shown["First contour"] == "6.035 ×10⁴"
+    # Entry still accepts plain and scientific notation.
+    assert c.contour_threshold == expected
+
+
 def test_escape_leaves_focus_from_any_column_but_discards_a_draft_first(workspace, scientific):
     w = workspace
     result = scientific[-1]
@@ -2488,9 +2564,12 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert f"σ_stat residual · residual of {tag}" in c.view.accessibleDescription()
     legend = c.legend.text()
     assert tag in legend
-    assert "not in this model" in legend
+    assert "☆</span>&nbsp;not in this model" in legend
     assert "position in this model" in legend
-    # ◇ marks the added peak; × the run's position of the moved one, linked to it.
+    # ◇ means only a review highlight; the added peak has its own mark.
+    assert "◇" not in legend
+    assert c.added_marks.opts["symbol"] == "star"
+    # ☆ marks the added peak; × the run's position of the moved one, linked to it.
     assert list(zip(*c.added_marks.getData(), strict=True)) == [c.display(added)]
     assert list(zip(*c.recorded_marks.getData(), strict=True)) == [c.display(recorded)]
     moved = next(p for p in w.peaks if p.id == "1")
@@ -2534,6 +2613,16 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     names = {p.id: p.name for p in w.peaks}
     detail = _unexplained_links(w)[0].parent().findChildren(QtWidgets.QLabel)
     assert any(f"{distance:.1f} pts from {names[nearest]}" in label.text() for label in detail)
+    note = w.panel.unexplained_note.text()
+    assert "☆ marks a peak added since that run" in note
+    assert "◇" not in note
+    # A peak added on the first region becomes its nearest, marked ☆ and never ◇.
+    on_region = w.edits.add((float(c.ppm_y[first.row]), float(c.ppm_x[first.column])))
+    w._refresh()
+    detail = _unexplained_links(w)[0].parent().findChildren(QtWidgets.QLabel)
+    assert any(f"from {on_region.name} ☆" in label.text() for label in detail)
+    assert not any("◇" in label.text() for label in detail)
+    w.history(False)
 
     # Undo restores the run's peaks: no marks, yet the run stays Outdated.
     w.history(False)
@@ -2573,8 +2662,10 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
     panel = w.panel
     layout = panel._analysis_layout
     w.select_peak(None)
-    # Before the first fit the setup leads and there is no unexplained-signal section.
-    assert layout.indexOf(panel.setup_block) == 0
+    # Before the first fit the setup leads (below the failure block, hidden without a
+    # failure) and there is no unexplained-signal section.
+    assert panel.failure_block.isHidden()
+    assert layout.indexOf(panel.setup_block) == 1
     assert not panel.unexplained_button.isVisible()
     publish(w, scientific[-1])
     w.select_peak(w.peaks[0].id)
@@ -2583,7 +2674,7 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
     QtTest.QTest.mouseClick(w.summary, QtCore.Qt.MouseButton.LeftButton)
     wait_until(lambda: panel.analysis_page.isVisible())
     assert w.selected_id is None
-    assert layout.indexOf(panel.review_block) == 0
+    assert layout.indexOf(panel.review_block) == 1
     assert panel.unexplained_button.isVisible()
     assert "Click to open the analysis page" in w.summary.toolTip()
     review = panel.review_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
@@ -2686,9 +2777,9 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
         assert after[ids[name]] == before[ids[name]]
     assert len(w.canvas.unadopted.data) == len(retained)
     assert "fitted position, not adopted" in w.canvas.legend.text()
-    # A small model-coloured □, distinct from the ◇ of a peak absent from a historical model.
+    # A small model-coloured □, distinct from the ☆ of a peak absent from a historical model.
     assert w.canvas.unadopted.opts["symbol"] == "s"
-    assert w.canvas.added_marks.opts["symbol"] == "d"
+    assert w.canvas.added_marks.opts["symbol"] == "star"
     # The peak page states it, and the review lists the pair as a measure.
     w.select_peak(ids["53N-H"])
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
@@ -2841,3 +2932,77 @@ def test_the_run_status_reports_a_noise_power_mismatch(workspace, scientific):
     publish(w, warned)
     assert "▲ Noise check (F2)" in w.summary.text()
     assert str(checked.power_warning) in w.summary.toolTip()
+
+
+def _with_noise_check(result, first: NoisePowerStatus):
+    """``result`` with a recorded noise-power check: ``first`` on F2, consistent on F1."""
+    axes = tuple(AxisProcessing(16, 64, "sine_bell", offset=0.4) for _ in range(2))
+    checked = NoiseModel(
+        axes=axes,
+        power_check=(
+            AxisNoisePower(first, 900, 0.6, 0.01, 9),
+            AxisNoisePower(NoisePowerStatus.CONSISTENT, 900, 1.0, 0.01),
+        ),
+    )
+    return replace(
+        result,
+        completed_fit=replace(
+            result.completed_fit, outcome=replace(result.outcome, noise_model=checked)
+        ),
+    )
+
+
+def _review_caption(grid, label: str) -> str:
+    """The caption under a review row's value, or "" when it has none."""
+    for row in range(grid.rowCount()):
+        item = grid.itemAtPosition(row, 0)
+        if item is not None and item.widget().text() == label:
+            below = grid.itemAtPosition(row + 1, 1)
+            title = grid.itemAtPosition(row + 1, 0)
+            if below is None or title is not None:
+                return ""
+            return below.widget().text()
+    raise KeyError(label)
+
+
+def test_a_noise_power_mismatch_is_shown_where_errors_are_read(workspace, scientific):
+    w = workspace
+    warned = _with_noise_check(scientific[-1], NoisePowerStatus.MISMATCH)
+    model = warned.outcome.noise_model
+    publish(w, warned)
+    # The Analysis page: a row in the warning style naming the axis, with what was
+    # found and what to do as its caption, in the wording the run-line tooltip uses.
+    rows = w.panel.run_rows
+    cell = _review_cell(rows, "Noise check")
+    assert cell.text().startswith("▲ F2")
+    assert "errors" in cell.text()
+    assert cell.objectName() == "warning"
+    caption = _review_caption(rows, "Noise check")
+    assert caption == model.power_finding
+    assert str(model.power_warning).endswith(caption[1:])
+    assert str(model.power_warning) in w.summary.toolTip()
+    assert "Check how F2 was processed" in caption
+    assert "Fitted values are not affected" in caption
+    # The peak page: a short qualifier where the profile σ is read; About explains.
+    cluster = next(c for c in warned.outcome.clusters if c.usable)
+    identities = {i.engine_name: i.working_id for i in warned.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[0]])
+    profile = w.panel.profile
+    assert "noise check ▲ F2" in profile.note.text()
+    assert str(model.power_warning) in profile.about.text()
+
+
+@pytest.mark.parametrize("status", [NoisePowerStatus.CONSISTENT, NoisePowerStatus.INCONCLUSIVE])
+def test_a_consistent_or_inconclusive_noise_check_shows_no_warning(workspace, scientific, status):
+    w = workspace
+    checked = _with_noise_check(scientific[-1], status)
+    publish(w, checked)
+    with pytest.raises(KeyError):
+        _review_cell(w.panel.run_rows, "Noise check")
+    assert "Noise check" not in w.summary.text()
+    cluster = next(c for c in checked.outcome.clusters if c.usable)
+    identities = {i.engine_name: i.working_id for i in checked.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[0]])
+    profile = w.panel.profile
+    assert "noise check" not in profile.note.text()
+    assert "Noise-power check" not in profile.about.text()

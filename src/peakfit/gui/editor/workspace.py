@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.algorithms.noise_correlation import NoisePowerStatus
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
@@ -26,13 +25,14 @@ from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.editor.spectral_geometry import SliceSizes
-from peakfit.gui.editor.spectral_view import SpectralView
+from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
     UnexplainedRegion,
     nearest_peak,
     unexplained_regions,
 )
+from peakfit.gui.failures import failure_details
 from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
@@ -233,8 +233,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _tool(self, name: str, tip: str, *, checkable: bool = False) -> QtWidgets.QToolButton:
         button = QtWidgets.QToolButton()
         button.setCheckable(checkable)
-        button.setToolTip(tip)
-        button.setAccessibleName(tip.split(" (")[0])
+        _set_tip(button, tip)
         button.setIconSize(QtCore.QSize(18, 18))
         button.setFixedSize(28, 28)
         self._icons.append((button, name))
@@ -300,13 +299,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.add_button = self._tool("add-peak", "Add peak (A)", checkable=True)
         self.add_button.clicked.connect(self.start_placing)
         self.pin_button = self._tool(
-            "pin", "Pin traces at the sampled position (Space)", checkable=True
+            "pin", "Pin slices at the sampled position (Space)", checkable=True
         )
         self.pin_button.toggled.connect(self.canvas.set_pinned)
         self.canvas.pin_changed.connect(self._pin_changed)
         full = self._tool("full", "Full spectrum (Ctrl+0)")
         full.clicked.connect(self.full_view)
-        display = self._tool("sliders", "Display: contours, labels, trace scale")
+        display = self._tool("sliders", "Display: contours, labels, residual levels, highlights")
         display.clicked.connect(self.display_dialog)
         for button in (self.add_button, self.pin_button, full, display):
             bar.addWidget(button)
@@ -668,10 +667,11 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _pin_changed(self, pinned: bool) -> None:
         with QtCore.QSignalBlocker(self.pin_button):
             self.pin_button.setChecked(pinned)
-        self.pin_button.setToolTip(
-            "Traces pinned · click to follow the pointer (Space)"
+        _set_tip(
+            self.pin_button,
+            "Slices pinned · click to follow the pointer (Space)"
             if pinned
-            else "Pin traces at the sampled position (Space)"
+            else "Pin slices at the sampled position (Space)",
         )
 
     def _build_actions(self) -> None:
@@ -914,8 +914,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             flagged = self.warnings.property("count") or 0
             rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
         # With no run the rows stay empty: the toolbar already says Not fitted.
-        if fitting.failure:
-            rows.append((fitting.attempt, fitting.failure, "warning", "", ""))
+        self._show_failure()
         if fitting.recovery_error:
             rows.append(
                 ("Recovery", "▲ " + _recovery_note(fitting.recovery_error), "warning", "", "")
@@ -996,10 +995,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.warnings.setVisible(bool(flagged))
         self.profiles_button.setEnabled(fitting.result is not None)
-        self.profiles_button.setToolTip(
+        _set_tip(
+            self.profiles_button,
             "Profiles: every cluster's amplitude profiles (Ctrl+2; Ctrl+1 for the spectrum)"
             if fitting.result is not None
-            else "Profiles: available after a fit"
+            else "Profiles: available after a fit",
         )
         if fitting.result is None and self.profiles_shown:
             self.show_view(profiles=False)
@@ -1088,10 +1088,36 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles = (self._tiles[0], cast("dict[int, Tile] | Exception", outcome))
         self._show_profiles()
 
+    def _show_failure(self) -> None:
+        """A failed attempt leads the analysis page: what failed, where and why."""
+        fitting = self.fitting
+        failed = bool(fitting.failure) and not fitting.busy
+        if not failed:
+            self.panel.show_failure([], "")
+            return
+        status = "▲ " + fitting.attempt
+        self.panel.show_failure(
+            [
+                ("Status", status, "error", "", ""),
+                ("Stage", fitting.failure_stage, "", "", ""),
+                ("Reason", fitting.failure, "", "", ""),
+            ],
+            failure_details(
+                status,
+                fitting.failure_stage,
+                fitting.failure,
+                [
+                    ("Dataset", str(self.dataset.path)),
+                    ("Active run", fitting.result.run_id if fitting.result else "none"),
+                ],
+            ),
+        )
+
     def _show_run_line(self) -> None:
         """One compact status line; inspection and navigation stay available."""
         fitting = self.fitting
         result = fitting.result
+        failed = bool(fitting.failure) and not fitting.busy
         if fitting.busy:
             text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
         elif result is not None:
@@ -1103,7 +1129,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + _noise_check(result.outcome.noise_model)
-                + (fitting.attempt + " · " if fitting.attempt else "")
+                + (fitting.attempt + " · " if fitting.attempt and not failed else "")
                 + (
                     f"all {len(clusters)} clusters usable"
                     if complete
@@ -1111,7 +1137,15 @@ class EditorWorkspace(QtWidgets.QWidget):
                 )
             )
         else:
-            text = fitting.attempt or "Not fitted"
+            text = "" if failed else fitting.attempt or "Not fitted"
+        if failed:
+            # A failure is unmistakable: its first words, in the error style.
+            text = " · ".join(part for part in ("▲ " + fitting.attempt, text) if part)
+        tone = "error" if failed else ""
+        if (self.summary.property("tone") or "") != tone:
+            self.summary.setProperty("tone", tone)
+            self.summary.style().unpolish(self.summary)
+            self.summary.style().polish(self.summary)
         self.summary.setText(text)
         self.summary.setToolTip(
             text
@@ -1502,7 +1536,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             # The residual is the run's; distances are to today's working peaks.
             note = (
                 f"Residual of {comparison.label}. Distances are to the current working "
-                "peaks; ◇ marks a peak added since that run. " + note
+                f"peaks; {NOT_IN_MODEL} marks a peak added since that run. " + note
             )
         found_key, outcome = self._unexplained
         if found_key != key:
@@ -1541,7 +1575,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             nearest = (
                 f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
-                + (" ◇" if region.nearest in comparison.added else "")
+                + (f" {NOT_IN_MODEL}" if region.nearest in comparison.added else "")
                 if region.nearest is not None
                 else ""
             )
@@ -1826,9 +1860,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         dialog.setWindowTitle("Spectrum display")
         form = QtWidgets.QFormLayout(dialog)
         # Both contour sets are always offered: the view may switch modes after the dialog.
-        threshold = QtWidgets.QDoubleSpinBox()
+        threshold = IntensityField()
         threshold.setRange(0.01, 1e12)
-        threshold.setDecimals(4)
         threshold.setValue(self.canvas.contour_threshold)
         threshold.setKeyboardTracking(False)
         residual = QtWidgets.QDoubleSpinBox()
@@ -1843,14 +1876,17 @@ class EditorWorkspace(QtWidgets.QWidget):
         threshold.setAccessibleName("First contour")
         residual.setAccessibleName("First residual contour")
         unexplained.setAccessibleName("Unexplained signal beyond")
-        for field in (threshold, residual, unexplained):
-            field.setLocale(QtCore.QLocale.c())
         factor = QtWidgets.QDoubleSpinBox()
         factor.setRange(1.1, 5)
         factor.setValue(self.canvas.contour_factor)
         count = QtWidgets.QSpinBox()
         count.setRange(1, 20)
         count.setValue(self.canvas.contour_count)
+        factor.setAccessibleName("Level factor")
+        count.setAccessibleName("Levels per sign")
+        # One decimal convention in every field, whatever the system locale.
+        for field in (threshold, residual, unexplained, factor, count):
+            field.setLocale(QtCore.QLocale.c())
         labels = QtWidgets.QCheckBox("Show peak labels")
         labels.setChecked(self.canvas.labels_visible)
         heavy = QtWidgets.QCheckBox("Heavier contours")
@@ -1933,6 +1969,45 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles_worker.close()
 
 
+def _set_tip(button: QtWidgets.QAbstractButton, tip: str) -> None:
+    """Tooltip and accessible name together, so the name follows the state."""
+    button.setToolTip(tip)
+    button.setAccessibleName(tip.split(" (")[0])
+
+
+class IntensityField(QtWidgets.QDoubleSpinBox):
+    """An intensity shown through the shared ×10ⁿ formatter; typed plain or scientific."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Display rounds; the stored value keeps what was set or typed.
+        self.setDecimals(15)
+        self.setLocale(QtCore.QLocale.c())
+
+    def textFromValue(self, value: float) -> str:  # noqa: N802 (Qt override)
+        """The value as the shared formatter shows intensities."""
+        return formatting.scaled(value)
+
+    def valueFromText(self, text: str) -> float:  # noqa: N802 (Qt override)
+        """Typed text; unchanged text keeps the exact value, not its rounded display."""
+        if text == self.textFromValue(self.value()):
+            return self.value()
+        return formatting.parse_scaled(text)
+
+    def validate(self, text: str, pos: int) -> object:
+        """Acceptable once the text reads as a number within range."""
+        try:
+            value = formatting.parse_scaled(text)
+        except ValueError:
+            return QtGui.QValidator.State.Intermediate, text, pos
+        state = (
+            QtGui.QValidator.State.Acceptable
+            if self.minimum() <= value <= self.maximum()
+            else QtGui.QValidator.State.Intermediate
+        )
+        return state, text, pos
+
+
 def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
     """The active run as label rows: identity, completeness, then when it ran."""
     clusters = result.outcome.clusters
@@ -1965,16 +2040,24 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
         rows.append(
             ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
         )
+    noise = result.outcome.noise_model
+    if noise.power_finding:
+        # A caveat on the errors, never on the fit: what was found and what to do.
+        rows.append(
+            (
+                "Noise check",
+                f"▲ {', '.join(noise.power_mismatch)} · errors may be miscalibrated",
+                "warning",
+                noise.power_finding,
+                "",
+            )
+        )
     return rows
 
 
 def _noise_check(model: NoiseModel) -> str:
     """The run line's flag for a noise-power mismatch, naming the axes; the tooltip explains."""
-    axes = [
-        get_dimension_label(i)
-        for i, check in enumerate(model.power_check)
-        if check.status is NoisePowerStatus.MISMATCH
-    ]
+    axes = model.power_mismatch
     return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 
 

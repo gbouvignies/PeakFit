@@ -7,6 +7,7 @@ from gui_helpers import wait_until
 from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.gui import failures
 from peakfit.gui.editor.window import EditorWindow, launch
 from peakfit.gui.project import Analysis, dataset_header, save_analysis
 from peakfit.gui.spectrum import read_dataset
@@ -16,8 +17,9 @@ pytestmark = pytest.mark.gui
 
 
 @pytest.fixture
-def started(qapp, monkeypatch):
+def started(qapp, monkeypatch, tmp_path):
     """Run launch with an event loop that returns once startup loading settles."""
+    monkeypatch.setattr(failures, "default_log_path", lambda: tmp_path / "logs" / "peakfit.log")
     windows: list[EditorWindow] = []
     show = EditorWindow.show
 
@@ -51,6 +53,7 @@ def started(qapp, monkeypatch):
         return windows[0], warnings + asked
 
     yield run
+    failures.close_log()
     for window in windows:
         window.close()
         window.deleteLater()
@@ -58,10 +61,12 @@ def started(qapp, monkeypatch):
     qapp.processEvents()
 
 
-def test_empty_window(started) -> None:
+def test_empty_window(started, tmp_path) -> None:
     window, warnings = started()
     assert window.workspace is None
     assert warnings == []
+    # Failures are logged to a per-user file as well as the terminal.
+    assert failures.log_path() == tmp_path / "logs" / "peakfit.log"
 
 
 @pytest.mark.parametrize("swap", [False, True])

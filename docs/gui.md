@@ -51,11 +51,13 @@ be canceled while its private file read finishes.
 The **row slice** above the 2D plot and the **column slice** to its right are native
 row/column cross-sections: lines through the native samples, with no markers and
 no values between samples. Each shares its frequency axis exactly with the 2D plot.
-Move over the plot to preview them. The **Pin traces** tool, Space on the canvas, or
+Move over the plot to preview them. The **Pin slices** tool, Space on the canvas, or
 a click on blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
 selected peak or its coordinate draft. Choosing a peak in the Peaks list, a cluster
-row, a change summary or warning navigation centres it at the current zoom; a click
+row, a change summary or warning navigation centres it at the current zoom within
+the data: the view never extends past the spectrum's extent, and at full spectrum
+it does not move; a click
 on the spectrum or a member link on a cluster page leaves the view where it is, and
 cluster focus keeps its frame. Plane controls preserve acquisition order,
 including repeated or unordered plane values. Missing values are labeled honestly;
@@ -129,8 +131,10 @@ review leads (active run, changes from the previous run, warning navigation and
 unexplained signal) and the setup follows it. The active run reads as label rows:
 Run (short ID and Current or Outdated, the full ID in the tooltip), Model, Converged
 and Usable as counts of clusters, Fitted (date, time in UTC and duration), and
-Warnings when any cluster has one; a failure or a recovery problem adds a row in the
-warning style. The setup's values share that column. A click on the toolbar run summary,
+Warnings when any cluster has one, and Noise check when the run's noise-power check
+found a mismatch: the axes and that the errors may be miscalibrated, with what was
+found and what to do as its caption, the wording of the run line's tooltip. A
+recovery problem adds a row in the warning style. The setup's values share that column. A click on the toolbar run summary,
 or **Analysis ▸ Active run**, opens the page at the review. The summary names the
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
@@ -173,6 +177,21 @@ the settings summary steps aside while a fit runs. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
+
+A failed fit says whether anything was kept: **Failed · no result yet** when there
+is no active run, **Failed · previous result retained** otherwise; a canceled fit
+reads **Canceled · …** the same way. A failure leads the run line in the error
+style with ▲ (“▲ Failed · previous result retained · Run …”), and the analysis page
+opens with a **Last fit attempt** section above the setup and the run review:
+status, the stage that failed (Preparation, Fitting or Completion), the reason and,
+when the application logs to a file, the log path. **Copy details** puts the
+status, stage, message, dataset, active run, PeakFit, Python and Qt versions,
+platform and log path on the clipboard for a report. Every failure's traceback
+goes to the terminal that started PeakFit and to the per-user log file
+`~/Library/Logs/PeakFit/peakfit.log` (macOS), `%LOCALAPPDATA%\PeakFit\Logs\peakfit.log`
+(Windows) or `$XDG_STATE_HOME/peakfit/peakfit.log`, by default
+`~/.local/state/peakfit/peakfit.log` (Linux), so a failure can be reported
+without a terminal. The section disappears when the next fit starts.
 
 When two peaks' fitted shapes are near-collinear (1 − |cos| ≤ 10⁻⁴ over the
 fitting samples), their fitted positions are not adopted: their markers stay at
@@ -231,7 +250,7 @@ places the slices through its extreme, keeping the plane, the comparison mode an
 selection. A list belongs to one plane, run and threshold: another plane needs
 another request. For an Outdated run the list is that run's historical residual,
 titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
-and follow each edit, and a nearest peak added since the run is marked ◇. The list is descriptive,
+and follow each edit, and a nearest peak added since the run is marked ☆. The list is descriptive,
 captioned “Diagnostic only · residual beyond ±5 σ_stat”; the tooltip adds that it never
 adds or proposes peaks and never flags clusters, and that a signal may be left
 unmodelled on purpose.
@@ -268,7 +287,7 @@ persists through hover, planes and zoom until a double-click on the slice,
 **Default slice intensities**, a new dataset or focusing another cluster; the wheel
 over a lane sets the lane scale. A caption above the row slice appears only when
 there is something to say: the residual or lane scale, the gain, and counts of
-clipped samples, ▲ for data and △ for the model. The corner readout gives the exact
+clipped samples in words (“3 data samples clipped · 1 model sample clipped”). The corner readout gives the exact
 values at the sample, intensity and model in one power of ten (the status bar
 repeats them only when a collapsed column slice leaves no room for the readout). Drag the
 divider between a slice and the plot to resize it (below 48 px it collapses; drag
@@ -289,7 +308,8 @@ convergence and usable/total clusters, so a narrow window shortens only the tail
 its tooltip keeps the full text. Clusters with a numerical warning have their own
 amber label (▲ N) that never elides. When the run's noise-power check found
 processing the header does not record, the line shows **▲ Noise check (F2)**, naming
-the axes, before the counts; the tooltip gives what was found and what to do
+the axes, before the counts; the tooltip, and the Analysis page's Noise check row
+reachable without a pointer, give what was found and what to do
 ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). It is a
 warning about the errors only, never about the fit.
 
@@ -407,9 +427,12 @@ the flagged members, or that the correlation was not assessed). The header gives
 |r|max and |ρ|. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
-plane. Choosing a tile selects its cluster, as a cluster row does; double-click or
+plane. Opening Profiles marks the selected peak's tile and keeps the selection;
+with nothing selected, no tile is chosen. Clicking a tile or moving to one with the
+arrow keys selects its cluster, as a cluster row does; double-click or
 Enter opens it in focus on the spectrum. Comparison and canvas tools step aside
-while Profiles shows; the plane strip, selection and inspector stay. Tiles show
+while Profiles shows; the plane strip, selection and inspector stay, and returning
+to the spectrum keeps the selection. Tiles show
 no error bars: the inspector's profile carries them. The quantity chip over the tiles
 is the inspector's: raw amplitudes or ratios to the chosen reference planes, one
 choice for the session, made in either place. In ratios a dotted line marks 1; a
@@ -453,9 +476,10 @@ Where the cluster's lineshape factors are withheld, the caption says the correla
 was not assessed; runs with one plane show no flag. Where the run models the
 processed noise correlation the errors are sandwich errors; otherwise they assume
 independent points. The note beside the plot says so in a few words (“±1 profile
-σ · noise correlation modelled”), with any points off scale, by plane, on a line of
-their own; χ²ᵣ is with the cluster's measures; **About these error bars** below it
-gives the noise model in full. The inspector's provenance states it once for the
+σ · noise correlation modelled”), followed by “noise check ▲ F2”, naming the axes,
+when the run's noise-power check found a mismatch, and with any points off scale, by
+plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
+error bars** below it gives the noise model and the noise-power finding in full. The inspector's provenance states it once for the
 run.
 
 Each member's amplitude is classified from the run's recorded shapes, with the
@@ -516,7 +540,8 @@ Drafts retain the accepted comparison. A committed manual scientific change mark
 the run **Outdated**; Overlay and Residual stay selectable and keep showing that
 run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
 legend, the pending label and the mode tooltips. On
-the spectrum, ◇ marks a working peak the model does not contain, and × the
+the spectrum, ☆ marks a working peak the model does not contain (legend
+“☆ not in this model”; ◇ is kept for review highlights), and × the
 model's recorded position of a peak moved or deleted since, with a dotted line to
 the peak. The cluster and peak pages still report that run's statistics as
 “Recorded by an outdated run”. The historical comparison is withdrawn, with the
@@ -556,8 +581,11 @@ their existing close protection. Exporting an outdated run never marks different
 working peaks as preserved. Failed or canceled exports leave the state unchanged.
 MCMC and full cluster refinement remain out of scope.
 
-The **Display** tool changes signed contour threshold, spacing/count, labels and
-stroke weight. Contours are graded from light low levels to strong high levels;
+The **Display** tool holds contours (signed first contour, level factor, levels per
+sign, stroke weight), peak labels, residual levels (first residual contour and the
+unexplained-signal threshold) and the review highlights. Every field uses a decimal
+point whatever the system locale; the first contour reads in the shared ×10ⁿ form
+and accepts plain or scientific entry (2500, 1.5e5). Contours are graded from light low levels to strong high levels;
 measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
 keep a plot-coloured halo so they stay visible over contours; the selected and

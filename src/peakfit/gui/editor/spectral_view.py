@@ -50,10 +50,17 @@ _FRAME_POINTS = 6  # and at least this many points on each side
 LANE_SIGMA = 8.0  # default residual lane range, ±σ_stat
 _SCALE_STEP = 1.25  # one wheel step of a manual slice or lane scale
 _COMMIT_MS = 200  # a zoom or pan is committed once the wheel or drag rests
+# A working peak a historical model does not contain; ◇ means only a review highlight.
+NOT_IN_MODEL = "☆"
+
 _PENDING_SHOW_MS = 200  # a wait shorter than this needs no label; it would only flash
 _READOUT_MIN = (40, 30)  # the corner readout needs at least this much room
 REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
+
+
+def _samples(count: int, kind: str) -> str:
+    return f"{count} {kind} sample{'s' if count != 1 else ''}"
 
 
 def framed_ranges(
@@ -489,10 +496,11 @@ class SpectralView(QtWidgets.QWidget):
         self._regions: tuple[tuple[str, ...], ...] = ()
         self._region_labels = np.zeros(0, dtype=np.int32)
         self._selected_region = -1
-        # Against a historical model: a diamond marks a working peak that model does
-        # not contain; × marks a model peak's recorded position, linked by a dotted
-        # line to where it was moved.
-        self.added_marks = self._scatter("d", 15, 21)
+        # Against a historical model: a star (☆, NOT_IN_MODEL) marks a working peak
+        # that model does not contain, distinct from the ◇ of a review highlight;
+        # × marks a model peak's recorded position, linked by a dotted line to
+        # where it was moved.
+        self.added_marks = self._scatter("star", 15, 21)
         self.recorded_marks = self._scatter("x", 9, 18)
         self.recorded_links = pg.PlotDataItem(connect="pairs")
         self.recorded_links.setZValue(18)
@@ -608,8 +616,11 @@ class SpectralView(QtWidgets.QWidget):
         """Selection pins once; following hover never changes it.
 
         ``center`` puts the peak in the middle of the view at the current zoom, for
-        a selection made away from the spectrum (a list, a link). Otherwise the
-        view moves only as far as needed to keep the peak inside it.
+        a selection made away from the spectrum (a list, a link), but never pans the
+        view past the data's extent: on an axis narrower than the data the centred
+        range is clamped inside it, and an axis already showing the whole extent
+        stays put. Otherwise the view moves only as far as needed to keep the peak
+        inside it.
         """
         self.selected_id = peak_id
         self.markers.selected_id = peak_id
@@ -623,9 +634,15 @@ class SpectralView(QtWidgets.QWidget):
             view = self.box
             ranges = view.viewRange()
             shifted = []
-            for value, (low, high) in zip((x, y), ranges, strict=True):
+            extents = [(float(min(a)), float(max(a))) for a in (self.ppm_x, self.ppm_y)]
+            for value, (low, high), (first, last) in zip((x, y), ranges, extents, strict=True):
                 if center:
-                    delta = value - (low + high) / 2
+                    width = high - low
+                    if width >= last - first:
+                        delta = 0.0  # the whole extent is shown: the view does not move
+                    else:
+                        start = min(max(value - width / 2, first), last - width)
+                        delta = start - low
                 else:
                     margin = (high - low) * 0.05
                     delta = min(value - low - margin, 0) + max(value - high + margin, 0)
@@ -1310,7 +1327,7 @@ class SpectralView(QtWidgets.QWidget):
                 items.append(key(t.model, solid, f"model · {run}" if run else "model"))
         if run and self.comparison_mode:
             if any(i in self._by_id for i in self.added):
-                items.append(key(t.warning, "◇", "not in this model"))
+                items.append(key(t.warning, NOT_IN_MODEL, "not in this model"))
             if self.departed:
                 items.append(key(t.secondary, "×", "position in this model"))
         if self.regions_visible and self.region_source:
@@ -1734,10 +1751,11 @@ class SpectralView(QtWidgets.QWidget):
                 parts.append(f"Lanes ±{self.lane_sigma:.3g} σ_stat")
         data = sum(d for d, _m in self.clips.values())
         model = sum(m for _d, m in self.clips.values())
+        # In words: ▲ is the numerical-warning mark and must not count samples.
         if data:
-            parts.append(f'<span style="color:{t.error}">▲ {data} clipped</span>')
+            parts.append(f'<span style="color:{t.error}">{_samples(data, "data")} clipped</span>')
         if model:
-            parts.append(f'<span style="color:{t.model}">△ {model} model clipped</span>')
+            parts.append(f'<span style="color:{t.model}">{_samples(model, "model")} clipped</span>')
         self.caption.setText(" · ".join(parts))
         self.caption.setToolTip("Wheel over a slice or lane to rescale it; double-click to reset")
 
