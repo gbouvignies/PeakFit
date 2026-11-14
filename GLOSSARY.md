@@ -261,6 +261,14 @@ accuracy; they check contrasts, not the marginal σ.
 _Avoid_: replicate pairs (copies may be three or more), near-duplicates (no
 tolerance matching)
 
+**Standardized contrast**:
+A contrast is a difference between copies of duplicate planes: each group of m
+copies gives m − 1 orthonormal contrasts, k per peak over all groups. A peak's
+contrasts d are standardized jointly by their predicted covariance V, giving
+q = dᵀV⁻¹d, whose expected value is k. The RMS of standardized contrasts,
+√(Σq / Σk) over a pool of peaks, is 1 when the uncertainty of contrasts is
+calibrated; its sampling SE is at least 1/√(2Σk).
+
 **Correlated-profile flag**:
 A per-peak mark that the largest correlated mode of the relative-profile
 covariance exceeds τ·c (`CORRELATED_MODE_THRESHOLD`, 0.1), or that its within-plane

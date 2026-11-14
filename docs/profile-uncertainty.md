@@ -719,7 +719,8 @@ derived from its fit, as `peakfit replicates` reads a run.
 **Criterion.** The mean of q/k = Σq/Σk over realizations within ±3 SE of 1, the SE
 from the realizations' spread; and, the analytical check, each contrast's Monte
 Carlo variance against the CΣCᵀ the factors state (averaged over realizations)
-within ±3 SE, SE √(2/(N − 1)).
+within ±3 SE, SE √(2/(N − 1)). A gated case passes only if both hold: the gate is
+stricter than the criterion of spec #172, which asks for the mean q/k alone.
 
 **Gate: passed.** Every gated case:
 
@@ -742,7 +743,9 @@ within ±3 SE, SE √(2/(N − 1)).
 - **Exclusions,** end to end: the coincident pair's factors were withheld in 3,666
   of 4,000 realizations; its contrast covariance was not positive definite in 36 and
   had a direction weaker than √ε in 11. Each was listed with its reason, and the
-  pool of the remaining peaks stayed calibrated.
+  pool of the remaining peaks stayed calibrated. The fourth reason, an unusable
+  cluster, has no end-to-end case (the fits start at the truth and succeed): it is
+  covered by the tests of `tests/test_duplicate_planes.py` only.
 - **The flagged pool** is calibrated too: the check uses each peak's full covariance
   between planes, which the flag does not concern.
 - **Off-diagonal contrast covariances** agree with the stated ones to within 0.035

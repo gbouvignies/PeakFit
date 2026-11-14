@@ -142,9 +142,8 @@ standardized jointly by the covariance the stored covariance factors predict for
 The pooled RMS of standardized contrasts is near 1 when their uncertainty is
 calibrated. It is reported apart for peaks with and without the correlated-profile
 flag, each with its counts of contrasts, peaks and clusters, and a warning below 50
-contrasts. Excluded peaks are listed with their reason. It checks contrasts of raw
-amplitudes, not marginal σ or normalized profiles, and measures repeatability, not
-accuracy. `--ref` and `--window` belong to the baseline method.
+contrasts. Excluded peaks are listed with their reason. `--ref` and `--window` belong
+to the baseline method.
 
 **CEST baseline planes**, used otherwise or with `--baseline`: far from a peak's own
 offset, CEST planes are approximate replicates. The command compares their
@@ -152,9 +151,10 @@ plane-to-plane scatter (a robust SD of second differences across offsets, planes
 within `--window` Hz of the peak's offset and the reference planes excluded) with the
 published profile σ. A median observed / stated near 1 means the errors are
 calibrated; `--verbose` lists every peak. Plane values must be offsets in Hz from the
-carrier of the first spectral axis. It measures repeatability, not accuracy: an error common to every baseline
-plane, such as a lineshape misfit, is invisible, and drift or minor-state dips only
-raise the observed scatter ([profile-uncertainty §5.1](docs/profile-uncertainty.md)).
+carrier of the first spectral axis.
+
+What each method can and cannot show, and how to read its result:
+[Interpreting the empirical checks](docs/processing-quantitative-series.md#interpreting-the-empirical-checks).
 
 ## MCMC
 
