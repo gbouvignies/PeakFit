@@ -12,12 +12,14 @@ correlated-profile flags derived from the fit.
 - three copies: t = 0, 0.2, 0.2, 0.2, 0.5, 1.0, 1.0, 1.0 (two triples, k = 4).
 
 **Statistic.** Per realization, Σq/Σk over the peaks of the case's pool (both pools
-unless stated); E[q] = k at first order. **Gate:** the mean of q/k over realizations
-within ±3 SE of 1, the SE from the realizations' own spread.
+unless stated), q = |Ca|²/c with c the peak's conditional variance; E[q] = k at first
+order. **Gate:** the mean of q/k over realizations within ±3 SE of 1, the SE from the
+realizations' own spread.
 
 **Analytical check** (every case): the Monte Carlo covariance of each peak's contrasts
-Ca over realizations against the contrast covariance CΣCᵀ the stored factors state,
-averaged over realizations; each variance ratio within ±3 SE of 1, SE √(2/(N − 1)).
+Ca over realizations against the contrast covariance the check states, cI (k × k),
+averaged over realizations; each variance ratio within ±3 SE of 1, SE √(2/(N − 1)),
+and the off-diagonal covariances, relative to the variances, recorded against 0.
 
 **Cases:**
 - isolated peaks, two and three copies, every lineshape for two copies;
@@ -25,9 +27,11 @@ averaged over realizations; each variance ratio within ±3 SE of 1, SE √(2/(N 
   shared by both peaks (the shared parameter);
 - a pair 2 points apart, flagged: the flagged pool;
 - exclusions: an isolated peak checked with a coincident pair (both peaks at one
-  position), whose covariance factors are withheld or whose contrast covariance
-  cannot be whitened; the gate is on the unflagged pool, which the exclusions must
-  leave calibrated.
+  position), whose conditional covariance the fit withholds where the shapes stay
+  coincident; the gate is on the unflagged pool, which the exclusions must leave
+  calibrated. Where the pair fits apart, its conditional covariance is published
+  and its peaks join a pool: recorded by pool, with their own Σq/Σk and whether
+  their lineshape factors were withheld (the flag then not assessed, so unset).
 
 **Recorded, not gated:**
 - a near-coalescent pair, 1 point apart, beyond the first order (as in T3);
@@ -58,7 +62,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/
 from profile_coverage import CHAINS, SIGMA, _fit, build_cluster
 
-from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
 from peakfit.engine.scientific.replicates import (
     DuplicatePool,
     ExclusionReason,
@@ -200,7 +203,9 @@ class Realization:
     """One realization's check, and the contrasts of its main cluster's peaks.
 
     ``contrasts`` (L × k) are the peaks' contrasts Ca; ``stated`` (L × k × k) their
-    covariance CΣCᵀ as the stored factors state it.
+    covariance as the check states it, cI. ``coincident`` holds the pools the peaks
+    of the coincident pair joined, if any, and ``coincident_unassessed`` whether
+    they joined with their lineshape factors withheld.
     """
 
     pools: dict[PoolName, PoolSums]
@@ -208,6 +213,8 @@ class Realization:
     contrasts: np.ndarray
     stated: np.ndarray
     flagged: tuple[bool, ...]
+    coincident: dict[PoolName, PoolSums]
+    coincident_unassessed: bool
 
 
 def realization(case: Case, seed: tuple[int, ...]) -> Realization:
@@ -234,13 +241,25 @@ def realization(case: Case, seed: tuple[int, ...]) -> Realization:
     main = clusters[0]
     assert main.amplitudes is not None
     assert main.factors is not None
-    stated = peak_covariances_between_planes(main.factors, main.amplitudes)
+    variances = np.diag(main.factors.conditional)
+    pooled: dict[PoolName, PoolSums] = {}
+    unassessed = False
+    if case.coincident:
+        alone = duplicate_plane_check(clusters[1:])
+        names: tuple[PoolName, ...] = ("unflagged", "flagged")
+        for name, pool in zip(names, (alone.unflagged, alone.flagged), strict=True):
+            if pool.peaks:
+                pooled[name] = PoolSums.of(pool)
+        factors = clusters[1].factors
+        unassessed = bool(pooled) and factors is not None and not factors.available
     return Realization(
         pools={"unflagged": PoolSums.of(check.unflagged), "flagged": PoolSums.of(check.flagged)},
         excluded=dict(check.excluded),
         contrasts=main.amplitudes @ contrasts.T,
-        stated=np.einsum("is,lst,jt->lij", contrasts, stated, contrasts),
+        stated=variances[:, None, None] * np.eye(contrasts.shape[0]),
         flagged=main.flagged,
+        coincident=pooled,
+        coincident_unassessed=unassessed,
     )
 
 
@@ -270,7 +289,7 @@ def gate(values: np.ndarray) -> dict:
 
 
 def analytical(rows: list[Realization]) -> dict:
-    """The Monte Carlo covariance of each peak's contrasts against the stated CΣCᵀ."""
+    """The Monte Carlo covariance of each peak's contrasts against the stated cI."""
     contrasts = np.array([r.contrasts for r in rows])  # N × L × k
     stated = np.array([r.stated for r in rows]).mean(axis=0)  # L × k × k
     n = contrasts.shape[0]
@@ -331,6 +350,20 @@ def summarize(case: Case, rows: list[Realization], block_count: int = 1) -> dict
     for r in rows:
         for reason in dict.fromkeys(r.excluded.values()):
             reasons[reason.value] = reasons.get(reason.value, 0) + 1
+    coincident = {}
+    for name in names:
+        joined = [r.coincident[name] for r in rows if name in r.coincident]
+        if joined:
+            q, k = sum(p.q for p in joined), sum(p.contrasts for p in joined)
+            coincident[name] = {
+                "realizations": len(joined),
+                "peaks": sum(p.peaks for p in joined),
+                "pooled_q_over_k": q / k,
+            }
+    if case.coincident:
+        coincident["realizations_lineshape_factors_withheld"] = sum(
+            r.coincident_unassessed for r in rows
+        )
     values = q_over_k(rows, case.pool)
     statistic = gate(values)
     check = analytical(rows)
@@ -344,6 +377,7 @@ def summarize(case: Case, rows: list[Realization], block_count: int = 1) -> dict
         "pools": pools,
         "flagged_fraction": float(np.mean([any(r.flagged) for r in rows])),
         "realizations_with_exclusion": reasons,
+        **({"coincident_pair_pooled": coincident} if case.coincident else {}),
         "analytical": check,
         "passes": (statistic["passes"] and check["passes"]) if case.gated else None,
     }
