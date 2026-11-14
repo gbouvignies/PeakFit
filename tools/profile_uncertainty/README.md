@@ -7,7 +7,8 @@ estimator, the uncertainty of intensity profiles, and their use downstream.
 - **Records:** their outputs are in
   [`docs/validation/profile-uncertainty/`](../../docs/validation/profile-uncertainty/).
 - **Status:** they are evidence, not tests. The implementation's validation tools
-  (T3–T7 in the specification) supersede them; `profile_coverage.py` is T3.
+  (T3–T8 in the specification) supersede them; `profile_coverage.py` is T3 and
+  `duplicate_check.py` is T8.
 
 ```bash
 uv run python tools/profile_uncertainty/run_all.py              # every study
@@ -31,6 +32,7 @@ uv run python tools/profile_uncertainty/run_all.py cest_refit   # one study
 | `global_cpmg.py` | §6a | A ChemEx-like global CPMG fit of an overlapping pair |
 | `lp_known_truth.py` | §2.3, T7 | Known truth through NMRPipe LP: bias and scatter of relative intensities and rates, OLS and GLS; separates lineshape misfit, LP extrapolation and LP noise |
 | `profile_coverage.py` | §6, §8 (T3) | The release gate: coverage of the marginal σ, profile σ, ratios, R2eff and downstream fits (decay, global CPMG, CEST) on 2D `sp1`, `sp2` and `no_apod` clusters; the correlated-profile thresholds. Record: `profile_coverage.json` |
+| `duplicate_check.py` | §5.3, §8.2 (T8) | The duplicate-plane check of `peakfit replicates`: mean q/k over realizations of synthetic duplicates (two and three copies; isolated, overlapping and flagged peaks; a shared phase; exclusions) through the exact processing and the engine fit; the contrast covariance against its Monte Carlo value; unmodelled correlation between copies, recorded. Record: `duplicate_check.json` |
 | `make_lp_fixtures.py` | T7 | Regenerates `nmrpipe_lp.npz`, the NMRPipe-processed data of `lp_known_truth.py`; the only script that needs NMRPipe |
 
 ## Shared modules

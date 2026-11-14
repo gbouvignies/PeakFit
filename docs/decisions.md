@@ -1307,3 +1307,23 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Literature.** East, Delaglio and Lisi (2021) and Stetz and Wand (2016) are cited
   with their conditions. The East et al. ~10% systematic error is in the decay time
   (T2, similarly T1), as the published article states.
+
+## 2026-11-14: Duplicate-plane check and its validation (#174, #175)
+- **Second method of `peakfit replicates`.** Planes with exactly equal plane values
+  are copies; each peak's orthonormal contrasts between them are whitened jointly by
+  the covariance the factors predict, and pooled into an RMS of standardized
+  contrasts for unflagged and flagged peaks
+  ([profile-uncertainty §5.3](profile-uncertainty.md#53-duplicate-planes)). The CEST
+  baseline method stays, with `--baseline`. A diagnostic only: no error changes.
+- **Weak direction.** A peak is excluded where the smallest eigenvalue of its
+  contrast covariance CΣCᵀ is at most √ε times the largest. This is the codebase's
+  convention s ≤ √ε·s₁ applied to the singular values of the matrix being inverted
+  (equivalently cond ≥ 1/√ε, as `engine.algorithms.evaluation` tests the shapes).
+  Nothing is regularized.
+- **Validation T8** ([§8.2](profile-uncertainty.md#82-t8-the-duplicate-plane-check)):
+  synthetic duplicates through the exact processing operators and the engine fit;
+  mean q/k within ±3 SE of 1 over realizations, SE from the realizations. Passed in
+  every gated case. Unmodelled correlation between copies (±0.3) is recorded as an
+  illustration, not gated.
+- **Remaining gap.** No real dataset with duplicates has been checked; one is to be
+  checked before release if it becomes available.

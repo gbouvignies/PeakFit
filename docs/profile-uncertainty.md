@@ -8,7 +8,8 @@ covariance factors of §3.1 are computed in the engine
 conditional σ in their own columns and the correlated-profile flag beside them (§6).
 Ratios and R2eff (GUI ratio mode, `peakfit plot cest|cpmg`) propagate each peak's
 covariance between planes through `profiles.normalize` (§4). T3 passes under
-criterion (b) of §10 item 5 (§8.1) and sets the correlated-profile thresholds.
+criterion (b) of §10 item 5 (§8.1) and sets the correlated-profile thresholds. The
+duplicate-plane check of `peakfit replicates` (§5.3) passes its validation, T8 (§8.2).
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
@@ -17,7 +18,7 @@ criterion (b) of §10 item 5 (§8.1) and sets the correlated-profile thresholds.
 [`tools/profile_uncertainty/`](../tools/profile_uncertainty/README.md). Their outputs
 are recorded in [`validation/profile-uncertainty/`](validation/profile-uncertainty/),
 and every number below comes from them. The README maps each script to its section.
-The implementation's validation tools (T3–T7) supersede them.
+The implementation's validation tools (T3–T8) supersede them.
 
 This specification answers three separate questions:
 1. Which estimator suits realistically processed spectra (§2)?
@@ -415,6 +416,51 @@ In the pairs, the partner peak decays at 0.2 instead of 1.0.
   could replace χ²ᵣ in review, whose expectation under correlated noise varies by
   cluster. That replacement is not planned.
 
+### 5.3 Duplicate planes
+
+Any series (T1, T2, CPMG, CEST) may contain *duplicate planes*: planes whose recorded
+plane values are exactly equal. `peakfit replicates <run>` checks the published
+covariance against them, and runs the baseline method of §5.1 only where there are
+none or with `--baseline` (`engine.scientific.replicates`). It reads the run without
+refitting and changes no error.
+
+- **Matching:** exact equality of the recorded plane values; no tolerance and no
+  manual pairing. A run without repeats reports "no duplicate planes".
+- **Statistic, per peak:** for groups of m_g copies, all k = Σ_g (m_g − 1)
+  orthonormal within-group contrasts C are stacked and whitened jointly by their
+  covariance CΣCᵀ, Σ being the peak's covariance between planes reconstructed from
+  the covariance factors (§3.1):
+  q = (Ca)ᵀ(CΣCᵀ)⁻¹(Ca), with E[q] = k at first order.
+  - Joint whitening removes the correlation between groups that shared parameters
+    introduce.
+  - q depends neither on the contrast basis nor on the plane order. Individual
+    whitened coordinates do, so none is reported.
+- **Result:** the pooled RMS √(Σq / Σk), 1 when the uncertainty of contrasts is
+  calibrated, separately for peaks without and with the correlated-profile flag
+  (§6), with each pool's counts of contrasts, peaks and clusters.
+  - Contrasts from peaks of one cluster are correlated, so the effective sample is
+    smaller than the count and the result is descriptive.
+  - Below 50 contrasts the output warns that the independent-case SE, 1/√(2n),
+    exceeds 0.1; it is a lower bound on the sampling uncertainty of the RMS.
+  - No robust companion, confidence interval or signed statistic: PeakFit does not
+    know the acquisition order.
+- **Exclusions,** each listed with its reason, nothing regularized: unusable
+  clusters; withheld covariance factors; a contrast covariance that is not positive
+  definite or has a direction weaker than √ε of the largest. That is the codebase's
+  weak-direction convention s ≤ √ε·s₁ (`varpro`, `sampling`, `identifiability`)
+  applied to the singular values of the matrix inverted, here the eigenvalues of
+  CΣCᵀ: equivalently cond(CΣCᵀ) ≥ 1/√ε, the test `evaluation` applies to the shapes.
+- **Limits:**
+  - repeatability, not accuracy: an error common to the copies is invisible;
+  - contrasts, not marginal σ: a scale uncertainty shared by the copies cancels;
+  - raw amplitudes, not normalized profiles directly;
+  - equal plane values do not prove independent, equivalent acquisitions;
+  - not calibrated for copies reconstructed jointly, which share the
+    reconstruction's noise ([processing guide](processing-quantitative-series.md#joint-pseudo-3d-reconstruction)).
+- **Validation:** T8 (§8.2). **Remaining gap:** no real dataset with duplicate planes
+  has been checked. One is to be checked before release if it becomes available;
+  release does not depend on it.
+
 ## 6. Reporting
 
 Each quantity of §3.3 is reported under its own name:
@@ -553,6 +599,7 @@ In every row, the bias is at most 0.06 SD.
 | T5 | The noise-power check: LP, an earlier window and `SP -size` (`correlated-noise.md` §2.5) on NMRPipe-processed noise | Detects each case; no false alarm on correctly recorded processing |
 | T6 | The estimator comparison (§2), rerunnable | Reproduces §2 and §5 |
 | T7 | Known truth through real processing: synthetic pseudo-3D FIDs (isolated and overlapping peaks, differing profiles) processed by NMRPipe with and without LP, fitted by OLS and GLS | Bias and scatter of relative intensities and downstream rates; separates lineshape, LP-extrapolation and LP-noise effects |
+| T8 | The duplicate-plane check (§5.3): duplicates through the exact processing operators and the engine fit, two and three copies, isolated and overlapping peaks, a shared parameter, exclusions; the contrast covariance from the factors against its Monte Carlo value; unmodelled correlation between copies, recorded (§8.2) | Mean q/k over realizations within ±3 SE of 1, SE from the realizations; contrast variances within ±3 SE |
 
 ### 8.1 T3: coverage and the correlated-profile thresholds
 
@@ -653,6 +700,75 @@ positions.
 
 **Limits:** the exact lineshape (misfit and LP are T7's); one noise level; fits
 started at the truth; first-order thresholds from one family of profiles each.
+
+### 8.2 T8: the duplicate-plane check
+
+Tool: `tools/profile_uncertainty/duplicate_check.py`. Record:
+[`duplicate_check.json`](validation/profile-uncertainty/duplicate_check.json)
+(4,000 realizations per case, seed 20261114). Fast cases, with amplitudes drawn
+from the stated covariance, run in `tests/test_duplicate_planes.py`.
+
+**Set-up.** As T3 (§8.1): 2D clusters with the `sp1`, `sp2` or `no_apod`
+lineshapes, white FID noise through the exact processing operators, the engine fit
+from the truth, noise 0.02 of the reference height. The profiles are decays
+A·e^(−R·t), R = 1 and 2 for the two peaks of a pair: t = 0, 0.1, 0.1, 0.3, 0.6,
+0.6, 1.0 (two pairs, k = 2) or t = 0, 0.2, 0.2, 0.2, 0.5, 1, 1, 1 (two triples,
+k = 4). Each realization is checked by `duplicate_plane_check` with the flags
+derived from its fit, as `peakfit replicates` reads a run.
+
+**Criterion.** The mean of q/k = Σq/Σk over realizations within ±3 SE of 1, the SE
+from the realizations' spread; and, the analytical check, each contrast's Monte
+Carlo variance against the CΣCᵀ the factors state (averaged over realizations)
+within ±3 SE, SE √(2/(N − 1)).
+
+**Gate: passed.** Every gated case:
+
+| Case | Pool | Mean q/k | SE | Deviation | Contrast variances, worst |
+|---|---|---|---|---|---|
+| `sp2`, isolated, two copies | all | 0.955 | 0.015 | −3.0 SE | 2.4 SE |
+| `sp2`, isolated, three copies | all | 0.997 | 0.011 | −0.3 SE | 2.2 SE |
+| `sp1`, isolated, two copies | all | 0.995 | 0.016 | −0.3 SE | 0.6 SE |
+| `no_apod`, isolated, two copies | all | 1.003 | 0.016 | +0.2 SE | 1.0 SE |
+| `sp2`, pair 3 points, two copies | all | 1.004 | 0.011 | +0.4 SE | 1.4 SE |
+| `sp2`, pair 3 points, three copies | all | 0.991 | 0.008 | −1.2 SE | 1.1 SE |
+| `sp2`, pair 3 points, shared phase, three copies | all | 0.994 | 0.008 | −0.7 SE | 1.6 SE |
+| `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.017 | 0.012 | +1.4 SE | 2.5 SE |
+| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 1.013 | 0.016 | +0.8 SE | 0.8 SE |
+
+- **The edge case.** `sp2`, isolated, two copies lies at −2.97 SE, inside the gate.
+  The same case at seeds 7 and 11 gives 1.013 (+0.8 SE) and 1.022 (+1.3 SE), and
+  the three-copy and other-lineshape isolated cases are within 0.3 SE: a sampling
+  fluctuation, not a bias.
+- **Exclusions,** end to end: the coincident pair's factors were withheld in 3,666
+  of 4,000 realizations; its contrast covariance was not positive definite in 36 and
+  had a direction weaker than √ε in 11. Each was listed with its reason, and the
+  pool of the remaining peaks stayed calibrated.
+- **The flagged pool** is calibrated too: the check uses each peak's full covariance
+  between planes, which the flag does not concern.
+- **Off-diagonal contrast covariances** agree with the stated ones to within 0.035
+  of the variances in every gated case.
+
+**Recorded, not gated.**
+- **Near-coalescent pair** (`sp2`, 1 point apart, flagged): mean q/k 1.000 ± 0.014,
+  worst contrast variance 3.2 SE. Unlike the marginal σ (§8.1), the contrasts
+  between copies stay described at first order here.
+- **Unmodelled correlation between planes:** the noise of each group's copies
+  correlated with ρ, which the model omits. q/k is then about 1 − ρ:
+
+| Case | ρ | Mean q/k | RMS |
+|---|---|---|---|
+| `sp2`, isolated, two copies | +0.3 | 0.695 ± 0.011 | 0.834 |
+| `sp2`, isolated, two copies | −0.3 | 1.297 ± 0.021 | 1.139 |
+| `sp2`, pair 3 points, three copies | +0.3 | 0.698 ± 0.006 | 0.836 |
+| `sp2`, pair 3 points, three copies | −0.3 | 1.298 ± 0.010 | 1.140 |
+
+  Positive correlation pushes the RMS below 1, negative above. This illustrates
+  unmodelled covariance in general; it is not a model of joint pseudo-3D NUS
+  reconstruction, whose correlation structure was not simulated.
+
+**Limits:** synthetic data with the exact lineshape; one noise level; fits started
+at the truth; decays only. No real dataset with duplicate planes has been checked
+(§5.3).
 
 ## 9. Implementation sequence
 
