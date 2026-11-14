@@ -131,8 +131,10 @@ review leads (active run, changes from the previous run, warning navigation and
 unexplained signal) and the setup follows it. The active run reads as label rows:
 Run (short ID and Current or Outdated, the full ID in the tooltip), Model, Converged
 and Usable as counts of clusters, Fitted (date, time in UTC and duration), and
-Warnings when any cluster has one; a failure or a recovery problem adds a row in the
-warning style. The setup's values share that column. A click on the toolbar run summary,
+Warnings when any cluster has one, and Noise check when the run's noise-power check
+found a mismatch: the axes and that the errors may be miscalibrated, with what was
+found and what to do as its caption, the wording of the run line's tooltip. A
+failure or a recovery problem adds a row in the warning style. The setup's values share that column. A click on the toolbar run summary,
 or **Analysis ▸ Active run**, opens the page at the review. The summary names the
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
@@ -291,7 +293,8 @@ convergence and usable/total clusters, so a narrow window shortens only the tail
 its tooltip keeps the full text. Clusters with a numerical warning have their own
 amber label (▲ N) that never elides. When the run's noise-power check found
 processing the header does not record, the line shows **▲ Noise check (F2)**, naming
-the axes, before the counts; the tooltip gives what was found and what to do
+the axes, before the counts; the tooltip, and the Analysis page's Noise check row
+reachable without a pointer, give what was found and what to do
 ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). It is a
 warning about the errors only, never about the fit.
 
@@ -458,9 +461,10 @@ Where the cluster's lineshape factors are withheld, the caption says the correla
 was not assessed; runs with one plane show no flag. Where the run models the
 processed noise correlation the errors are sandwich errors; otherwise they assume
 independent points. The note beside the plot says so in a few words (“±1 profile
-σ · noise correlation modelled”), with any points off scale, by plane, on a line of
-their own; χ²ᵣ is with the cluster's measures; **About these error bars** below it
-gives the noise model in full. The inspector's provenance states it once for the
+σ · noise correlation modelled”), followed by “noise check ▲ F2”, naming the axes,
+when the run's noise-power check found a mismatch, and with any points off scale, by
+plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
+error bars** below it gives the noise model and the noise-power finding in full. The inspector's provenance states it once for the
 run.
 
 Each member's amplitude is classified from the run's recorded shapes, with the

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.algorithms.noise_correlation import NoisePowerStatus
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
@@ -2007,16 +2006,24 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
         rows.append(
             ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
         )
+    noise = result.outcome.noise_model
+    if noise.power_finding:
+        # A caveat on the errors, never on the fit: what was found and what to do.
+        rows.append(
+            (
+                "Noise check",
+                f"▲ {', '.join(noise.power_mismatch)} · errors may be miscalibrated",
+                "warning",
+                noise.power_finding,
+                "",
+            )
+        )
     return rows
 
 
 def _noise_check(model: NoiseModel) -> str:
     """The run line's flag for a noise-power mismatch, naming the axes; the tooltip explains."""
-    axes = [
-        get_dimension_label(i)
-        for i, check in enumerate(model.power_check)
-        if check.status is NoisePowerStatus.MISMATCH
-    ]
+    axes = model.power_mismatch
     return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 
 
