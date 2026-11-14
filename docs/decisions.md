@@ -1313,16 +1313,27 @@ Short records of non‑obvious design choices and trade‑offs.
 
 ## 2026-11-14: Duplicate-plane check and its validation (#174, #175)
 - **Second method of `peakfit replicates`.** Planes with exactly equal plane values
-  are copies; each peak's orthonormal contrasts between them are whitened jointly by
-  the covariance the factors predict, and pooled into an RMS of standardized
+  are copies; each peak's orthonormal contrasts between them are standardized by its
+  conditional variance, q = |Ca|²/c, and pooled into an RMS of standardized
   contrasts for unflagged and flagged peaks
   ([profile-uncertainty §5.3](profile-uncertainty.md#53-duplicate-planes)). The CEST
   baseline method stays, with `--baseline`. A diagnostic only: no error changes.
-- **Weak direction.** A peak is excluded where the smallest eigenvalue of its
-  contrast covariance CΣCᵀ is at most √ε times the largest. This is the codebase's
-  convention s ≤ √ε·s₁ applied to the singular values of the matrix being inverted
-  (equivalently cond ≥ 1/√ε, as `engine.algorithms.evaluation` tests the shapes).
-  Nothing is regularized.
+- **Statistic changed after review: the conditional variance, not CΣCᵀ.** The first
+  implementation whitened the contrasts jointly by CΣCᵀ, Σ reconstructed from the
+  factors at the fitted amplitudes. The lineshape terms of Σ are linear in the true
+  amplitudes of each plane, which the contrasts annihilate for true copies: the
+  true contrast covariance is cI. At the fitted amplitudes those terms return
+  along the observed contrast and bias q low by about β(k + 2), the resolved
+  shortfall of the first record. The check therefore tests the conditional σ only
+  and is blind to the lineshape-parameter part of the marginal and profile σ; the
+  CLI says so. The eigendecomposition, the weak-direction and
+  not-positive-definite exclusions and the dependence on the lineshape factors are
+  gone. Exclusions: an unusable cluster, a non-finite amplitude, a conditional
+  variance withheld (as the fit withholds it where cond(Φ) ≥ 1/√ε) or not
+  positive. Nothing is regularized.
+- **Open: coincident peaks fitted apart.** Their conditional is finite but beyond
+  the first order (contrasts 50–90% above c in T8). Proposed, not adopted:
+  exclude peaks whose lineshape factors are withheld.
 - **Validation T8** ([§8.2](profile-uncertainty.md#82-t8-the-duplicate-plane-check)):
   synthetic duplicates through the exact processing operators and the engine fit;
   mean q/k within ±3 SE of 1 over realizations, SE from the realizations. Passed in
@@ -1331,9 +1342,10 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Confirmation at 40,000 realizations.** The first 4,000-realization record left
   `sp2`, isolated, two copies at −2.97 SE. A protocol fixed before the rerun (same
   seed, 10× the realizations, unchanged gate, block and replication diagnostics, a
-  decision rule) classed it as sampling variability: −2.5 SE on all 40,000, −1.7 SE
-  on the 36,000 new ones. The larger run also resolves a small conservative
-  shortfall across the `sp2` cases, q/k 0.995 ± 0.0013 (stated contrast σ about
-  0.25% too large); recorded, not explained, and not material for the diagnostic.
+  decision rule) classed it as sampling variability. Re-applied unchanged after the
+  statistic change: −2.2 SE on all 40,000, −1.3 SE on the 36,000 new ones, blocks
+  consistent (p = 0.02). The `sp2` shortfall the first statistic resolved,
+  q/k 0.995 ± 0.0013, is gone: 1.0005 ± 0.0013 now. The near-coalescent pair, not
+  gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.

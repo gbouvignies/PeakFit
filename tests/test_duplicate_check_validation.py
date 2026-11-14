@@ -65,7 +65,25 @@ def test_one_realization_reads_the_fit_as_a_published_run(study):
     assert (k, peaks) == (8, 2)  # two triples: 2 contrasts each, for both peaks
     assert q > 0
     assert row.excluded == {}
+    assert row.coincident == {}
+    assert not row.coincident_unassessed
+    # The stated contrast covariance is each peak's conditional variance times I.
     assert row.stated.shape == (2, 4, 4)
+    for stated in row.stated:
+        assert stated[0, 0] > 0
+        np.testing.assert_array_equal(stated, stated[0, 0] * np.eye(4))
+    variances = np.array([stated[0, 0] for stated in row.stated])
+    assert q == pytest.approx(float(np.sum(row.contrasts**2 / variances[:, None])))
+
+
+def test_the_exclusions_case_records_where_the_coincident_pair_went(study):
+    case = study.CASES["sp2, isolated with a coincident pair (exclusions), two copies"]
+    row = study.realization(case, (1, 2, 3))
+    # Each peak of the pair is either excluded or pooled, never both.
+    pooled = sum(pool.peaks for pool in row.coincident.values())
+    excluded = sum(name in row.excluded for name in ("C1", "C2"))
+    assert pooled + excluded == 2
+    assert set(row.excluded) <= {"C1", "C2"}
 
 
 def test_the_record_passes_its_gate_and_shows_the_illustration(study):

@@ -138,9 +138,10 @@ It names the method that ran.
 
 **Duplicate planes**, used when the run has planes with exactly equal plane values (no
 tolerance matching): for each peak, the orthonormal contrasts between copies are
-standardized jointly by the covariance the stored covariance factors predict for them.
-The pooled RMS of standardized contrasts is near 1 when their uncertainty is
-calibrated. It is reported apart for peaks with and without the correlated-profile
+standardized by its conditional variance, the noise part of the published uncertainty
+(the lineshape-parameter part cancels between copies, so it is not tested). The pooled
+RMS of standardized contrasts is near 1 when the conditional σ is calibrated. It is
+reported apart for peaks with and without the correlated-profile
 flag, each with its counts of contrasts, peaks and clusters, and a warning below 50
 contrasts. Excluded peaks are listed with their reason. `--ref` and `--window` belong
 to the baseline method.

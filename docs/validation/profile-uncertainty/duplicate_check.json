@@ -16,44 +16,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.98761,
-    "se": 0.00493,
-    "deviation_se": -2.51222,
-    "rms": 0.99379,
+    "mean_q_over_k": 0.98934,
+    "se": 0.00495,
+    "deviation_se": -2.15468,
+    "rms": 0.99465,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -2.96826,
-     -1.47479,
-     0.89646,
-     1.25211,
-     -0.01938,
-     -2.14945,
-     -1.48685,
-     0.84076,
-     -0.59372,
-     -2.46882
+     -2.85155,
+     -1.36021,
+     1.00653,
+     1.36194,
+     0.09212,
+     -2.03419,
+     -1.37244,
+     0.95098,
+     -0.48095,
+     -2.35298
     ],
-    "chi2": 20.29469,
-    "p_value": 0.01618,
+    "chi2": 20.27478,
+    "p_value": 0.01629,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.99125,
-     "se": 0.00521,
-     "deviation_se": -1.67883,
-     "rms": 0.99562,
+     "mean_q_over_k": 0.99299,
+     "se": 0.00523,
+     "deviation_se": -1.34084,
+     "rms": 0.99649,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.98761,
-     "se": 0.00493,
-     "deviation_se": -2.51222,
-     "rms": 0.99379,
+     "mean_q_over_k": 0.98934,
+     "se": 0.00495,
+     "deviation_se": -2.15468,
+     "rms": 0.99465,
      "passes": true,
      "peaks_per_realization": 1.0
     }
@@ -62,11 +62,11 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.99399,
-     0.98399
+     0.99443,
+     0.98441
     ],
     "se": 0.00707,
-    "largest_deviation_se": 2.26453,
+    "largest_deviation_se": 2.20403,
     "largest_covariance_gap": 0.00768,
     "passes": true
    },
@@ -79,44 +79,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.99802,
-    "se": 0.00354,
-    "deviation_se": -0.55837,
-    "rms": 0.99901,
+    "mean_q_over_k": 1.00078,
+    "se": 0.00356,
+    "deviation_se": 0.21818,
+    "rms": 1.00039,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -0.31581,
-     0.36384,
-     0.62914,
-     -0.14077,
-     -0.46339,
-     -0.43269,
-     -0.90287,
-     -0.83047,
-     -0.88667,
-     1.17759
+     -0.06944,
+     0.60891,
+     0.87237,
+     0.10364,
+     -0.21685,
+     -0.18762,
+     -0.65552,
+     -0.582,
+     -0.63962,
+     1.4197
     ],
-    "chi2": 4.38948,
-    "p_value": 0.88396,
+    "chi2": 4.38461,
+    "p_value": 0.88433,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.99819,
-     "se": 0.00373,
-     "deviation_se": -0.4838,
-     "rms": 0.9991,
+     "mean_q_over_k": 1.00095,
+     "se": 0.00375,
+     "deviation_se": 0.25262,
+     "rms": 1.00047,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.99802,
-     "se": 0.00354,
-     "deviation_se": -0.55837,
-     "rms": 0.99901,
+     "mean_q_over_k": 1.00078,
+     "se": 0.00356,
+     "deviation_se": 0.21818,
+     "rms": 1.00039,
      "passes": true,
      "peaks_per_realization": 1.0
     }
@@ -125,14 +125,14 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.98667,
-     1.01454,
-     0.99868,
-     1.00199
+     0.98712,
+     1.01501,
+     0.99914,
+     1.00245
     ],
     "se": 0.00707,
-    "largest_deviation_se": 2.05603,
-    "largest_covariance_gap": 0.00844,
+    "largest_deviation_se": 2.12269,
+    "largest_covariance_gap": 0.00845,
     "passes": true
    },
    "passes": true
@@ -144,44 +144,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.00502,
-    "se": 0.00505,
-    "deviation_se": 0.9938,
-    "rms": 1.00251,
+    "mean_q_over_k": 1.00668,
+    "se": 0.00506,
+    "deviation_se": 1.31888,
+    "rms": 1.00333,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -0.30137,
-     -0.55791,
-     0.81023,
-     -0.88753,
-     1.75728,
-     1.17173,
-     -0.92868,
-     0.79453,
-     -0.31704,
-     1.33001
+     -0.1976,
+     -0.45384,
+     0.91217,
+     -0.7828,
+     1.85759,
+     1.27323,
+     -0.824,
+     0.89609,
+     -0.2131,
+     1.43116
     ],
-    "chi2": 8.99563,
-    "p_value": 0.43768,
+    "chi2": 9.0239,
+    "p_value": 0.43507,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 1.0061,
-     "se": 0.00533,
-     "deviation_se": 1.14324,
-     "rms": 1.00304,
+     "mean_q_over_k": 1.00777,
+     "se": 0.00535,
+     "deviation_se": 1.4513,
+     "rms": 1.00388,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.00502,
-     "se": 0.00505,
-     "deviation_se": 0.9938,
-     "rms": 1.00251,
+     "mean_q_over_k": 1.00668,
+     "se": 0.00506,
+     "deviation_se": 1.31888,
+     "rms": 1.00333,
      "passes": true,
      "peaks_per_realization": 1.0
     }
@@ -190,12 +190,12 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.99893,
-     1.01406
+     0.99933,
+     1.01448
     ],
     "se": 0.00707,
-    "largest_deviation_se": 1.9886,
-    "largest_covariance_gap": 0.00912,
+    "largest_deviation_se": 2.04805,
+    "largest_covariance_gap": 0.00913,
     "passes": true
    },
    "passes": true
@@ -207,44 +207,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.00222,
-    "se": 0.00501,
-    "deviation_se": 0.44246,
-    "rms": 1.00111,
+    "mean_q_over_k": 1.00332,
+    "se": 0.00502,
+    "deviation_se": 0.66236,
+    "rms": 1.00166,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     0.16061,
-     -0.57051,
-     -0.0992,
-     1.57139,
-     1.18214,
-     -1.04007,
-     0.32963,
-     -0.87363,
-     -0.09057,
-     0.68952
+     0.2302,
+     -0.50018,
+     -0.0294,
+     1.63903,
+     1.25063,
+     -0.96932,
+     0.39892,
+     -0.80291,
+     -0.02077,
+     0.75839
     ],
-    "chi2": 6.53908,
-    "p_value": 0.68499,
+    "chi2": 6.54318,
+    "p_value": 0.68456,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 1.00218,
-     "se": 0.00528,
-     "deviation_se": 0.4129,
-     "rms": 1.00109,
+     "mean_q_over_k": 1.00329,
+     "se": 0.0053,
+     "deviation_se": 0.6215,
+     "rms": 1.00164,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.00222,
-     "se": 0.00501,
-     "deviation_se": 0.44246,
-     "rms": 1.00111,
+     "mean_q_over_k": 1.00332,
+     "se": 0.00502,
+     "deviation_se": 0.66236,
+     "rms": 1.00166,
      "passes": true,
      "peaks_per_realization": 1.0
     }
@@ -253,11 +253,11 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.99585,
-     1.00967
+     0.99613,
+     1.00995
     ],
     "se": 0.00707,
-    "largest_deviation_se": 1.36771,
+    "largest_deviation_se": 1.40744,
     "largest_covariance_gap": 0.00298,
     "passes": true
    },
@@ -270,44 +270,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.99681,
-    "se": 0.00355,
-    "deviation_se": -0.90099,
-    "rms": 0.9984,
+    "mean_q_over_k": 1.0002,
+    "se": 0.00357,
+    "deviation_se": 0.05588,
+    "rms": 1.0001,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     0.36322,
-     0.43464,
-     -0.70097,
-     -0.14059,
-     0.20185,
-     -1.03146,
-     -1.0253,
-     0.17953,
-     -0.09545,
-     -1.06912
+     0.66337,
+     0.73499,
+     -0.39913,
+     0.16222,
+     0.50161,
+     -0.7273,
+     -0.71706,
+     0.48427,
+     0.20616,
+     -0.76666
     ],
-    "chi2": 3.32016,
-    "p_value": 0.95024,
+    "chi2": 3.3243,
+    "p_value": 0.95004,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.996,
-     "se": 0.00374,
-     "deviation_se": -1.06947,
-     "rms": 0.998,
+     "mean_q_over_k": 0.99939,
+     "se": 0.00376,
+     "deviation_se": -0.1609,
+     "rms": 0.9997,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.99681,
-     "se": 0.00355,
-     "deviation_se": -0.90099,
-     "rms": 0.9984,
+     "mean_q_over_k": 1.0002,
+     "se": 0.00357,
+     "deviation_se": 0.05588,
+     "rms": 1.0001,
      "passes": true,
      "peaks_per_realization": 2.0
     }
@@ -316,14 +316,14 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     1.00955,
-     1.00094,
-     0.98956,
-     0.9981
+     1.01031,
+     1.00169,
+     0.99055,
+     0.99911
     ],
     "se": 0.00707,
-    "largest_deviation_se": 1.47653,
-    "largest_covariance_gap": 0.01009,
+    "largest_deviation_se": 1.45828,
+    "largest_covariance_gap": 0.01011,
     "passes": true
    },
    "passes": true
@@ -335,44 +335,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.99429,
-    "se": 0.00247,
-    "deviation_se": -2.31411,
-    "rms": 0.99714,
+    "mean_q_over_k": 0.9997,
+    "se": 0.0025,
+    "deviation_se": -0.11832,
+    "rms": 0.99985,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -1.1974,
-     -2.06978,
-     0.31296,
-     -0.34196,
-     -0.42274,
-     -0.86251,
-     -0.75845,
-     -1.12312,
-     -0.56642,
-     -0.36621
+     -0.49325,
+     -1.35615,
+     0.98978,
+     0.35279,
+     0.25801,
+     -0.16944,
+     -0.06601,
+     -0.4245,
+     0.12391,
+     0.33558
     ],
-    "chi2": 3.56605,
-    "p_value": 0.93759,
+    "chi2": 3.56695,
+    "p_value": 0.93754,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.99466,
-     "se": 0.00261,
-     "deviation_se": -2.0446,
-     "rms": 0.99733,
+     "mean_q_over_k": 1.00009,
+     "se": 0.00264,
+     "deviation_se": 0.0354,
+     "rms": 1.00005,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.99429,
-     "se": 0.00247,
-     "deviation_se": -2.31411,
-     "rms": 0.99714,
+     "mean_q_over_k": 0.9997,
+     "se": 0.0025,
+     "deviation_se": -0.11832,
+     "rms": 0.99985,
      "passes": true,
      "peaks_per_realization": 2.0
     }
@@ -381,18 +381,18 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.98724,
-     0.99971,
-     1.0074,
-     0.99086,
-     1.00208,
-     1.00373,
-     0.99984,
-     1.00195
+     0.98799,
+     1.00048,
+     1.00818,
+     0.99162,
+     1.0032,
+     1.00486,
+     1.00096,
+     1.00308
     ],
     "se": 0.00707,
-    "largest_deviation_se": 1.80447,
-    "largest_covariance_gap": 0.01397,
+    "largest_deviation_se": 1.69783,
+    "largest_covariance_gap": 0.014,
     "passes": true
    },
    "passes": true
@@ -404,44 +404,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.99361,
-    "se": 0.00247,
-    "deviation_se": -2.58408,
-    "rms": 0.9968,
+    "mean_q_over_k": 1.00041,
+    "se": 0.00251,
+    "deviation_se": 0.16232,
+    "rms": 1.0002,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -0.73322,
-     -2.52457,
-     -1.11986,
-     -1.36298,
-     -1.54548,
-     -0.76125,
-     -1.08784,
-     -0.27459,
-     1.55441,
-     -0.35956
+     0.13619,
+     -1.64321,
+     -0.2532,
+     -0.48682,
+     -0.67758,
+     0.11015,
+     -0.22537,
+     0.58926,
+     2.4085,
+     0.51363
     ],
-    "chi2": 9.97799,
-    "p_value": 0.35227,
+    "chi2": 9.9352,
+    "p_value": 0.35576,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.99353,
-     "se": 0.00261,
-     "deviation_se": -2.47928,
-     "rms": 0.99676,
+     "mean_q_over_k": 1.00033,
+     "se": 0.00264,
+     "deviation_se": 0.12585,
+     "rms": 1.00017,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.99361,
-     "se": 0.00247,
-     "deviation_se": -2.58408,
-     "rms": 0.9968,
+     "mean_q_over_k": 1.00041,
+     "se": 0.00251,
+     "deviation_se": 0.16232,
+     "rms": 1.0002,
      "passes": true,
      "peaks_per_realization": 2.0
     }
@@ -450,18 +450,18 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.99351,
-     1.00619,
-     1.00041,
-     0.9967,
-     0.99,
-     1.00777,
-     1.00092,
-     0.99981
+     0.99447,
+     1.00717,
+     1.00138,
+     0.99766,
+     0.9914,
+     1.00922,
+     1.00234,
+     1.00123
     ],
     "se": 0.00707,
-    "largest_deviation_se": 1.41356,
-    "largest_covariance_gap": 0.00821,
+    "largest_deviation_se": 1.30322,
+    "largest_covariance_gap": 0.00823,
     "passes": true
    },
    "passes": true
@@ -473,44 +473,44 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.00092,
-    "se": 0.00377,
-    "deviation_se": 0.24377,
-    "rms": 1.00046,
+    "mean_q_over_k": 1.00898,
+    "se": 0.00382,
+    "deviation_se": 2.35071,
+    "rms": 1.00448,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     1.40731,
-     0.51947,
-     -0.53429,
-     -0.37433,
-     2.05873,
-     -0.07102,
-     -0.10719,
-     0.00725,
-     -1.19573,
-     -1.05627
+     2.05454,
+     1.18992,
+     0.15115,
+     0.30085,
+     2.69848,
+     0.58786,
+     0.56674,
+     0.67031,
+     -0.50033,
+     -0.39803
     ],
-    "chi2": 9.44735,
-    "p_value": 0.39705,
+    "chi2": 9.35892,
+    "p_value": 0.40482,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.99916,
-     "se": 0.00397,
-     "deviation_se": -0.21214,
-     "rms": 0.99958,
+     "mean_q_over_k": 1.00722,
+     "se": 0.00403,
+     "deviation_se": 1.7934,
+     "rms": 1.0036,
      "passes": true
     }
    },
    "pools": {
     "flagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.00092,
-     "se": 0.00377,
-     "deviation_se": 0.24377,
-     "rms": 1.00046,
+     "mean_q_over_k": 1.00898,
+     "se": 0.00382,
+     "deviation_se": 2.35071,
+     "rms": 1.00448,
      "passes": true,
      "peaks_per_realization": 2.0
     }
@@ -519,14 +519,14 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     1.00642,
-     1.00272,
-     1.01,
-     1.00744
+     1.0087,
+     1.00499,
+     1.01284,
+     1.01027
     ],
     "se": 0.00707,
-    "largest_deviation_se": 1.41489,
-    "largest_covariance_gap": 0.0052,
+    "largest_deviation_se": 1.8164,
+    "largest_covariance_gap": 0.00523,
     "passes": true
    },
    "passes": true
@@ -538,71 +538,82 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.99155,
-    "se": 0.00499,
-    "deviation_se": -1.69426,
-    "rms": 0.99577,
+    "mean_q_over_k": 1.00139,
+    "se": 0.00502,
+    "deviation_se": 0.27706,
+    "rms": 1.00069,
     "passes": true
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     0.79536,
-     -0.35194,
-     -0.05161,
-     0.29831,
-     -2.08705,
-     -1.19496,
-     0.56477,
-     -0.74483,
-     -1.91437,
-     -0.80954
+     1.34086,
+     0.14865,
+     0.62122,
+     1.03603,
+     -1.7254,
+     -0.50127,
+     1.23703,
+     -0.18189,
+     -1.10436,
+     -0.12969
     ],
-    "chi2": 8.65348,
-    "p_value": 0.46986,
+    "chi2": 9.27067,
+    "p_value": 0.41267,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.98918,
-     "se": 0.00524,
-     "deviation_se": -2.06319,
-     "rms": 0.99458,
+     "mean_q_over_k": 0.99912,
+     "se": 0.00527,
+     "deviation_se": -0.16663,
+     "rms": 0.99956,
      "passes": true
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.99155,
-     "se": 0.00499,
-     "deviation_se": -1.69426,
-     "rms": 0.99577,
+     "mean_q_over_k": 1.00139,
+     "se": 0.00502,
+     "deviation_se": 0.27706,
+     "rms": 1.00069,
      "passes": true,
-     "peaks_per_realization": 1.0029
+     "peaks_per_realization": 1.04275
     },
     "flagged": {
-     "realizations_used": 2689,
-     "mean_q_over_k": 0.9381,
-     "se": 0.01511,
-     "deviation_se": -4.09738,
-     "rms": 0.96855,
+     "realizations_used": 3165,
+     "mean_q_over_k": 1.9151,
+     "se": 0.02777,
+     "deviation_se": 32.9534,
+     "rms": 1.38387,
      "passes": false,
-     "peaks_per_realization": 0.1331
+     "peaks_per_realization": 0.1569
     }
    },
    "flagged_fraction": 0.0,
    "realizations_with_exclusion": {
-    "covariance factors withheld": 36804,
-    "contrast covariance has a direction weaker than √ε of the largest": 176,
-    "contrast covariance not positive definite": 300
+    "conditional variance withheld or not positive": 36007
+   },
+   "coincident_pair_pooled": {
+    "unflagged": {
+     "realizations": 882,
+     "peaks": 1710,
+     "pooled_q_over_k": 1.50852
+    },
+    "flagged": {
+     "realizations": 3165,
+     "peaks": 6276,
+     "pooled_q_over_k": 1.91035
+    },
+    "realizations_lineshape_factors_withheld": 797
    },
    "analytical": {
     "variance_ratios": [
-     0.98364,
-     1.00146
+     0.98406,
+     1.0019
     ],
     "se": 0.00707,
-    "largest_deviation_se": 2.31404,
-    "largest_covariance_gap": 0.0043,
+    "largest_deviation_se": 2.25357,
+    "largest_covariance_gap": 0.00431,
     "passes": true
    },
    "passes": true
@@ -614,45 +625,45 @@
    "copies_correlation": 0.0,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.00089,
-    "se": 0.00433,
-    "deviation_se": 0.20513,
-    "rms": 1.00044,
-    "passes": true
+    "mean_q_over_k": 1.05904,
+    "se": 0.00474,
+    "deviation_se": 12.44563,
+    "rms": 1.0291,
+    "passes": false
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     0.00889,
-     -1.09533,
-     0.80282,
-     1.07997,
-     0.30713,
-     0.24946,
-     0.91484,
-     0.16648,
-     -1.08865,
-     -0.81508
+     3.87569,
+     3.02371,
+     4.43596,
+     4.89068,
+     4.07522,
+     4.19613,
+     4.71389,
+     3.96234,
+     2.92669,
+     3.1711
     ],
-    "chi2": 5.86443,
-    "p_value": 0.75341,
+    "chi2": 5.05999,
+    "p_value": 0.82905,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 1.00097,
-     "se": 0.00456,
-     "deviation_se": 0.21335,
-     "rms": 1.00049,
-     "passes": true
+     "mean_q_over_k": 1.05908,
+     "se": 0.005,
+     "deviation_se": 11.82703,
+     "rms": 1.02912,
+     "passes": false
     }
    },
    "pools": {
     "flagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.00089,
-     "se": 0.00433,
-     "deviation_se": 0.20513,
-     "rms": 1.00044,
-     "passes": true,
+     "mean_q_over_k": 1.05904,
+     "se": 0.00474,
+     "deviation_se": 12.44563,
+     "rms": 1.0291,
+     "passes": false,
      "peaks_per_realization": 2.0
     }
    },
@@ -660,14 +671,14 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     1.02765,
-     1.03351,
-     1.03795,
-     1.04179
+     1.04951,
+     1.05563,
+     1.06139,
+     1.06556
     ],
     "se": 0.00707,
-    "largest_deviation_se": 5.91023,
-    "largest_covariance_gap": 0.00449,
+    "largest_deviation_se": 9.27149,
+    "largest_covariance_gap": 0.0046,
     "passes": false
    },
    "passes": null
@@ -679,44 +690,44 @@
    "copies_correlation": 0.3,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.69709,
-    "se": 0.0035,
-    "deviation_se": -86.45318,
-    "rms": 0.83492,
+    "mean_q_over_k": 0.69796,
+    "se": 0.00351,
+    "deviation_se": -85.99148,
+    "rms": 0.83544,
     "passes": false
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -27.17745,
-     -26.0486,
-     -27.22309,
-     -31.01939,
-     -27.85427,
-     -26.37555,
-     -24.43579,
-     -27.41459,
-     -28.25162,
-     -27.92825
+     -27.02907,
+     -25.90191,
+     -27.08047,
+     -30.87338,
+     -27.70541,
+     -26.23114,
+     -24.29456,
+     -27.26661,
+     -28.10603,
+     -27.78065
     ],
-    "chi2": 13.17361,
-    "p_value": 0.15491,
+    "chi2": 13.17212,
+    "p_value": 0.15497,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.69728,
-     "se": 0.00369,
-     "deviation_se": -82.07074,
-     "rms": 0.83503,
+     "mean_q_over_k": 0.69815,
+     "se": 0.0037,
+     "deviation_se": -81.63356,
+     "rms": 0.83555,
      "passes": false
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.69709,
-     "se": 0.0035,
-     "deviation_se": -86.45318,
-     "rms": 0.83492,
+     "mean_q_over_k": 0.69796,
+     "se": 0.00351,
+     "deviation_se": -85.99148,
+     "rms": 0.83544,
      "passes": false,
      "peaks_per_realization": 1.0
     }
@@ -725,11 +736,11 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.69439,
-     0.70115
+     0.69461,
+     0.70136
     ],
     "se": 0.00707,
-    "largest_deviation_se": 43.2189,
+    "largest_deviation_se": 43.18876,
     "largest_covariance_gap": 0.00168,
     "passes": false
    },
@@ -742,44 +753,44 @@
    "copies_correlation": -0.3,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.29786,
-    "se": 0.00653,
-    "deviation_se": 45.61342,
-    "rms": 1.13924,
+    "mean_q_over_k": 1.30087,
+    "se": 0.00656,
+    "deviation_se": 45.86083,
+    "rms": 1.14055,
     "passes": false
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     14.38085,
-     14.32637,
-     14.67511,
-     15.12285,
-     14.46376,
-     14.92071,
-     13.80141,
-     14.63687,
-     14.70493,
-     13.20773
+     14.46021,
+     14.40503,
+     14.75179,
+     15.20419,
+     14.54181,
+     14.99611,
+     13.88112,
+     14.71433,
+     14.78174,
+     13.28717
     ],
-    "chi2": 3.29735,
-    "p_value": 0.95133,
+    "chi2": 3.29014,
+    "p_value": 0.95167,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 1.29796,
-     "se": 0.00688,
-     "deviation_se": 43.28654,
-     "rms": 1.13928,
+     "mean_q_over_k": 1.30097,
+     "se": 0.00692,
+     "deviation_se": 43.52089,
+     "rms": 1.1406,
      "passes": false
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.29786,
-     "se": 0.00653,
-     "deviation_se": 45.61342,
-     "rms": 1.13924,
+     "mean_q_over_k": 1.30087,
+     "se": 0.00656,
+     "deviation_se": 45.86083,
+     "rms": 1.14055,
      "passes": false,
      "peaks_per_realization": 1.0
     }
@@ -788,12 +799,12 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     1.28957,
-     1.31115
+     1.29031,
+     1.31191
     ],
     "se": 0.00707,
-    "largest_deviation_se": 44.00296,
-    "largest_covariance_gap": 0.01124,
+    "largest_deviation_se": 44.11037,
+    "largest_covariance_gap": 0.01126,
     "passes": false
    },
    "passes": null
@@ -805,44 +816,44 @@
    "copies_correlation": 0.3,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 0.69777,
-    "se": 0.00176,
-    "deviation_se": -172.1462,
-    "rms": 0.83533,
+    "mean_q_over_k": 0.70045,
+    "se": 0.00177,
+    "deviation_se": -169.33594,
+    "rms": 0.83693,
     "passes": false
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     -52.81556,
-     -54.07009,
-     -53.64724,
-     -54.36705,
-     -56.82657,
-     -54.49876,
-     -54.6316,
-     -53.99246,
-     -55.06698,
-     -54.56176
+     -51.9302,
+     -53.17919,
+     -52.76512,
+     -53.49372,
+     -55.92159,
+     -53.61119,
+     -53.74719,
+     -53.09957,
+     -54.16486,
+     -53.67928
     ],
-    "chi2": 3.90501,
-    "p_value": 0.91755,
+    "chi2": 3.88782,
+    "p_value": 0.91864,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 0.69769,
-     "se": 0.00184,
-     "deviation_se": -163.87579,
-     "rms": 0.83528,
+     "mean_q_over_k": 0.70037,
+     "se": 0.00186,
+     "deviation_se": -161.20887,
+     "rms": 0.83688,
      "passes": false
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 0.69777,
-     "se": 0.00176,
-     "deviation_se": -172.1462,
-     "rms": 0.83533,
+     "mean_q_over_k": 0.70045,
+     "se": 0.00177,
+     "deviation_se": -169.33594,
+     "rms": 0.83693,
      "passes": false,
      "peaks_per_realization": 2.0
     }
@@ -851,18 +862,18 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     0.70065,
-     0.69685,
-     0.69863,
-     0.69866,
-     0.70205,
-     0.70229,
-     0.69511,
-     0.70668
+     0.70103,
+     0.69723,
+     0.69901,
+     0.69904,
+     0.7026,
+     0.70285,
+     0.69565,
+     0.70724
     ],
     "se": 0.00707,
-    "largest_deviation_se": 43.11683,
-    "largest_covariance_gap": 0.00625,
+    "largest_deviation_se": 43.04037,
+    "largest_covariance_gap": 0.00627,
     "passes": false
    },
    "passes": null
@@ -874,44 +885,44 @@
    "copies_correlation": -0.3,
    "statistic": {
     "realizations_used": 40000,
-    "mean_q_over_k": 1.29024,
-    "se": 0.00321,
-    "deviation_se": 90.38206,
-    "rms": 1.13589,
+    "mean_q_over_k": 1.29935,
+    "se": 0.00326,
+    "deviation_se": 91.94591,
+    "rms": 1.13989,
     "passes": false
    },
    "blocks": {
     "count": 10,
     "deviation_se": [
-     28.93937,
-     29.00661,
-     29.76218,
-     27.38449,
-     28.53281,
-     28.02593,
-     28.79317,
-     27.72565,
-     28.24156,
-     29.42228
+     29.42225,
+     29.49995,
+     30.25754,
+     27.87841,
+     29.01483,
+     28.52699,
+     29.2884,
+     28.22052,
+     28.74553,
+     29.92591
     ],
-    "chi2": 5.25911,
-    "p_value": 0.81116,
+    "chi2": 5.26991,
+    "p_value": 0.81017,
     "replication": {
      "realizations_used": 36000,
-     "mean_q_over_k": 1.28932,
-     "se": 0.00338,
-     "deviation_se": 85.62347,
-     "rms": 1.13548,
+     "mean_q_over_k": 1.29842,
+     "se": 0.00343,
+     "deviation_se": 87.11103,
+     "rms": 1.13948,
      "passes": false
     }
    },
    "pools": {
     "unflagged": {
      "realizations_used": 40000,
-     "mean_q_over_k": 1.29024,
-     "se": 0.00321,
-     "deviation_se": 90.38206,
-     "rms": 1.13589,
+     "mean_q_over_k": 1.29935,
+     "se": 0.00326,
+     "deviation_se": 91.94591,
+     "rms": 1.13989,
      "passes": false,
      "peaks_per_realization": 2.0
     }
@@ -920,18 +931,18 @@
    "realizations_with_exclusion": {},
    "analytical": {
     "variance_ratios": [
-     1.29566,
-     1.31117,
-     1.30171,
-     1.29039,
-     1.29802,
-     1.29125,
-     1.31201,
-     1.28824
+     1.29696,
+     1.31249,
+     1.30302,
+     1.29167,
+     1.29991,
+     1.29312,
+     1.31394,
+     1.2901
     ],
     "se": 0.00707,
-    "largest_deviation_se": 44.12428,
-    "largest_covariance_gap": 0.0178,
+    "largest_deviation_se": 44.39729,
+    "largest_covariance_gap": 0.01783,
     "passes": false
    },
    "passes": null

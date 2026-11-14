@@ -36,6 +36,8 @@ _BASELINE_METHOD = "CEST baseline planes"
 # What the duplicate check does not show (spec #172, "Stated limits").
 _DUPLICATE_LIMITS = (
     "It measures repeatability, not accuracy.",
+    "It tests the conditional σ only, the noise part: it cannot detect a "
+    "miscalibration of the lineshape-parameter part of the marginal or profile σ.",
     "It checks the uncertainty of contrasts between copies, not marginal σ.",
     "It checks raw amplitudes, not normalized profiles.",
     "Equal plane values do not prove independent, equivalent acquisitions.",
@@ -91,9 +93,10 @@ def replicates_command(
     Two methods read the run from scientific.npz, never refit it and change no error.
 
     Duplicate planes, used when the run has planes with exactly equal plane values: the
-    contrasts between copies are standardized by the covariance the stored covariance
-    factors predict for them. The pooled RMS is 1 when the uncertainty of contrasts is
-    calibrated, reported apart for peaks with the correlated-profile flag.
+    contrasts between copies are standardized by each peak's conditional amplitude
+    variance, the noise part of its uncertainty; the lineshape-parameter part cancels
+    between copies. The pooled RMS is 1 when the conditional σ is calibrated, reported
+    apart for peaks with the correlated-profile flag.
 
     CEST baseline planes, used otherwise or with --baseline: far from a peak's own
     offset, CEST planes are approximate replicates. The robust scatter of their second
