@@ -32,7 +32,7 @@ from peakfit.gui.editor.spectral_geometry import (
 )
 from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
-from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
+from peakfit.gui.theme import FOCUS_WIDTH, FONT_CAPTION, LIGHT, OWN_FOCUS_FRAME, Theme, color
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -333,6 +333,9 @@ class SpectralView(QtWidgets.QWidget):
         self.view.viewport().installEventFilter(self)
         self.view.installEventFilter(self)
         self.setFocusProxy(self.view)
+        # Keyboard focus is shown on the 2D plot, where A, Space and E/O/R act,
+        # rather than by the shared ring around the whole canvas.
+        self.view.setProperty(OWN_FOCUS_FRAME, True)
         self.view.setAccessibleName(
             "2D spectrum with native slices; Space pins slices; A places peak; arrows step sample"
         )
@@ -394,6 +397,12 @@ class SpectralView(QtWidgets.QWidget):
         )
         for divider in (self.row_divider, self.column_divider):
             scene.addItem(divider)
+        self.focus_frame = QtWidgets.QGraphicsRectItem()
+        self.focus_frame.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        self.focus_frame.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.focus_frame.setZValue(70)
+        self.focus_frame.hide()
+        scene.addItem(self.focus_frame)
         # Experimental and model values at native samples, joined by lines; no markers.
         self.curve_x, self.model_x = pg.PlotDataItem(), pg.PlotDataItem()
         self.curve_y, self.model_y = pg.PlotDataItem(), pg.PlotDataItem()
@@ -1340,6 +1349,9 @@ class SpectralView(QtWidgets.QWidget):
         for divider in (self.row_divider, self.column_divider):
             divider.color, divider.hot_color = t.border, t.accent
             divider.update()
+        frame = QtGui.QPen(QtGui.QColor(t.focus), FOCUS_WIDTH)
+        frame.setJoinStyle(QtCore.Qt.PenJoinStyle.MiterJoin)
+        self.focus_frame.setPen(frame)
         self._style_traces()
         self.marker_halo.setPen(pg.mkPen(color(t.plot, 0.9), width=2.6))
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
@@ -1406,6 +1418,11 @@ class SpectralView(QtWidgets.QWidget):
         if event.type() == QtCore.QEvent.Type.Paint and watched is self.view.viewport():
             # Paint-completion measurements use a queued callback after paintEvent.
             self._paint_timer.start(0)
+        if watched is self.view and event.type() in (
+            QtCore.QEvent.Type.FocusIn,
+            QtCore.QEvent.Type.FocusOut,
+        ):
+            self.focus_frame.setVisible(event.type() == QtCore.QEvent.Type.FocusIn)
         if event.type() == QtCore.QEvent.Type.Leave:
             self.hover(None)
         if event.type() == QtCore.QEvent.Type.MouseButtonDblClick:
@@ -1475,6 +1492,9 @@ class SpectralView(QtWidgets.QWidget):
             if rect is not None:
                 item.setGeometry(QtCore.QRectF(*rect))
         x, y, w, h = geometry.main
+        # The frame's stroke lies just outside the plot area, over no data.
+        half = FOCUS_WIDTH / 2
+        self.focus_frame.setRect(QtCore.QRectF(x - half, y - half, w + 2 * half, h + 2 * half))
         self.left_axis.setGeometry(QtCore.QRectF(0, y, self.extents.left, h))
         self.bottom_axis.setGeometry(QtCore.QRectF(x, y + h, w, self.extents.bottom))
         self.row_divider.setRect(QtCore.QRectF(*geometry.row_divider))
