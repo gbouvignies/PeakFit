@@ -443,6 +443,33 @@ class _TileDelegate(QtWidgets.QStyledItemDelegate):
         )
 
 
+class _TileList(QtWidgets.QListView):
+    """The tile grid; it tells user moves of the current tile from programmatic ones.
+
+    Qt also moves the current tile when the list gains focus or is repopulated; only
+    a click or keyboard navigation counts as the user choosing a cluster.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.user_move = False
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        """A press on a tile chooses its cluster."""
+        self._as_user(super().mousePressEvent, event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        """Keyboard navigation chooses the cluster it lands on."""
+        self._as_user(super().keyPressEvent, event)
+
+    def _as_user(self, handler, event) -> None:
+        self.user_move = True
+        try:
+            handler(event)
+        finally:
+            self.user_move = False
+
+
 class ProfilesView(QtWidgets.QWidget):
     """Scan every cluster's profiles; choose one to review it, activate it to focus it."""
 
@@ -491,9 +518,9 @@ class ProfilesView(QtWidgets.QWidget):
         self.empty.hide()
         layout.addWidget(self.empty, 1)
 
-    def _build_list(self) -> QtWidgets.QListView:
+    def _build_list(self) -> _TileList:
         """A wrapping, virtualized grid of painted tiles."""
-        self.list = QtWidgets.QListView()
+        self.list = _TileList()
         self.list.setObjectName("profiles")
         self.list.setViewMode(QtWidgets.QListView.ViewMode.IconMode)
         self.list.setMovement(QtWidgets.QListView.Movement.Static)
@@ -649,6 +676,9 @@ class ProfilesView(QtWidgets.QWidget):
         return self.selected if self.selected in ids else (ids[0] if ids else None)
 
     def _current_changed(self, current, _previous) -> None:
+        # Focus and population move the current tile too; they never choose a cluster.
+        if not self.list.user_move:
+            return
         if current.isValid() and (target := self._target(current.row())):
             self.cluster_chosen.emit(target)
 
