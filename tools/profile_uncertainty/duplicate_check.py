@@ -49,7 +49,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from multiprocessing import get_context
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -57,21 +57,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/
 from profile_coverage import CHAINS, SIGMA, _fit, build_cluster
 
-from peakfit.engine.algorithms.covariance_factors import (
-    peak_covariances_between_planes,
-    profile_correlations,
-)
+from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
 from peakfit.engine.scientific.replicates import (
+    DuplicatePool,
+    ExclusionReason,
     RecordedCluster,
     duplicate_groups,
     duplicate_plane_check,
+    orthonormal_contrasts,
 )
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import LineshapeName
 
+type Copies = Literal["two copies", "three copies"]
+type PoolName = Literal["unflagged", "flagged"]
+type CasePool = Literal["all", "unflagged", "flagged"]  # "all" pools both
+
 RATES = (1.0, 2.0)
-DELAYS = {
+DELAYS: dict[Copies, np.ndarray] = {
     "two copies": np.array([0.0, 0.1, 0.1, 0.3, 0.6, 0.6, 1.0]),
     "three copies": np.array([0.0, 0.2, 0.2, 0.2, 0.5, 1.0, 1.0, 1.0]),
 }
@@ -89,10 +93,10 @@ class Case:
     """
 
     lineshape: LineshapeName
-    copies: str
+    copies: Copies
     separation: tuple[float, float] | None = None
     shared_phase: bool = False
-    pool: str = "all"
+    pool: CasePool = "all"
     coincident: bool = False
     copies_correlation: float = 0.0
     gated: bool = True
@@ -148,26 +152,64 @@ def copies_mixing(plane_values: np.ndarray, rho: float) -> np.ndarray:
     return mixing
 
 
-def _noisy_fit(lineshape, separation, heights, plane_values, rng, *, shared_phase, rho, names):
-    """One noisy cluster fitted by the engine, as the duplicate check reads it."""
+def _noisy_fit(
+    case: Case,
+    separation: tuple[float, float] | None,
+    heights: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    shared_phase: bool,
+    names: tuple[str, ...],
+) -> RecordedCluster:
+    """One noisy cluster of ``case`` fitted by the engine, as the duplicate check reads it."""
+    plane_values = DELAYS[case.copies]
     cluster, start, _amplitudes, model = build_cluster(
-        lineshape, separation, heights, shared_phase=shared_phase
+        case.lineshape, separation, heights, shared_phase=shared_phase
     )
-    first, second = CHAINS[lineshape]
+    first, second = CHAINS[case.lineshape]
     rows = [np.unique(index) for index in cluster.grid_indices]
     left = first.noise_operator(rows[0])
     right = second.noise_operator(rows[1])
     white = rng.standard_normal((plane_values.size, left.shape[1], right.shape[1]))
-    white = np.einsum("st,tij->sij", copies_mixing(plane_values, rho), white)
+    white = np.einsum("st,tij->sij", copies_mixing(plane_values, case.copies_correlation), white)
     noise = [(left @ w @ right.T).ravel() for w in white]
     cluster.data = cluster.data + SIGMA * np.stack(noise, axis=1)
     evaluation = _fit(cluster, start.copy(deep=True), model)
-    factors, amplitudes = evaluation.covariance_factors, evaluation.amplitudes
-    flags = tuple(flag.flagged for flag in profile_correlations(factors, amplitudes))
-    return RecordedCluster(names, plane_values, amplitudes, factors, flags)
+    return RecordedCluster.fitted(
+        names, plane_values, evaluation.amplitudes, evaluation.covariance_factors
+    )
 
 
-def realization(case: Case, seed: tuple[int, ...]) -> dict:
+@dataclass(frozen=True, slots=True)
+class PoolSums:
+    """One pool of one realization: Σq, Σk and the peaks pooled."""
+
+    q: float
+    contrasts: int
+    peaks: int
+
+    @classmethod
+    def of(cls, pool: DuplicatePool) -> PoolSums:
+        """The sums of one pool of the check."""
+        return cls(pool.q, pool.contrasts, pool.peaks)
+
+
+@dataclass(frozen=True, slots=True)
+class Realization:
+    """One realization's check, and the contrasts of its main cluster's peaks.
+
+    ``contrasts`` (L × k) are the peaks' contrasts Ca; ``stated`` (L × k × k) their
+    covariance CΣCᵀ as the stored factors state it.
+    """
+
+    pools: dict[PoolName, PoolSums]
+    excluded: dict[str, ExclusionReason]
+    contrasts: np.ndarray
+    stated: np.ndarray
+    flagged: tuple[bool, ...]
+
+
+def realization(case: Case, seed: tuple[int, ...]) -> Realization:
     """One realization: the pools' Σq and Σk, exclusions, and each peak's contrasts."""
     rng = np.random.default_rng(seed)
     t = DELAYS[case.copies]
@@ -175,53 +217,37 @@ def realization(case: Case, seed: tuple[int, ...]) -> dict:
     heights = np.exp(-np.outer(RATES[:peaks], t))
     clusters = [
         _noisy_fit(
-            case.lineshape, case.separation, heights, t, rng,
-            shared_phase=case.shared_phase, rho=case.copies_correlation,
-            names=("A", "B")[:peaks],
+            case, case.separation, heights, rng,
+            shared_phase=case.shared_phase, names=("A", "B")[:peaks],
         )
     ]  # fmt: skip
     if case.coincident:
         clusters.append(
             _noisy_fit(
-                case.lineshape, (0.0, 0.0), np.exp(-np.outer(RATES, t)), t, rng,
-                shared_phase=False, rho=case.copies_correlation, names=("C1", "C2"),
+                case, (0.0, 0.0), np.exp(-np.outer(RATES, t)), rng,
+                shared_phase=False, names=("C1", "C2"),
             )
         )  # fmt: skip
     check = duplicate_plane_check(clusters)
-    contrasts = _contrast_matrix(t)
+    contrasts = orthonormal_contrasts(duplicate_groups(t), t.size)
     main = clusters[0]
     assert main.amplitudes is not None
     assert main.factors is not None
     stated = peak_covariances_between_planes(main.factors, main.amplitudes)
-    return {
-        "pools": {
-            name: [pool.q, pool.contrasts, pool.peaks]
-            for name, pool in (("unflagged", check.unflagged), ("flagged", check.flagged))
-        },
-        "excluded": dict(check.excluded),
-        "contrasts": (main.amplitudes @ contrasts.T).tolist(),
-        "stated": np.einsum("is,lst,jt->lij", contrasts, stated, contrasts).tolist(),
-        "flagged": list(main.flagged),
-    }
+    return Realization(
+        pools={"unflagged": PoolSums.of(check.unflagged), "flagged": PoolSums.of(check.flagged)},
+        excluded=dict(check.excluded),
+        contrasts=main.amplitudes @ contrasts.T,
+        stated=np.einsum("is,lst,jt->lij", contrasts, stated, contrasts),
+        flagged=main.flagged,
+    )
 
 
-def _contrast_matrix(plane_values: np.ndarray) -> np.ndarray:
-    """Orthonormal within-group contrasts, stacked (k × S), as the check builds them."""
-    rows = []
-    for group in duplicate_groups(plane_values):
-        for j in range(1, len(group)):
-            row = np.zeros(plane_values.size)
-            row[list(group[:j])] = 1.0
-            row[group[j]] = -float(j)
-            rows.append(row / np.sqrt(j * (j + 1.0)))
-    return np.array(rows)
-
-
-def q_over_k(rows: list[dict], pool: str) -> np.ndarray:
+def q_over_k(rows: list[Realization], pool: CasePool) -> np.ndarray:
     """Σq/Σk per realization over the named pool ("all" pools both); NaN where empty."""
-    names = ("unflagged", "flagged") if pool == "all" else (pool,)
-    q = np.array([sum(r["pools"][n][0] for n in names) for r in rows], dtype=float)
-    k = np.array([sum(r["pools"][n][1] for n in names) for r in rows], dtype=float)
+    names: tuple[PoolName, ...] = ("unflagged", "flagged") if pool == "all" else (pool,)
+    q = np.array([sum(r.pools[n].q for n in names) for r in rows], dtype=float)
+    k = np.array([sum(r.pools[n].contrasts for n in names) for r in rows], dtype=float)
     with np.errstate(invalid="ignore", divide="ignore"):
         return np.where(k > 0, q / np.where(k > 0, k, 1.0), np.nan)
 
@@ -242,10 +268,10 @@ def gate(values: np.ndarray) -> dict:
     }
 
 
-def analytical(rows: list[dict]) -> dict:
+def analytical(rows: list[Realization]) -> dict:
     """The Monte Carlo covariance of each peak's contrasts against the stated CΣCᵀ."""
-    contrasts = np.array([r["contrasts"] for r in rows])  # N × L × k
-    stated = np.array([r["stated"] for r in rows]).mean(axis=0)  # L × k × k
+    contrasts = np.array([r.contrasts for r in rows])  # N × L × k
+    stated = np.array([r.stated for r in rows]).mean(axis=0)  # L × k × k
     n = contrasts.shape[0]
     se = float(np.sqrt(2.0 / (n - 1)))
     ratios, correlation_gap = [], 0.0
@@ -266,19 +292,20 @@ def analytical(rows: list[dict]) -> dict:
     }
 
 
-def summarize(case: Case, rows: list[dict]) -> dict:
+def summarize(case: Case, rows: list[Realization]) -> dict:
     """The case's statistic, analytical check, flags and exclusions."""
     pools = {}
-    for name in ("unflagged", "flagged"):
+    names: tuple[PoolName, ...] = ("unflagged", "flagged")
+    for name in names:
         values = q_over_k(rows, name)
         if np.isfinite(values).sum() > 1:
             pools[name] = gate(values) | {
-                "peaks_per_realization": float(np.mean([r["pools"][name][2] for r in rows]))
+                "peaks_per_realization": float(np.mean([r.pools[name].peaks for r in rows]))
             }
     reasons: dict[str, int] = {}
     for r in rows:
-        for reason in set(r["excluded"].values()):
-            reasons[reason] = reasons.get(reason, 0) + 1
+        for reason in dict.fromkeys(r.excluded.values()):
+            reasons[reason.value] = reasons.get(reason.value, 0) + 1
     statistic = gate(q_over_k(rows, case.pool))
     check = analytical(rows)
     return {
@@ -288,14 +315,14 @@ def summarize(case: Case, rows: list[dict]) -> dict:
         "copies_correlation": case.copies_correlation,
         "statistic": statistic,
         "pools": pools,
-        "flagged_fraction": float(np.mean([any(r["flagged"]) for r in rows])),
+        "flagged_fraction": float(np.mean([any(r.flagged) for r in rows])),
         "realizations_with_exclusion": reasons,
         "analytical": check,
         "passes": (statistic["passes"] and check["passes"]) if case.gated else None,
     }
 
 
-def _run(job: tuple[Case, tuple[int, ...]]) -> dict:
+def _run(job: tuple[Case, tuple[int, ...]]) -> Realization:
     return realization(*job)
 
 
