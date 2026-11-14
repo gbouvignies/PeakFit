@@ -1,4 +1,4 @@
-"""One visual system for the desktop application: tokens, palette, stylesheet and fonts.
+"""One visual system for the desktop application: tokens, palette, stylesheet, fonts, focus.
 
 Every colour the GUI draws comes from a `Theme`. Chrome stays neutral; colour is
 reserved for scientific layers, selection and state (specification §12).
@@ -6,6 +6,7 @@ reserved for scientific layers, selection and state (specification §12).
 
 from dataclasses import dataclass
 
+import shiboken6
 from PySide6 import QtCore, QtGui, QtWidgets
 
 # Logical-pixel rhythm shared by layouts.
@@ -13,6 +14,11 @@ SPACE_XS, SPACE_S, SPACE_M, SPACE_L = 4, 8, 12, 16
 CONTROL_HEIGHT = 26
 ROW_HEIGHT = 28
 FONT_BODY, FONT_SMALL, FONT_CAPTION, FONT_TITLE = 13, 12, 11, 15
+# Keyboard focus: a ring this wide, this far outside a control's own border.
+FOCUS_WIDTH, FOCUS_GAP = 2, 1
+# A widget with this property set draws its own focus frame (the 2D canvas frames
+# its plot area); the shared ring leaves it alone.
+OWN_FOCUS_FRAME = "ownFocusFrame"
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +45,7 @@ class Theme:
     disabled: str
     accent: str
     on_accent: str
+    focus: str
     selection: str
     hover: str
     warning: str
@@ -69,6 +76,7 @@ LIGHT = Theme(
     disabled="#8e98a3",
     accent="#2f5da8",
     on_accent="#ffffff",
+    focus="#1a56c8",
     selection="#dbe6f6",
     hover="#eef3fa",
     warning="#9a5b08",
@@ -99,6 +107,7 @@ DARK = Theme(
     disabled="#6f7a86",
     accent="#7ea6e8",
     on_accent="#0f1318",
+    focus="#8ab4ff",
     selection="#22324a",
     hover="#1d2733",
     warning="#e2a24a",
@@ -164,7 +173,11 @@ def palette(theme: Theme) -> QtGui.QPalette:
 
 
 def stylesheet(t: Theme) -> str:
-    """Scoped rules for states QPalette cannot express: hover, checked, focus, roles."""
+    """Scoped rules for states QPalette cannot express: hover, checked, roles.
+
+    Keyboard focus is not a stylesheet state: `FocusRing` draws it, once, for every
+    control.
+    """
     return f"""
 QWidget {{ font-size: {FONT_BODY}px; }}
 QMainWindow, QDialog {{ background: {t.chrome}; }}
@@ -208,7 +221,6 @@ QPushButton:hover:enabled {{ background: {t.hover}; }}
 QPushButton:pressed {{ background: {t.selection}; }}
 QPushButton:checked {{ background: {t.selection}; border-color: {t.accent}; }}
 QPushButton:disabled {{ color: {t.disabled}; border-color: {t.divider}; }}
-QPushButton:focus {{ border-color: {t.accent}; }}
 QPushButton#primary {{ background: {t.accent}; border-color: {t.accent}; color: {t.on_accent};
     font-weight: 600; padding: 0 14px; }}
 QPushButton#primary:hover:enabled {{ background: {t.accent}; }}
@@ -231,7 +243,6 @@ QToolButton {{ border: 1px solid transparent; border-radius: 5px; padding: 3px;
     background: transparent; color: {t.secondary}; }}
 QToolButton:hover:enabled {{ background: {t.hover}; }}
 QToolButton:checked {{ background: {t.selection}; }}
-QToolButton:focus {{ border-color: {t.accent}; }}
 /* A disclosure: a quiet line on the content's left edge; its arrow shows it is open. */
 QToolButton#text {{ padding: 1px 2px 1px 0; font-size: {FONT_SMALL}px; }}
 QToolButton#text:checked, QToolButton#text:hover:enabled {{ background: transparent; }}
@@ -243,7 +254,6 @@ QPushButton#link:hover {{ text-decoration: underline; }}
 QLineEdit, QAbstractSpinBox, QComboBox {{ min-height: {CONTROL_HEIGHT - 4}px; padding: 0 6px;
     border: 1px solid {t.outline}; border-radius: 5px; background: {t.plot}; color: {t.text};
     selection-background-color: {t.selection}; selection-color: {t.text}; }}
-QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus {{ border: 1px solid {t.accent}; }}
 QLineEdit:disabled, QAbstractSpinBox:disabled, QComboBox:disabled {{ color: {t.disabled};
     background: {t.panel}; border-color: {t.divider}; }}
 
@@ -290,7 +300,8 @@ class ControlStyle(QtWidgets.QProxyStyle):
 
     Fusion derives the checkbox outline from the window colour (about 1.5:1); the
     stylesheet cannot restyle it without replacing the check mark, so the outline is
-    redrawn here in the ``outline`` token.
+    redrawn here in the ``outline`` token. Fusion's own focus marks are not drawn:
+    `FocusRing` is the one keyboard-focus treatment (specification §12).
     """
 
     def __init__(self, theme: Theme) -> None:
@@ -307,15 +318,16 @@ class ControlStyle(QtWidgets.QProxyStyle):
         /,
         widget: QtWidgets.QWidget | None = None,
     ) -> None:
-        """Fusion's drawing, then the checkbox outline in the token unless focus draws it."""
-        super().drawPrimitive(element, option, painter, widget)
-        state = QtWidgets.QStyle.StateFlag
-        keyboard_focus = state.State_HasFocus | state.State_KeyboardFocusChange
-        if (
-            element != QtWidgets.QStyle.PrimitiveElement.PE_IndicatorCheckBox
-            or (option.state & keyboard_focus) == keyboard_focus  # ty: ignore[unresolved-attribute]
-        ):
+        """Fusion's drawing without its focus marks, then the checkbox outline in the token."""
+        elements = QtWidgets.QStyle.PrimitiveElement
+        if element == elements.PE_FrameFocusRect:
             return
+        if element != elements.PE_IndicatorCheckBox:
+            super().drawPrimitive(element, option, painter, widget)
+            return
+        unfocused = QtWidgets.QStyleOptionButton(option)  # ty: ignore[no-matching-overload]
+        unfocused.state &= ~QtWidgets.QStyle.StateFlag.State_HasFocus  # ty: ignore[unresolved-attribute]
+        super().drawPrimitive(element, unfocused, painter, widget)
         painter.save()
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
         painter.translate(0.5, 0.5)
@@ -337,3 +349,150 @@ def apply(window: QtWidgets.QWidget, theme: Theme) -> None:
     app.setFont(ui_font())
     app.setPalette(palette(theme))
     window.setStyleSheet(stylesheet(theme))
+    FocusRing.install(app, theme)
+
+
+class _Ring(QtWidgets.QWidget):
+    """The painted ring: a transparent, mouse-transparent sibling over the focused widget."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        self.color = QtGui.QColor(LIGHT.focus)
+        self.radius = 0.0
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        """A FOCUS_WIDTH stroke along the widget's edge, square inside views."""
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, self.radius > 0)
+        pen = QtGui.QPen(self.color, FOCUS_WIDTH)
+        pen.setJoinStyle(QtCore.Qt.PenJoinStyle.MiterJoin)
+        painter.setPen(pen)
+        painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        half = FOCUS_WIDTH / 2
+        painter.drawRoundedRect(
+            QtCore.QRectF(self.rect()).adjusted(half, half, -half, -half), self.radius, self.radius
+        )
+
+
+class FocusRing(QtCore.QObject):
+    """The one keyboard-focus indicator of the application (specification §12, UX-4).
+
+    It follows the application's focus widget and draws a FOCUS_WIDTH ring in the
+    focus token. Around a control the ring sits FOCUS_GAP outside the control's own
+    border, so it touches only the surface and never an accent fill (the Fit
+    button); it differs from checked and selected states, which are fills and
+    one-pixel borders. A list, tree or other scroll area fills its panel, so the
+    ring is drawn on the view's own edge instead. Widgets marked OWN_FOCUS_FRAME
+    draw their own frame.
+    """
+
+    _instance: FocusRing | None = None
+
+    def __init__(self, app: QtWidgets.QApplication) -> None:
+        super().__init__(app)
+        self.ring: _Ring | None = None
+        self.target: QtWidgets.QWidget | None = None
+        self.watched: list[QtWidgets.QWidget] = []
+        self.color = QtGui.QColor(LIGHT.focus)
+        app.focusChanged.connect(self._follow)
+
+    @classmethod
+    def install(cls, app: QtWidgets.QApplication, theme: Theme) -> FocusRing:
+        """The application's ring, created once, in the theme's focus colour."""
+        if cls._instance is None or not shiboken6.isValid(cls._instance):
+            cls._instance = cls(app)
+        ring = cls._instance
+        ring.color = QtGui.QColor(theme.focus)
+        ring._follow(None, app.focusWidget())
+        return ring
+
+    def _painter(self) -> _Ring:
+        # Deleting the focused widget's parent deletes the ring with it.
+        if self.ring is None or not shiboken6.isValid(self.ring):
+            self.ring = _Ring()
+        return self.ring
+
+    def _follow(self, _old, new: QtWidgets.QWidget | None) -> None:
+        for widget in self.watched:
+            if shiboken6.isValid(widget):
+                widget.removeEventFilter(self)
+        self.target, self.watched = None, []
+        ring = self._painter()
+        ring.hide()
+        if (
+            new is None
+            or new.isWindow()
+            or new.parentWidget() is None
+            # Menus and combo-box popups show their own current item.
+            or new.window().windowType() == QtCore.Qt.WindowType.Popup
+            or new.property(OWN_FOCUS_FRAME)
+        ):
+            return
+        self.target = new
+        host = self._host(new)
+        # The target and its ancestors below the host: any of them moving moves the ring.
+        widget: QtWidgets.QWidget | None = new
+        while widget is not None and widget is not host:
+            widget.installEventFilter(self)
+            self.watched.append(widget)
+            widget = widget.parentWidget()
+        ring.color = self.color
+        ring.setParent(host)
+        self._place()
+
+    def _rect(self, target: QtWidgets.QWidget, host: QtWidgets.QWidget) -> QtCore.QRect:
+        """The ring's rectangle in `host` coordinates."""
+        inside = isinstance(target, QtWidgets.QAbstractScrollArea)
+        margin = 0 if inside else FOCUS_WIDTH + FOCUS_GAP
+        origin = target.mapTo(host, QtCore.QPoint(0, 0))
+        return QtCore.QRect(origin, target.size()).adjusted(-margin, -margin, margin, margin)
+
+    def _host(self, target: QtWidgets.QWidget) -> QtWidgets.QWidget:
+        """The nearest ancestor with room for the ring, never past scrolled content.
+
+        A control flush with its parent's edge would lose part of its ring; climbing
+        to an ancestor that contains it keeps the ring whole. A scroll area's
+        content widget is the last stop, so the ring scrolls with the control.
+        """
+        host = target.parentWidget()
+        assert host is not None
+        while not host.rect().contains(self._rect(target, host)):
+            parent = host.parentWidget()
+            if (
+                parent is None
+                or host.isWindow()
+                or isinstance(parent, QtWidgets.QAbstractScrollArea)
+                or isinstance(parent.parentWidget(), QtWidgets.QAbstractScrollArea)
+            ):
+                break
+            host = parent
+        return host
+
+    def _place(self) -> None:
+        target, ring = self.target, self._painter()
+        host = ring.parentWidget()
+        if target is None or host is None or not shiboken6.isValid(target):
+            ring.hide()
+            return
+        ring.radius = 0.0 if isinstance(target, QtWidgets.QAbstractScrollArea) else 6.0
+        ring.setGeometry(self._rect(target, host))
+        ring.setVisible(target.isVisibleTo(host))
+        ring.raise_()
+        ring.update()
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802
+        """Keep the ring on the focused widget as it or an ancestor moves, resizes or hides."""
+        kind = event.type()
+        if watched is self.target and kind == QtCore.QEvent.Type.ParentChange:
+            self._follow(None, self.target)
+        elif watched in self.watched and kind in (
+            QtCore.QEvent.Type.Move,
+            QtCore.QEvent.Type.Resize,
+            QtCore.QEvent.Type.Show,
+            QtCore.QEvent.Type.Hide,
+        ):
+            self._place()
+        return False
