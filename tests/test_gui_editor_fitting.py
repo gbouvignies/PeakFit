@@ -2662,8 +2662,10 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
     panel = w.panel
     layout = panel._analysis_layout
     w.select_peak(None)
-    # Before the first fit the setup leads and there is no unexplained-signal section.
-    assert layout.indexOf(panel.setup_block) == 0
+    # Before the first fit the setup leads (below the failure block, hidden without a
+    # failure) and there is no unexplained-signal section.
+    assert panel.failure_block.isHidden()
+    assert layout.indexOf(panel.setup_block) == 1
     assert not panel.unexplained_button.isVisible()
     publish(w, scientific[-1])
     w.select_peak(w.peaks[0].id)
@@ -2672,7 +2674,7 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
     QtTest.QTest.mouseClick(w.summary, QtCore.Qt.MouseButton.LeftButton)
     wait_until(lambda: panel.analysis_page.isVisible())
     assert w.selected_id is None
-    assert layout.indexOf(panel.review_block) == 0
+    assert layout.indexOf(panel.review_block) == 1
     assert panel.unexplained_button.isVisible()
     assert "Click to open the analysis page" in w.summary.toolTip()
     review = panel.review_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()

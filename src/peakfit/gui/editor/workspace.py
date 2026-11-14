@@ -32,6 +32,7 @@ from peakfit.gui.editor.unexplained import (
     nearest_peak,
     unexplained_regions,
 )
+from peakfit.gui.failures import failure_details
 from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
@@ -913,8 +914,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             flagged = self.warnings.property("count") or 0
             rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
         # With no run the rows stay empty: the toolbar already says Not fitted.
-        if fitting.failure:
-            rows.append((fitting.attempt, fitting.failure, "warning", "", ""))
+        self._show_failure()
         if fitting.recovery_error:
             rows.append(
                 ("Recovery", "▲ " + _recovery_note(fitting.recovery_error), "warning", "", "")
@@ -1088,10 +1088,36 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles = (self._tiles[0], cast("dict[int, Tile] | Exception", outcome))
         self._show_profiles()
 
+    def _show_failure(self) -> None:
+        """A failed attempt leads the analysis page: what failed, where and why."""
+        fitting = self.fitting
+        failed = bool(fitting.failure) and not fitting.busy
+        if not failed:
+            self.panel.show_failure([], "")
+            return
+        status = "▲ " + fitting.attempt
+        self.panel.show_failure(
+            [
+                ("Status", status, "error", "", ""),
+                ("Stage", fitting.failure_stage, "", "", ""),
+                ("Reason", fitting.failure, "", "", ""),
+            ],
+            failure_details(
+                status,
+                fitting.failure_stage,
+                fitting.failure,
+                [
+                    ("Dataset", str(self.dataset.path)),
+                    ("Active run", fitting.result.run_id if fitting.result else "none"),
+                ],
+            ),
+        )
+
     def _show_run_line(self) -> None:
         """One compact status line; inspection and navigation stay available."""
         fitting = self.fitting
         result = fitting.result
+        failed = bool(fitting.failure) and not fitting.busy
         if fitting.busy:
             text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
         elif result is not None:
@@ -1103,7 +1129,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + _noise_check(result.outcome.noise_model)
-                + (fitting.attempt + " · " if fitting.attempt else "")
+                + (fitting.attempt + " · " if fitting.attempt and not failed else "")
                 + (
                     f"all {len(clusters)} clusters usable"
                     if complete
@@ -1111,7 +1137,15 @@ class EditorWorkspace(QtWidgets.QWidget):
                 )
             )
         else:
-            text = fitting.attempt or "Not fitted"
+            text = "" if failed else fitting.attempt or "Not fitted"
+        if failed:
+            # A failure is unmistakable: its first words, in the error style.
+            text = " · ".join(part for part in ("▲ " + fitting.attempt, text) if part)
+        tone = "error" if failed else ""
+        if (self.summary.property("tone") or "") != tone:
+            self.summary.setProperty("tone", tone)
+            self.summary.style().unpolish(self.summary)
+            self.summary.style().polish(self.summary)
         self.summary.setText(text)
         self.summary.setToolTip(
             text

@@ -134,7 +134,7 @@ and Usable as counts of clusters, Fitted (date, time in UTC and duration), and
 Warnings when any cluster has one, and Noise check when the run's noise-power check
 found a mismatch: the axes and that the errors may be miscalibrated, with what was
 found and what to do as its caption, the wording of the run line's tooltip. A
-failure or a recovery problem adds a row in the warning style. The setup's values share that column. A click on the toolbar run summary,
+recovery problem adds a row in the warning style. The setup's values share that column. A click on the toolbar run summary,
 or **Analysis ▸ Active run**, opens the page at the review. The summary names the
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
@@ -177,6 +177,21 @@ the settings summary steps aside while a fit runs. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
+
+A failed fit says whether anything was kept: **Failed · no result yet** when there
+is no active run, **Failed · previous result retained** otherwise; a canceled fit
+reads **Canceled · …** the same way. A failure leads the run line in the error
+style with ▲ (“▲ Failed · previous result retained · Run …”), and the analysis page
+opens with a **Last fit attempt** section above the setup and the run review:
+status, the stage that failed (Preparation, Fitting or Completion), the reason and,
+when the application logs to a file, the log path. **Copy details** puts the
+status, stage, message, dataset, active run, PeakFit, Python and Qt versions,
+platform and log path on the clipboard for a report. Every failure's traceback
+goes to the terminal that started PeakFit and to the per-user log file
+`~/Library/Logs/PeakFit/peakfit.log` (macOS), `%LOCALAPPDATA%\PeakFit\Logs\peakfit.log`
+(Windows) or `$XDG_STATE_HOME/peakfit/peakfit.log`, by default
+`~/.local/state/peakfit/peakfit.log` (Linux), so a failure can be reported
+without a terminal. The section disappears when the next fit starts.
 
 When two peaks' fitted shapes are near-collinear (1 − |cos| ≤ 10⁻⁴ over the
 fitting samples), their fitted positions are not adopted: their markers stay at

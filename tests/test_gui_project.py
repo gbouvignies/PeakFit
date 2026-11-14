@@ -847,7 +847,8 @@ def test_a_fit_canceled_while_its_recovery_copy_is_written_is_not_published(
     wait_until(lambda: not f.busy, timeout=15)
     assert f.result is None
     assert not f.recovery_error
-    assert f.attempt == "Failed during completion · previous result retained"
+    assert f.attempt == "Failed · no result yet"
+    assert f.failure_stage == "Completion"
     window.close()
     qapp.processEvents()
 
