@@ -722,6 +722,23 @@ Carlo variance against the CΣCᵀ the factors state (averaged over realizations
 within ±3 SE, SE √(2/(N − 1)). A gated case passes only if both hold: the gate is
 stricter than the criterion of spec #172, which asks for the mean q/k alone.
 
+**Confirmation protocol (fixed 2026-11-14, before the run).** The first record
+(4,000 realizations) left `sp2`, isolated, two copies at −2.97 SE, at the edge of
+the gate. To tell sampling variability from miscalibration without choosing seeds
+or changing the criterion:
+- every case, gated or not, runs 40,000 realizations at the record seed 20261114.
+  Realization i of a case draws from the seed (20261114, case, i), so realizations
+  0–3,999 are the first record and 4,000–39,999 are new, independent draws;
+- the gate above applies, unchanged, to all 40,000;
+- diagnostics, per case: the 10 disjoint blocks of 4,000, each block's deviation in
+  its own SE and the χ² of the block means about their pooled mean (9 degrees of
+  freedom); and the gate on blocks 2–10 alone, an independent replication of the
+  first record;
+- decision rule: sampling variability if the case passes on all 40,000, the
+  replication passes and the blocks are consistent (p > 0.01); systematic
+  miscalibration if the replication deviates beyond 3 SE in the same direction as
+  the first record.
+
 **Gate: passed.** Every gated case:
 
 | Case | Pool | Mean q/k | SE | Deviation | Contrast variances, worst |

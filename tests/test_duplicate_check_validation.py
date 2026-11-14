@@ -45,6 +45,18 @@ def test_the_gate_accepts_calibrated_and_rejects_understated_contrasts(study):
     assert understated["rms"] == pytest.approx(1.1, abs=0.02)
 
 
+def test_blocks_replicate_the_first_block_and_detect_inconsistent_blocks(study):
+    rng = np.random.default_rng(9)
+    calibrated = rng.chisquare(2, 40000) / 2
+    consistent = study.blocks(calibrated, 10)
+    assert len(consistent["deviation_se"]) == 10
+    assert consistent["replication"] == study.gate(calibrated[4000:])
+    assert consistent["p_value"] > 0.001
+    shifted = calibrated.copy()
+    shifted[:4000] *= 0.9  # one block 10% low: far outside the others
+    assert study.blocks(shifted, 10)["p_value"] < 1e-4
+
+
 def test_one_realization_reads_the_fit_as_a_published_run(study):
     case = study.CASES["sp2, pair 3 points, three copies"]
     row = study.realization(case, (1, 2, 3))

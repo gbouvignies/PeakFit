@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+import scipy.stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/
@@ -292,7 +293,31 @@ def analytical(rows: list[Realization]) -> dict:
     }
 
 
-def summarize(case: Case, rows: list[Realization]) -> dict:
+def blocks(values: np.ndarray, count: int) -> dict:
+    """The statistic over ``count`` disjoint, equal blocks of consecutive realizations.
+
+    Each block's mean q/k and its deviation in its own SE; the χ² of the block means
+    about their pooled mean (count − 1 degrees of freedom) and its upper-tail p-value;
+    and the gate applied to every block but the first, an independent replication of
+    the first block's realizations.
+    """
+    parts = np.array_split(values, count)
+    stats = [gate(part) for part in parts]
+    means = np.array([s["mean_q_over_k"] for s in stats])
+    ses = np.array([s["se"] for s in stats])
+    weights = 1.0 / ses**2
+    pooled = float(np.sum(weights * means) / np.sum(weights))
+    chi2 = float(np.sum(((means - pooled) / ses) ** 2))
+    return {
+        "count": count,
+        "deviation_se": [s["deviation_se"] for s in stats],
+        "chi2": chi2,
+        "p_value": float(scipy.stats.chi2.sf(chi2, count - 1)),
+        "replication": gate(np.concatenate(parts[1:])),
+    }
+
+
+def summarize(case: Case, rows: list[Realization], block_count: int = 1) -> dict:
     """The case's statistic, analytical check, flags and exclusions."""
     pools = {}
     names: tuple[PoolName, ...] = ("unflagged", "flagged")
@@ -306,7 +331,8 @@ def summarize(case: Case, rows: list[Realization]) -> dict:
     for r in rows:
         for reason in dict.fromkeys(r.excluded.values()):
             reasons[reason.value] = reasons.get(reason.value, 0) + 1
-    statistic = gate(q_over_k(rows, case.pool))
+    values = q_over_k(rows, case.pool)
+    statistic = gate(values)
     check = analytical(rows)
     return {
         "realizations": len(rows),
@@ -314,6 +340,7 @@ def summarize(case: Case, rows: list[Realization]) -> dict:
         "gated": case.gated,
         "copies_correlation": case.copies_correlation,
         "statistic": statistic,
+        **({"blocks": blocks(values, block_count)} if block_count > 1 else {}),
         "pools": pools,
         "flagged_fraction": float(np.mean([any(r.flagged) for r in rows])),
         "realizations_with_exclusion": reasons,
@@ -344,6 +371,7 @@ def main() -> None:
     parser.add_argument("--cases", nargs="*", default=list(CASES))
     parser.add_argument("--output", type=Path)
     parser.add_argument("--seed", type=int, default=20261114)
+    parser.add_argument("--blocks", type=int, default=1)
     args = parser.parse_args()
     jobs = [
         (CASES[name], (args.seed, list(CASES).index(name), i))
@@ -354,7 +382,8 @@ def main() -> None:
         rows = list(pool.map(_run, jobs, chunksize=16))
     n = args.realizations
     report = {
-        name: summarize(CASES[name], rows[k * n : (k + 1) * n]) for k, name in enumerate(args.cases)
+        name: summarize(CASES[name], rows[k * n : (k + 1) * n], args.blocks)
+        for k, name in enumerate(args.cases)
     }
     failing = [name for name, s in report.items() if s["passes"] is False]
     result = {
@@ -381,6 +410,13 @@ def main() -> None:
             f"({st['deviation_se']:+.1f} SE), RMS {st['rms']:.3f}; analytical worst "
             f"{an['largest_deviation_se']:.1f} SE; {verdict}"
         )
+        if "blocks" in s:
+            b, rep = s["blocks"], s["blocks"]["replication"]
+            print(
+                f"  blocks: {' '.join(f'{d:+.1f}' for d in b['deviation_se'])} SE; "
+                f"χ² {b['chi2']:.1f} (p {b['p_value']:.2f}); replication q/k "
+                f"{rep['mean_q_over_k']:.4f} ({rep['deviation_se']:+.1f} SE)"
+            )
     print(json.dumps(_rounded(result["gate"]), indent=1, ensure_ascii=False))
 
 

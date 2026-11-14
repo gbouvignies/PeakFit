@@ -34,7 +34,9 @@ STUDIES = {
     ],
     "duplicate_check": [
         "--realizations",
-        "4000",
+        "40000",
+        "--blocks",
+        "10",
         "--output",
         str(RECORDS / "duplicate_check.json"),
     ],
