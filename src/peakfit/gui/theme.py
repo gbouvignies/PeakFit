@@ -185,6 +185,7 @@ QLabel#muted {{ color: {t.secondary}; font-size: {FONT_SMALL}px; }}
 QLabel#caption {{ color: {t.faint}; font-size: {FONT_CAPTION}px; }}
 QLabel#value {{ font-weight: 600; }}
 QLabel#error {{ color: {t.error}; }}
+QLabel#muted[tone="error"] {{ color: {t.error}; }}
 QLabel#warning {{ color: {t.warning}; font-size: {FONT_SMALL}px; }}
 QLabel#runChip {{ background: {t.selection}; color: {t.text}; border-radius: 11px;
     padding: 2px 10px; font-size: {FONT_SMALL}px; }}

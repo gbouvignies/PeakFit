@@ -1361,3 +1361,14 @@ Short records of non‑obvious design choices and trade‑offs.
   gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.
+
+## 2026-11-14: Failure log file (#186)
+- **A per-user log file.** PeakFit launched from a desktop launcher has no terminal,
+  so `launch` adds a file to the `peakfit.gui` log: `~/Library/Logs/PeakFit/`
+  (macOS), `%LOCALAPPDATA%\PeakFit\Logs\` (Windows), `$XDG_STATE_HOME/peakfit/`
+  (Linux), each `peakfit.log`. Only errors are written, with their tracebacks,
+  including those raised in worker processes. The terminal keeps receiving them.
+- **Bounded.** One rotated predecessor of at most 1 MB; no retention setting.
+- **Shown, not hidden.** The failure section of the analysis page shows the path,
+  and **Copy details** includes it. If the file cannot be created, PeakFit starts
+  anyway and logs to the terminal only.
