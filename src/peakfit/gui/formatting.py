@@ -7,6 +7,7 @@ editable fields reveal full round-trip precision on focus (specification §5).
 import math
 
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+_PLAIN = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
 # Plain digits read well between 10⁻³ and 10⁴; beyond that axes share a power of ten.
 _LARGE, _SMALL = 4, -3
 
@@ -66,6 +67,18 @@ def scaled(value: float, digits: int = 4) -> str:
     power = exponent(abs(value))
     text = f"{value * 10.0**-power:.{digits}g}".replace("-", "−")
     return f"{text} ×10{superscript(str(power))}" if power else text
+
+
+def parse_scaled(text: str) -> float:
+    """A typed number: plain, scientific (1.5e5) or as :func:`scaled` shows it.
+
+    Raises ``ValueError`` for anything else, including a comma decimal.
+    """
+    plain = text.strip().replace("−", "-").replace(" ", "")
+    mantissa, times, power = plain.partition("×10")
+    if not times:
+        return float(plain)
+    return float(mantissa) * 10.0 ** int(power.translate(_PLAIN))
 
 
 def exponent(limit: float) -> int:

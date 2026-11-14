@@ -877,6 +877,12 @@ class ProfilePlot(QtWidgets.QWidget):
         # full explanation); what is unusual about the data on the next line. χ²ᵣ is
         # with the cluster's measures.
         noise = "modelled" if profile.noise_model.modelled else "not modelled"
+        # The run's noise-power check found processing the modelled correlation
+        # misses: a caveat on these errors, named by axis; About and the Analysis
+        # page give what was found and what to do.
+        mismatch = profile.noise_model.power_mismatch
+        if mismatch:
+            noise += f" · noise check ▲ {', '.join(mismatch)}"
         shown = self._normalized
         quantity = (
             f"±1σ of the ratio, lineshape uncertainty included · noise correlation {noise} · "
@@ -926,6 +932,7 @@ class ProfilePlot(QtWidgets.QWidget):
             quantity_text
             + " Errors are never rescaled by χ²ᵣ. "
             + profile.noise_model.description
+            + (" " + profile.noise_model.power_warning if profile.noise_model.power_warning else "")
             + " χ²ᵣ is a goodness-of-fit diagnostic: well above 1, the noise level, the "
             "lineshape model or the noise assumptions do not describe the data, so these "
             "error bars need not match the observed scatter."
