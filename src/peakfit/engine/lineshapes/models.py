@@ -6,8 +6,6 @@ parameter specs. Real shapes (Gaussian, Lorentzian, Pseudo-Voigt) start ``lw`` a
 Doublets add the coupling ``j``.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from peakfit.engine.lineshapes.gaussian import kernel as gaussian

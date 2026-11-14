@@ -1,7 +1,5 @@
 """Contracts for full-grid simulation from immutable final fit outcomes."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING

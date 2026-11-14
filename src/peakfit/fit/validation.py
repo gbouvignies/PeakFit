@@ -3,8 +3,6 @@
 This module validates spectrum and peak list files while staying free of UI concerns.
 """
 
-from __future__ import annotations
-
 import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any

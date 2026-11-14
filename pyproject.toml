@@ -226,6 +226,9 @@ convention = "google"
 # This forces package-qualified imports and makes architecture boundaries clear.
 ban-relative-imports = "parents"
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"__future__.annotations".msg = "Python 3.14 defers annotations; import nothing from __future__."
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = [
   "D",  # Documentation not needed in tests

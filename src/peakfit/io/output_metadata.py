@@ -1,7 +1,5 @@
 """Operational metadata for durable completed-fit projections."""
 
-from __future__ import annotations
-
 import hashlib
 import platform
 import sys

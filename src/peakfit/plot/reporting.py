@@ -1,7 +1,5 @@
 """MCMC summary report page generation (Matplotlib)."""
 
-from __future__ import annotations
-
 from textwrap import wrap
 from typing import TYPE_CHECKING
 

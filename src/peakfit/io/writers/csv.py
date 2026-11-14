@@ -1,7 +1,5 @@
 """CSV output writers."""
 
-from __future__ import annotations
-
 import csv
 from typing import TYPE_CHECKING, Any
 

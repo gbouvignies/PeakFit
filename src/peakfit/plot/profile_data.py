@@ -1,7 +1,5 @@
 """Data transforms for intensity, CEST, and CPMG profile plots."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
 

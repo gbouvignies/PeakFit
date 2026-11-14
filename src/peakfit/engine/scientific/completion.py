@@ -1,7 +1,5 @@
 """Terminal pipeline records that finalization turns into a completed fit."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING

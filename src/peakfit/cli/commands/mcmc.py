@@ -1,7 +1,5 @@
 """MCMC command - uncertainty estimation via MCMC sampling."""
 
-from __future__ import annotations
-
 from pathlib import Path  # noqa: TC003 - used by Typer for CLI path conversion
 from typing import Annotated
 

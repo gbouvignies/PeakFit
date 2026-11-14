@@ -1,7 +1,5 @@
 """Run-level counts and distributions projected from a final fit outcome."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 

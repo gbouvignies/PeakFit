@@ -1,7 +1,5 @@
 """Concise Markdown projection of immutable completed-fit outcomes."""
 
-from __future__ import annotations
-
 import math
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING

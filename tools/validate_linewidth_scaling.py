@@ -7,8 +7,6 @@ The temporary SciPy override is process-local, sequential, and always restored.
 
 # Numerical experiment thresholds and sequential experiment driver.
 # ruff: noqa: PLR2004, PLR0915
-from __future__ import annotations
-
 import argparse
 import gzip
 import hashlib

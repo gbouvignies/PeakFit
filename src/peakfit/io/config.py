@@ -1,7 +1,5 @@
 """Configuration file loading and the default template."""
 
-from __future__ import annotations
-
 import tomllib
 from typing import TYPE_CHECKING
 
