@@ -1394,6 +1394,46 @@ Short records of non‑obvious design choices and trade‑offs.
   and **Copy details** includes it. If the file cannot be created, PeakFit starts
   anyway and logs to the terminal only.
 
+## 2026-11-14: Adaptive Profiles tiles (#191)
+- The Profiles grid takes the largest column count whose tiles are at least
+  `TILE_MIN_WIDTH` = 210 px wide; tiles stretch to fill the width up to
+  `TILE_MAX_WIDTH` = 320 px; height is 0.72 × width, at least 156 px. Further width
+  adds a column. Replaces a 240 px preferred width, unbounded stretch and fixed
+  184 px height, which gave two columns (about 7 tiles per screen) at 1280×800.
+- Reasoning for the provisional values: at 1280×800 the Profiles viewport measured
+  654 px wide (offscreen, default panels), so three columns need a minimum of at
+  most 217 px. At 210 px the plot is about 190 px wide, about 3 px per plane of a
+  60-plane CEST profile; the plot area keeps about 90 px of height under header and
+  legend. Synthetic short series (`cpmg_like_dataset`, 20 planes with an outlier;
+  `decay_dataset`, 10 planes) were drawn at 210, 260 and 320 px: the outlier and
+  both members stay distinguishable at 210 px.
+- At 210 px a multi-member header cannot hold the name and all measures, so the
+  header keeps the cluster's name whole and elides the measures (full text in the
+  tooltip).
+- Pending: visual acceptance on the bundled CEST tiles and of the view at
+  1280×800, 1512×982, 1920×1080 and 2560×1440 with DPR, both appearances, using the
+  validation tool of #179; the constants may change with it.
+- PDF export keeps A4 landscape, twelve tiles per page.
+
+## 2026-11-14: Native slices take shares of the spectral view (#190)
+- Replaces the fixed slice sizes of 2026-11-06 (row 150 px, column 130 px at every
+  window size, so a larger window enlarged only the 2D plot). A slice size is now a
+  share of the spectral view: the row slice's of its height, the column slice's of
+  its width. Defaults: 22 % / 18 % in the overview, 30 % / 26 % in cluster focus,
+  which gives lineshape, model and signed residual more room while the 2D contours
+  stay large enough to judge overlap. These are provisional named constants in
+  `spectral_geometry` until visual validation on the bundled dataset (#179).
+- The space rules hold: slice minimum 72 px, collapse below 48 px, maximum 45 % of
+  the view, lanes 24 px minimum, 2D plot 360×300 minimum, compression lanes →
+  slices → other side panel, and the window is never enlarged. Lanes keep a fixed
+  thickness in pixels.
+- Divider drags and Cmd/Ctrl+Alt+arrows are stored as shares, so proportions
+  survive window resizes and panel toggles; double-click restores the default of
+  the current context (overview or focus).
+- **Breaking.** Saved view state stores `row_share`/`column_share` for the overview
+  and for focus. Slice sizes saved in pixels (`row`/`column`) are ignored: those
+  analyses reopen at the default shares, with no migration.
+
 ## 2026-11-14: Peak page brings fitted values into view (#189)
 - **Review cluster › in the header.** It sits beside the peak's name, under the
   cluster size, instead of on a row of its own above the editor.

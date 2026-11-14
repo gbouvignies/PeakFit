@@ -859,9 +859,11 @@ def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, 
     actions["Residual lanes"].trigger()
     assert c.sizes.lanes
     row, column = c.sizes.row, c.sizes.column
+    pixels = c.arrangement.sizes
     actions["Taller row slice"].trigger()
     actions["Narrower column slice"].trigger()
-    assert (c.sizes.row, c.sizes.column) == (row + 24, column - 24)
+    resized = c.arrangement.sizes
+    assert (resized.row, resized.column) == (pixels.row + 24, pixels.column - 24)
     actions["Default slice sizes"].trigger()
     assert (c.sizes.row, c.sizes.column) == (row, column)
     actions["Magnify slice intensities"].trigger()

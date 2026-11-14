@@ -32,7 +32,7 @@ from peakfit.engine.scientific.profiles import (
 )
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
-from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
+from peakfit.gui.theme import LIGHT, Theme, color, type_scale
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -529,7 +529,7 @@ class ProfilePlot(QtWidgets.QWidget):
         self.plot.setFixedHeight(176)
         self.plot.setAccessibleName("Signed fitted amplitudes of the selected peak's cluster")
         font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION)
+        font.setPixelSize(type_scale().caption)
         for name in ("left", "bottom"):
             axis = self.plot.getAxis(name)
             axis.setStyle(tickFont=font, tickLength=-4, maxTickLevel=0)
@@ -777,7 +777,7 @@ class ProfilePlot(QtWidgets.QWidget):
             xRange=(low - pad, high + pad), yRange=(bottom - margin, top + margin), padding=0
         )
         power = formatting.exponent(max(abs(bottom), abs(top)))
-        style_text = {"color": self.theme.faint, "font-size": f"{FONT_CAPTION}px"}
+        style_text = {"color": self.theme.faint, "font-size": f"{type_scale().caption}px"}
         left = self.plot.getAxis("left")
         left.setScale(10.0**-power)
         scale = f"×10{formatting.superscript(str(power))}" if power else ""

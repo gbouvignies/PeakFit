@@ -293,9 +293,13 @@ over a lane sets the lane scale. A caption above the row slice appears only when
 there is something to say: the residual or lane scale, the gain, and counts of
 clipped samples in words (“3 data samples clipped · 1 model sample clipped”). The corner readout gives the exact
 values at the sample, intensity and model in one power of ten (the status bar
-repeats them only when a collapsed column slice leaves no room for the readout). Drag the
-divider between a slice and the plot to resize it (below 48 px it collapses; drag
-it back to reopen), double-click a divider for the default size. **View → Slices**
+repeats them only when a collapsed column slice leaves no room for the readout).
+Slices take a share of the spectral view (by default 22 % of its height for the row
+slice and 18 % of its width for the column slice; 30 % and 26 % in cluster focus),
+so they grow with the window. Drag the divider between a slice and the plot to
+resize it (below 48 px it collapses; drag it back to reopen); the new size is kept
+as a share, so it follows window resizes and panel toggles. Double-click a divider
+for the default of the overview or of focus, whichever you are in. **View → Slices**
 offers all of these from the menu and keyboard.
 
 Model planes compute asynchronously. Old-plane model/residual graphics disappear
@@ -363,7 +367,9 @@ scales, mode, fitting-region display and sample. Leaving focus never reverts an
 edit or a fit. In an inspector field with a draft, or during a drag or placement,
 the first Escape cancels that and the next one leaves focus. **Full spectrum**
 (Cmd/Ctrl+0) reframes the cluster while in focus. Focus keeps its own slice sizes
-from one focus to the next; Save records the overview it returns to.
+from one focus to the next; Save records the overview it returns to and both sets
+of slice shares. An analysis saved before slice sizes became shares reopens with
+the default shares.
 
 Corrections happen in focus with the overview's edits and the same Undo/Redo:
 dragging the selected marker shows a ghost at the proposed position while the
@@ -423,13 +429,17 @@ showing old values.
 
 **Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
 the active run's profiles in the centre, one tile per cluster, in the cluster list's
-order and filter: sort or filter the list and the tiles follow. Each tile overlays
+order and filter: sort or filter the list and the tiles follow. Tiles adapt to the
+width: as many columns as keep each tile at least 210 px wide (logical pixels), tiles
+at most 320 px wide, height following width; a wider window or panel adds columns
+rather than enlarging tiles, and the selected tile stays selected and in view as
+the columns reflow. Each tile overlays
 every member's recorded signed amplitudes on one vertical scale that includes zero,
 so a dip shared between correlated members, opposite signs or a large/small split
 show at a glance; members keep the cluster page's colours and order, named under the
 plot, a flagged member followed by ↔ (the correlated-profile flag; the tooltip names
 the flagged members, or that the correlation was not assessed). The header gives the cluster's mark, first member and size, and its χ²ᵣ,
-|r|max and |ρ|. A member whose amplitude is not identifiable or not established is
+|r|max and |ρ|; in a narrow tile the measures are shortened, never the name. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
 plane. Opening Profiles marks the selected peak's tile and keeps the selection;
@@ -444,7 +454,7 @@ choice for the session, made in either place. In ratios a dotted line marks 1; a
 member whose ratio is unavailable is left out and named under its tile, and a tile
 with no member to normalize keeps raw amplitudes and says why, as the inspector's
 profile does. **Export PDF…** writes the tiles shown, in their order, to A4
-landscape pages (twelve per page) titled with the dataset, run, quantity and filter;
+landscape pages (twelve per page, whatever the on-screen columns) titled with the dataset, run, quantity and filter;
 it is a figure of recorded values, written only when complete. After an edit the caption
 says the tiles are that run's historical values; before a fit Profiles is
 unavailable.
@@ -611,6 +621,11 @@ Cmd/Ctrl+Shift+F focuses the selected peak's cluster and Escape returns; under
 their intensities and Cmd/Ctrl+Shift+L shows or hides the residual lanes.
 View also provides exact sample coordinates and frequency ranges. Help lists the
 shortcuts. Delete and Space in text fields retain their ordinary text behavior.
+
+The control that has keyboard focus carries a blue ring, separate from the
+selected-row and checked-button fills; a list or tree shows it on the view's
+edge. When the spectrum has keyboard focus, a frame in the same colour surrounds
+the 2D plot: A, Space, E/O/R and the arrow keys then act on the spectrum.
 
 See [the approved design](PeakFit_GUI_Design_Specification_v2.0.md) and
 [editor validation](validation/gui-v2-editor.md) and
