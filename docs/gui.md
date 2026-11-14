@@ -409,9 +409,12 @@ the flagged members, or that the correlation was not assessed). The header gives
 |r|max and |ρ|. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
-plane. Choosing a tile selects its cluster, as a cluster row does; double-click or
+plane. Opening Profiles marks the selected peak's tile and keeps the selection;
+with nothing selected, no tile is chosen. Clicking a tile or moving to one with the
+arrow keys selects its cluster, as a cluster row does; double-click or
 Enter opens it in focus on the spectrum. Comparison and canvas tools step aside
-while Profiles shows; the plane strip, selection and inspector stay. Tiles show
+while Profiles shows; the plane strip, selection and inspector stay, and returning
+to the spectrum keeps the selection. Tiles show
 no error bars: the inspector's profile carries them. The quantity chip over the tiles
 is the inspector's: raw amplitudes or ratios to the chosen reference planes, one
 choice for the session, made in either place. In ratios a dotted line marks 1; a
