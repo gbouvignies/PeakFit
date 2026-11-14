@@ -800,9 +800,9 @@ of freedom. The worst contrast variance is against c_ll.
   version of `duplicate_check.json`) left six of the seven `sp2` gated cases below 1, an inverse-variance weighted mean q/k of 0.995 ± 0.0013
   (−4.0 SE). Its mechanism is the bias of §5.3: the lineshape terms of CΣCᵀ,
   evaluated at the fitted amplitudes, return along the observed contrast and lower
-  q by about β(k + 2), most where the lineshape term is largest (the pairs and the
-  shared phase, −2.3 to −2.6 SE in that record). With q = |Ca_l|²/c_ll the same
-  seven cases give 1.0005 ± 0.0013 (+0.4 SE), and the pairs and the shared phase lie
+  q by about β(k + 2), most where the lineshape term is largest (the three-copy
+  pair and the shared phase, −2.3 and −2.6 SE in that record). With
+  q = |Ca_l|²/c_ll the same seven cases give 1.000 ± 0.0013 (+0.0 SE), and the pairs and the shared phase lie
   within 0.2 SE of 1; the `sp1` and `no_apod` cases give 1.005 ± 0.004.
 - **The edge case: sampling variability, by the protocol's rule.** `sp2`, isolated,
   two copies passes on all 40,000 (−2.2 SE); its replication passes (−1.3 SE); its

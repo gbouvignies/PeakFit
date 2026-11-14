@@ -199,7 +199,7 @@ class RecordedCluster:
     correlated-profile flag of each of the L peaks. ``amplitudes`` and ``factors`` are
     None for an unusable cluster. The check reads the conditional covariance of the
     factors and whether their lineshape factors are withheld; the flags come from
-    all of them.
+    ``profile_correlations`` of the factors and amplitudes.
     """
 
     peak_names: tuple[str, ...]

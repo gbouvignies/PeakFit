@@ -1356,8 +1356,8 @@ Short records of non‑obvious design choices and trade‑offs.
   seed, 10× the realizations, unchanged gate, block and replication diagnostics, a
   decision rule) classed it as sampling variability. Re-applied unchanged after the
   statistic change: −2.2 SE on all 40,000, −1.3 SE on the 36,000 new ones, blocks
-  consistent (p = 0.02). The `sp2` shortfall the first statistic resolved,
-  q/k 0.995 ± 0.0013, is gone: 1.0005 ± 0.0013 now. The near-coalescent pair, not
+  consistent (p = 0.02). The `sp2` shortfall of the first statistic, resolved by
+  T8 (q/k 0.995 ± 0.0013), is gone: 1.000 ± 0.0013 now. The near-coalescent pair, not
   gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.
