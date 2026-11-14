@@ -14,6 +14,7 @@ from peakfit.gui import fit_process
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor.fitting import FailureStage
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.failures import (
@@ -165,8 +166,11 @@ def _publish(workspace, result):
 
 def test_a_failed_first_fit_says_there_is_no_result_yet(workspace, monkeypatch):
     seeds = workspace.peaks
+    assert not workspace.fitting.failed
     _failed_fit(workspace, monkeypatch)
     fitting = workspace.fitting
+    assert fitting.failed
+    assert fitting.failure_stage is FailureStage.FITTING
     assert fitting.attempt == "Failed · no result yet"
     assert "Unexpected KeyError: 'runs'." in fitting.failure
     assert fitting.result is None
@@ -189,6 +193,7 @@ def test_a_canceled_fit_says_whether_a_result_is_retained(workspace, scientific)
     fitting = workspace.fitting
     fitting.cancel()
     assert fitting.attempt == "Canceled · no result yet"
+    assert not fitting.failed
     _publish(workspace, scientific[3])
     fitting.cancel()
     assert fitting.attempt == "Canceled · previous result retained"

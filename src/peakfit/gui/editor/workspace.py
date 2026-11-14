@@ -230,13 +230,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.setVisible(bool(dataset.peaks))
         self.set_plane(1)
 
-    def _tool(self, name: str, tip: str, *, checkable: bool = False) -> QtWidgets.QToolButton:
+    def _tool(
+        self, icon: str, name: str, keys: str = "", *, checkable: bool = False
+    ) -> QtWidgets.QToolButton:
         button = QtWidgets.QToolButton()
         button.setCheckable(checkable)
-        _set_tip(button, tip)
+        _set_tip(button, name, keys)
         button.setIconSize(QtCore.QSize(18, 18))
         button.setFixedSize(28, 28)
-        self._icons.append((button, name))
+        self._icons.append((button, icon))
         return button
 
     def _build_toolbar(self, dataset: Dataset) -> QtWidgets.QWidget:  # noqa: PLR0915
@@ -296,14 +298,14 @@ class EditorWorkspace(QtWidgets.QWidget):
             segment.addWidget(button)
         bar.addLayout(segment)
         bar.addSpacing(themes.SPACE_XS)
-        self.add_button = self._tool("add-peak", "Add peak (A)", checkable=True)
+        self.add_button = self._tool("add-peak", "Add peak", "A", checkable=True)
         self.add_button.clicked.connect(self.start_placing)
         self.pin_button = self._tool(
-            "pin", "Pin slices at the sampled position (Space)", checkable=True
+            "pin", "Pin slices at the sampled position", "Space", checkable=True
         )
         self.pin_button.toggled.connect(self.canvas.set_pinned)
         self.canvas.pin_changed.connect(self._pin_changed)
-        full = self._tool("full", "Full spectrum (Ctrl+0)")
+        full = self._tool("full", "Full spectrum", "Ctrl+0")
         full.clicked.connect(self.full_view)
         display = self._tool("sliders", "Display: contours, labels, residual levels, highlights")
         display.clicked.connect(self.display_dialog)
@@ -677,9 +679,10 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.pin_button.setChecked(pinned)
         _set_tip(
             self.pin_button,
-            "Slices pinned · click to follow the pointer (Space)"
+            "Slices pinned · click to follow the pointer"
             if pinned
-            else "Pin slices at the sampled position (Space)",
+            else "Pin slices at the sampled position",
+            "Space",
         )
 
     def _build_actions(self) -> None:
@@ -927,7 +930,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         flagged = 0
         rows: list[Row] = []
         if fitting.busy:
-            rows.append(("Fit", fitting.stage, "", "", ""))
+            rows.append(Row("Fit", fitting.stage))
         elif result is not None:
             flagged = self.warnings.property("count") or 0
             rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
@@ -935,7 +938,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._show_failure()
         if fitting.recovery_error:
             rows.append(
-                ("Recovery", "▲ " + _recovery_note(fitting.recovery_error), "warning", "", "")
+                Row("Recovery", "▲ " + _recovery_note(fitting.recovery_error), style="warning")
             )
         self.panel.show_analysis(
             self.dataset.path.stem,
@@ -1013,12 +1016,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.warnings.setVisible(bool(flagged))
         self.profiles_button.setEnabled(fitting.result is not None)
-        _set_tip(
-            self.profiles_button,
-            "Profiles: every cluster's amplitude profiles (Ctrl+2; Ctrl+1 for the spectrum)"
-            if fitting.result is not None
-            else "Profiles: available after a fit",
-        )
+        if fitting.result is not None:
+            _set_tip(
+                self.profiles_button,
+                "Profiles: every cluster's amplitude profiles",
+                "Ctrl+2; Ctrl+1 for the spectrum",
+            )
+        else:
+            _set_tip(self.profiles_button, "Profiles: available after a fit")
         if fitting.result is None and self.profiles_shown:
             self.show_view(profiles=False)
         self.update_settings_summary()
@@ -1109,16 +1114,15 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _show_failure(self) -> None:
         """A failed attempt leads the analysis page: what failed, where and why."""
         fitting = self.fitting
-        failed = bool(fitting.failure) and not fitting.busy
-        if not failed:
+        if not fitting.failed or fitting.failure_stage is None:
             self.panel.show_failure([], "")
             return
         status = "▲ " + fitting.attempt
         self.panel.show_failure(
             [
-                ("Status", status, "error", "", ""),
-                ("Stage", fitting.failure_stage, "", "", ""),
-                ("Reason", fitting.failure, "", "", ""),
+                Row("Status", status, style="error"),
+                Row("Stage", fitting.failure_stage),
+                Row("Reason", fitting.failure),
             ],
             failure_details(
                 status,
@@ -1135,7 +1139,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         """One compact status line; inspection and navigation stay available."""
         fitting = self.fitting
         result = fitting.result
-        failed = bool(fitting.failure) and not fitting.busy
+        failed = fitting.failed
         if fitting.busy:
             text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
         elif result is not None:
@@ -1994,10 +1998,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles_worker.close()
 
 
-def _set_tip(button: QtWidgets.QAbstractButton, tip: str) -> None:
-    """Tooltip and accessible name together, so the name follows the state."""
-    button.setToolTip(tip)
-    button.setAccessibleName(tip.split(" (")[0])
+def _set_tip(button: QtWidgets.QAbstractButton, name: str, keys: str = "") -> None:
+    """Accessible name and tooltip together, so both follow the state; the tooltip adds keys."""
+    button.setToolTip(f"{name} ({keys})" if keys else name)
+    button.setAccessibleName(name)
 
 
 class IntensityField(QtWidgets.QDoubleSpinBox):
@@ -2042,39 +2046,39 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
     model = "Complete" if usable == total else "Incomplete" if usable else "No usable model"
     stamp = result.completed_at[:19]
     rows: list[Row] = [
-        (
+        Row(
             "Run",
             f"{result.run_id[:8]} · {'Current' if current else 'Outdated'}",
-            "",
-            "",
-            result.run_id,
+            tip=result.run_id,
         ),
-        ("Model", model, "" if usable == total else "warning", "", ""),
-        ("Converged", f"{converged} / {total}", "", "", "Clusters whose optimizer converged"),
-        ("Usable", f"{usable} / {total}", "", "", "Clusters with a usable recorded result"),
-        (
+        Row("Model", model, style="" if usable == total else "warning"),
+        Row("Converged", f"{converged} / {total}", tip="Clusters whose optimizer converged"),
+        Row("Usable", f"{usable} / {total}", tip="Clusters with a usable recorded result"),
+        # Non-breaking spaces: the line wraps only at the dot.
+        Row(
             "Fitted",
-            # Non-breaking spaces: the line wraps only at the dot.
             f"{stamp[:16].replace('T', NBSP)}{NBSP}UTC · {result.execution_seconds:.1f}{NBSP}s",
-            "",
-            "",
-            f"Completed {stamp.replace('T', ' ')} UTC in {result.execution_seconds:.1f} s",
+            tip=f"Completed {stamp.replace('T', ' ')} UTC in {result.execution_seconds:.1f} s",
         ),
     ]
     if warned:
         rows.append(
-            ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
+            Row(
+                "Warnings",
+                f"▲ {warned} clusters",
+                style="warning",
+                tip="Clusters with numerical warnings",
+            )
         )
     noise = result.outcome.noise_model
     if noise.power_finding:
         # A caveat on the errors, never on the fit: what was found and what to do.
         rows.append(
-            (
+            Row(
                 "Noise check",
                 f"▲ {', '.join(noise.power_mismatch)} · errors may be miscalibrated",
-                "warning",
-                noise.power_finding,
-                "",
+                style="warning",
+                detail=noise.power_finding,
             )
         )
     return rows

@@ -26,6 +26,7 @@ from peakfit.fit import pipeline
 from peakfit.gui import fitting, project, spectrum
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor.fitting import FailureStage
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.editor.profile import PeakProfile, peak_profile
 from peakfit.gui.editor.window import EditorWindow
@@ -848,7 +849,7 @@ def test_a_fit_canceled_while_its_recovery_copy_is_written_is_not_published(
     assert f.result is None
     assert not f.recovery_error
     assert f.attempt == "Failed · no result yet"
-    assert f.failure_stage == "Completion"
+    assert f.failure_stage is FailureStage.COMPLETION
     window.close()
     qapp.processEvents()
 

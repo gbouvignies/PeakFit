@@ -589,8 +589,9 @@ class Inspector(QtWidgets.QScrollArea):
             return
         layout = self._analysis_layout
         first = self.review_block if fitted else self.setup_block
-        if layout.indexOf(first) != 1:  # after the failure block
-            layout.insertWidget(1, first)
+        after_failure = layout.indexOf(self.failure_block) + 1
+        if layout.indexOf(first) != after_failure:
+            layout.insertWidget(after_failure, first)
         for widget in (self.unexplained_section, self.unexplained_button, self.unexplained_note):
             widget.setVisible(fitted)
         self.kind.setText("ANALYSIS")
@@ -614,7 +615,10 @@ class Inspector(QtWidgets.QScrollArea):
         self.failure_block.setVisible(bool(rows))
         path = log_path()
         if rows and path is not None:
-            rows = [*rows, ("Log", str(path), "caption", "", "The traceback is in this file")]
+            rows = [
+                *rows,
+                Row("Log", str(path), style="caption", tip="The traceback is in this file"),
+            ]
         _clear(self.failure_rows)
         label_rows(self.failure_rows, rows)
 
@@ -729,7 +733,7 @@ class Inspector(QtWidgets.QScrollArea):
         self._changes_key = key
         self.changes_title.setVisible(bool(parent))
         _clear(self.changes)
-        rows: list[Row] = [("Parent run", parent, "", "", "")] if parent else []
+        rows: list[Row] = [Row("Parent run", parent)] if parent else []
 
         def flush() -> None:
             if rows:
@@ -744,7 +748,7 @@ class Inspector(QtWidgets.QScrollArea):
             kind = entry[0]
             if kind == "row":
                 _kind, label, value, tip = entry
-                rows.append((label, value, "", "", tip))
+                rows.append(Row(label, value, tip=tip))
                 continue
             flush()
             if kind == "link":
@@ -998,18 +1002,23 @@ class Inspector(QtWidgets.QScrollArea):
             label_rows(
                 self.review,
                 [
-                    ("Warnings" if i == 0 else "", f"▲ {w.kind}", "warning", w.detail, "")
+                    Row(
+                        "Warnings" if i == 0 else "",
+                        f"▲ {w.kind}",
+                        style="warning",
+                        detail=w.detail,
+                    )
                     for i, w in enumerate(warned)
                 ]
-                or [("Warnings", "none", "", "", "No numerical warnings recorded")],
+                or [Row("Warnings", "none", tip="No numerical warnings recorded")],
             )
             return
         by_engine = result.index.by_engine
         matrix = correlation_matrix(cluster)
         if len(cluster.peak_names) == 1:
-            correlation = ("ρ", "not applicable", "", "", "Single-peak cluster")
+            correlation = Row("ρ", "not applicable", tip="Single-peak cluster")
         elif matrix is None:
-            correlation = ("ρ", "unavailable", "", "", "Covariance not recorded")
+            correlation = Row("ρ", "unavailable", tip="Covariance not recorded")
         else:
             index = cluster.peak_names.index(engine)
             row = matrix[index].copy()
@@ -1017,12 +1026,11 @@ class Inspector(QtWidgets.QScrollArea):
             partner = int(np.nanargmax(np.abs(row)))
             name = cluster.peak_names[partner]
             other = by_engine[name].assignment if name in by_engine else name
-            correlation = (
+            correlation = Row(
                 f"ρ {other}",
                 formatting.number(float(row[partner]), 2),
-                "",
-                CORRELATION_QUALIFIER,
-                "Strongest amplitude correlation with another member, conditional on "
+                detail=CORRELATION_QUALIFIER,
+                tip="Strongest amplitude correlation with another member, conditional on "
                 "the fitted lineshapes",
             )
         assignments = dict(zip(review.ids, review.names, strict=True))

@@ -278,3 +278,15 @@ def test_ring_is_not_placed_while_it_is_being_reparented(qapp):
     assert ring.geometry().contains(QtCore.QRect(origin, inner.control.size()))
     ring.removeEventFilter(events)
     host.close()
+
+
+def test_toolbar_buttons_name_their_action_and_tooltips_add_the_keys(workspace):
+    w = workspace
+    assert w.add_button.accessibleName() == "Add peak"
+    assert w.add_button.toolTip() == "Add peak (A)"
+    assert w.pin_button.accessibleName() == "Pin slices at the sampled position"
+    assert w.pin_button.toolTip().endswith("(Space)")
+    assert w.profiles_button.accessibleName() == "Profiles: every cluster's amplitude profiles"
+    assert w.inspector_button.accessibleName() == w.inspector_button.toolTip() == "Inspector"
+    w.canvas.set_pinned(True)
+    assert w.pin_button.accessibleName() == "Slices pinned · click to follow the pointer"

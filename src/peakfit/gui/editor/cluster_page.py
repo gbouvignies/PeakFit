@@ -104,26 +104,26 @@ def review_rows(
     rows: list[Row] = []
     for index, warning in enumerate(review.warnings):
         label = "Warnings" if index == 0 else ""
-        rows.append((label, f"▲ {warning.kind}", "warning", warning.detail, ""))
+        rows.append(Row(label, f"▲ {warning.kind}", style="warning", detail=warning.detail))
     if not review.warnings:
-        rows.append(("Warnings", "none", "", "", "No numerical warnings recorded"))
+        rows.append(Row("Warnings", "none", tip="No numerical warnings recorded"))
     for index, highlight in enumerate(review.highlights):
         prefix = f"{names[highlight.peak]}: " if highlight.peak in names else ""
-        rows.append(("Highlights" if index == 0 else "", f"◇ {prefix}{highlight.rule}", "", "", ""))
+        rows.append(Row("Highlights" if index == 0 else "", f"◇ {prefix}{highlight.rule}"))
     if not review.highlights:
-        rows.append(("Highlights", "none", "", "", "None at the current highlight thresholds"))
+        rows.append(Row("Highlights", "none", tip="None at the current highlight thresholds"))
     if math.isfinite(review.chi2):
         samples = review.samples
-        rows.append(("χ²ᵣ", f"{review.chi2:.3g}", "", "", samples_caption(samples)))
+        rows.append(Row("χ²ᵣ", f"{review.chi2:.3g}", tip=samples_caption(samples)))
         if math.isfinite(review.largest_residual) and samples > 1:
             text = f"{review.largest_residual:.1f} σ (guide {maximum_guide(samples):.1f} σ)"
-            rows.append(("Max residual", text, "", "", maximum_caption(samples)))
+            rows.append(Row("Max residual", text, tip=maximum_caption(samples)))
     if correlation is not None:
         rows.append(correlation)
     for pair in review.collinear if collinear is None else collinear:
         text, detail = pair.describe(names)
         shapes = text.removeprefix("Near-collinear fitted shapes: ")
-        rows.append(("Collinear", shapes, "", detail, "Near-collinear fitted shapes"))
+        rows.append(Row("Collinear", shapes, detail=detail, tip="Near-collinear fitted shapes"))
     return rows
 
 
@@ -164,10 +164,12 @@ def correlation_row(
         findings = "; ".join(f"{n}: {correlation_findings(c, p)}" for n, c, p in flagged)
         detail = ", ".join(n for n, _c, _p in flagged) if len(members) > 1 else ""
         tip = f"Errors correlated across planes. {findings}. {CORRELATED_LIMIT}"
-        return ("Profile errors", f"{CORRELATED_MARK} correlated across planes", "", detail, tip)
+        return Row(
+            "Profile errors", f"{CORRELATED_MARK} correlated across planes", detail=detail, tip=tip
+        )
     if any(c.status is ProfileCorrelation.NOT_ASSESSED for _n, c, _p in members):
-        return ("Profile errors", "not assessed", "", "", "Not assessed: " + NOT_ASSESSED_REASON)
-    return ("Profile errors", "within tolerance", "", "", WITHIN_TOLERANCE_TEXT)
+        return Row("Profile errors", "not assessed", tip="Not assessed: " + NOT_ASSESSED_REASON)
+    return Row("Profile errors", "within tolerance", tip=WITHIN_TOLERANCE_TEXT)
 
 
 class ClusterPage(QtWidgets.QWidget):
@@ -383,7 +385,7 @@ class ClusterPage(QtWidgets.QWidget):
             text = formatting.number(round(rho, 2) + 0.0, 2) if math.isfinite(rho) else "–"
             tip = f"ρ({review.names[0]}, {review.names[1]}) = {rho:.4f} · {CORRELATION_TIP}"
             self.matrix.setHorizontalSpacing(themes.SPACE_S)
-            label_rows(self.matrix, [("ρ", text, "", CORRELATION_QUALIFIER, tip)])
+            label_rows(self.matrix, [Row("ρ", text, detail=CORRELATION_QUALIFIER, tip=tip)])
             self.matrix_note.hide()
             return
         self.matrix_note.setText(CORRELATION_QUALIFIER)

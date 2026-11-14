@@ -1,5 +1,6 @@
 """Plain-text labels: selectable styled text, and one that elides without losing its text."""
 
+from dataclasses import dataclass
 from html import escape
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -10,9 +11,16 @@ from peakfit.gui.theme import SPACE_M
 # for their values.
 LABEL_WIDTH = 104
 
-# One review row: muted label, value, label style of the value, caption under the
-# value, tooltip on the value.
-type Row = tuple[str, str, str, str, str]
+
+@dataclass(frozen=True)
+class Row:
+    """One review row: a muted label, its value, and the value's style, caption and tooltip."""
+
+    label: str
+    value: str
+    style: str = ""
+    detail: str = ""
+    tip: str = ""
 
 
 def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
@@ -20,15 +28,15 @@ def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
     grid.setColumnMinimumWidth(0, LABEL_WIDTH)
     grid.setColumnStretch(1, 1)
     line = 0
-    for label, value, style, detail, tip in rows:
-        title = text_label(label, "muted")
+    for row in rows:
+        title = text_label(row.label, "muted")
         grid.addWidget(title, line, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-        shown = text_label(value, style, wrap=True)
-        shown.setToolTip(tip)
+        shown = text_label(row.value, row.style, wrap=True)
+        shown.setToolTip(row.tip)
         grid.addWidget(shown, line, 1)
         line += 1
-        if detail:
-            grid.addWidget(text_label(detail, "caption", wrap=True), line, 1)
+        if row.detail:
+            grid.addWidget(text_label(row.detail, "caption", wrap=True), line, 1)
             line += 1
 
 
