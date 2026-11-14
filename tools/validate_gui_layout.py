@@ -32,7 +32,8 @@ PASSES = 2  # the default fit setup
 FAILURE = "Validation tool: simulated worker failure on a first fit"
 
 _SRGB_KNEE = 0.04045  # sRGB transfer function: linear segment below this value
-# Text and control-border pairs of the theme, as (foreground, surface) token names.
+# Text and control-border pairs of the theme, as (foreground, surface) token names;
+# ``outline`` bounds editable controls, ``border`` buttons and tooltips.
 _CONTRAST_PAIRS = (
     ("text", "panel"),
     ("text", "chrome"),
@@ -40,6 +41,10 @@ _CONTRAST_PAIRS = (
     ("secondary", "panel"),
     ("secondary", "chrome"),
     ("faint", "panel"),
+    ("faint", "chrome"),
+    ("outline", "panel"),
+    ("outline", "chrome"),
+    ("outline", "plot"),
     ("border", "panel"),
     ("border", "chrome"),
 )

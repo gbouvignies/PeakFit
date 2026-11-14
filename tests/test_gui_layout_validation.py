@@ -44,6 +44,8 @@ def test_contrast_records_text_and_control_border_pairs_of_each_appearance(tool)
     assert record["text/panel"] == pytest.approx(tool.contrast_ratio(LIGHT.text, LIGHT.panel))
     assert record["border/panel"] == pytest.approx(tool.contrast_ratio(LIGHT.border, LIGHT.panel))
     assert {"text/chrome", "secondary/panel", "faint/panel", "border/chrome"} <= set(record)
+    # Editable controls are bounded by the outline token.
+    assert {"outline/panel", "outline/chrome", "outline/plot"} <= set(record)
     assert tool.theme_contrast(DARK)["text/panel"] > 10
 
 
