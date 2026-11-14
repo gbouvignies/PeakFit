@@ -29,9 +29,15 @@ and the off-diagonal covariances, relative to the variances, recorded against 0.
 - exclusions: an isolated peak checked with a coincident pair (both peaks at one
   position), whose conditional covariance the fit withholds where the shapes stay
   coincident; the gate is on the unflagged pool, which the exclusions must leave
-  calibrated. Where the pair fits apart, its conditional covariance is published
-  and its peaks join a pool: recorded by pool, with their own Σq/Σk and whether
-  their lineshape factors were withheld (the flag then not assessed, so unset).
+  calibrated. Where the pair fits apart, its conditional covariance is published:
+  with its lineshape factors withheld, its peaks are excluded for that; otherwise
+  they join a pool, recorded by pool with their own Σq/Σk.
+
+**What the lineshape exclusion hides** (every case): peaks excluded because their
+lineshape covariance factors are withheld still have a finite conditional variance.
+Their q and k are computed here from it, tool-side, and recorded by the pool they
+would have joined (the flag as the run derives it: not assessed, so unset), with
+the case's statistic as it would have been with them.
 
 **Recorded, not gated:**
 - a near-coalescent pair, 1 point apart, beyond the first order (as in T3);
@@ -204,8 +210,8 @@ class Realization:
 
     ``contrasts`` (L × k) are the peaks' contrasts Ca; ``stated`` (L × k × k) their
     covariance as the check states it, cI. ``coincident`` holds the pools the peaks
-    of the coincident pair joined, if any, and ``coincident_unassessed`` whether
-    they joined with their lineshape factors withheld.
+    of the coincident pair joined, if any. ``withheld`` holds, by the pool they would
+    have joined, the sums of the peaks excluded for withheld lineshape covariance.
     """
 
     pools: dict[PoolName, PoolSums]
@@ -214,7 +220,34 @@ class Realization:
     stated: np.ndarray
     flagged: tuple[bool, ...]
     coincident: dict[PoolName, PoolSums]
-    coincident_unassessed: bool
+    withheld: dict[PoolName, PoolSums]
+
+
+def withheld_sums(
+    clusters: list[RecordedCluster], excluded: dict[str, ExclusionReason]
+) -> dict[PoolName, PoolSums]:
+    """The sums the peaks excluded for withheld lineshape covariance would have given.
+
+    q = |Ca|²/c from each peak's conditional variance c, in the pool its flag, as the
+    run derives it, would have put it in.
+    """
+    sums: dict[PoolName, PoolSums] = {}
+    for cluster in clusters:
+        for peak, name in enumerate(cluster.peak_names):
+            if excluded.get(name) is not ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD:
+                continue
+            assert cluster.amplitudes is not None
+            assert cluster.factors is not None
+            groups = duplicate_groups(cluster.plane_values)
+            contrasts = orthonormal_contrasts(groups, cluster.plane_values.size)
+            variance = float(cluster.factors.conditional[peak, peak])
+            q = float(np.sum((contrasts @ cluster.amplitudes[peak]) ** 2)) / variance
+            pool: PoolName = "flagged" if cluster.flagged[peak] else "unflagged"
+            total = sums.get(pool, PoolSums(0.0, 0, 0))
+            sums[pool] = PoolSums(
+                total.q + q, total.contrasts + contrasts.shape[0], total.peaks + 1
+            )
+    return sums
 
 
 def realization(case: Case, seed: tuple[int, ...]) -> Realization:
@@ -243,15 +276,12 @@ def realization(case: Case, seed: tuple[int, ...]) -> Realization:
     assert main.factors is not None
     variances = np.diag(main.factors.conditional)
     pooled: dict[PoolName, PoolSums] = {}
-    unassessed = False
     if case.coincident:
         alone = duplicate_plane_check(clusters[1:])
         names: tuple[PoolName, ...] = ("unflagged", "flagged")
         for name, pool in zip(names, (alone.unflagged, alone.flagged), strict=True):
             if pool.peaks:
                 pooled[name] = PoolSums.of(pool)
-        factors = clusters[1].factors
-        unassessed = bool(pooled) and factors is not None and not factors.available
     return Realization(
         pools={"unflagged": PoolSums.of(check.unflagged), "flagged": PoolSums.of(check.flagged)},
         excluded=dict(check.excluded),
@@ -259,15 +289,27 @@ def realization(case: Case, seed: tuple[int, ...]) -> Realization:
         stated=variances[:, None, None] * np.eye(contrasts.shape[0]),
         flagged=main.flagged,
         coincident=pooled,
-        coincident_unassessed=unassessed,
+        withheld=withheld_sums(clusters, check.excluded),
     )
 
 
-def q_over_k(rows: list[Realization], pool: CasePool) -> np.ndarray:
-    """Σq/Σk per realization over the named pool ("all" pools both); NaN where empty."""
+def q_over_k(rows: list[Realization], pool: CasePool, *, withheld: bool = False) -> np.ndarray:
+    """Σq/Σk per realization over the named pool ("all" pools both); NaN where empty.
+
+    With ``withheld``, the peaks excluded for withheld lineshape covariance count in
+    the pool they would have joined, as before that exclusion.
+    """
     names: tuple[PoolName, ...] = ("unflagged", "flagged") if pool == "all" else (pool,)
-    q = np.array([sum(r.pools[n].q for n in names) for r in rows], dtype=float)
-    k = np.array([sum(r.pools[n].contrasts for n in names) for r in rows], dtype=float)
+    empty = PoolSums(0.0, 0, 0)
+
+    def extra(r: Realization, n: PoolName) -> PoolSums:
+        return r.withheld.get(n, empty) if withheld else empty
+
+    q = np.array([sum(r.pools[n].q + extra(r, n).q for n in names) for r in rows])
+    k = np.array(
+        [sum(r.pools[n].contrasts + extra(r, n).contrasts for n in names) for r in rows],
+        dtype=float,
+    )
     with np.errstate(invalid="ignore", divide="ignore"):
         return np.where(k > 0, q / np.where(k > 0, k, 1.0), np.nan)
 
@@ -360,12 +402,24 @@ def summarize(case: Case, rows: list[Realization], block_count: int = 1) -> dict
                 "peaks": sum(p.peaks for p in joined),
                 "pooled_q_over_k": q / k,
             }
-    if case.coincident:
-        coincident["realizations_lineshape_factors_withheld"] = sum(
-            r.coincident_unassessed for r in rows
-        )
     values = q_over_k(rows, case.pool)
     statistic = gate(values)
+    withheld: dict = {"realizations": sum(bool(r.withheld) for r in rows), "peaks": {}}
+    for r in rows:
+        for peak, reason in r.excluded.items():
+            if reason is ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD:
+                withheld["peaks"][peak] = withheld["peaks"].get(peak, 0) + 1
+    for name in names:
+        joined = [r.withheld[name] for r in rows if name in r.withheld]
+        if joined:
+            q, k = sum(p.q for p in joined), sum(p.contrasts for p in joined)
+            withheld[f"would_join_{name}"] = {
+                "realizations": len(joined),
+                "peaks": sum(p.peaks for p in joined),
+                "pooled_q_over_k": q / k,
+            }
+    if withheld["realizations"]:
+        withheld["statistic_with_them"] = gate(q_over_k(rows, case.pool, withheld=True))
     check = analytical(rows)
     return {
         "realizations": len(rows),
@@ -377,6 +431,7 @@ def summarize(case: Case, rows: list[Realization], block_count: int = 1) -> dict
         "pools": pools,
         "flagged_fraction": float(np.mean([any(r.flagged) for r in rows])),
         "realizations_with_exclusion": reasons,
+        "lineshape_covariance_withheld": withheld,
         **({"coincident_pair_pooled": coincident} if case.coincident else {}),
         "analytical": check,
         "passes": (statistic["passes"] and check["passes"]) if case.gated else None,
@@ -450,6 +505,19 @@ def main() -> None:
                 f"  blocks: {' '.join(f'{d:+.1f}' for d in b['deviation_se'])} SE; "
                 f"χ² {b['chi2']:.1f} (p {b['p_value']:.2f}); replication q/k "
                 f"{rep['mean_q_over_k']:.4f} ({rep['deviation_se']:+.1f} SE)"
+            )
+        withheld = s["lineshape_covariance_withheld"]
+        if withheld["realizations"]:
+            joined = "; ".join(
+                f"would join {pool}: {w['realizations']} realizations, {w['peaks']} peaks, "
+                f"pooled q/k {w['pooled_q_over_k']:.3f}"
+                for pool in ("unflagged", "flagged")
+                if (w := withheld.get(f"would_join_{pool}"))
+            )
+            with_them = withheld["statistic_with_them"]
+            print(
+                f"  lineshape covariance withheld: {joined}; statistic with them "
+                f"{with_them['mean_q_over_k']:.4f} ({with_them['deviation_se']:+.1f} SE)"
             )
     print(json.dumps(_rounded(result["gate"]), indent=1, ensure_ascii=False))
 
