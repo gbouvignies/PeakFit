@@ -3,6 +3,11 @@
 PeakFit is a Python package and CLI for fitting lineshape models to pseudo-ND NMR
 spectra.
 
+> [!NOTE]
+> This README describes the development version on `main`. The latest release on
+> PyPI, 0.10.5, works differently (for example, plots come from `peakfit-plot`); see
+> [its README](https://github.com/gbouvignies/PeakFit/blob/v0.10.5/README.md).
+
 The normal workflow is:
 
 ```bash
