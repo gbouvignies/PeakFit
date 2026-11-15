@@ -15,7 +15,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 from validate_gui_editor import settle, wait_until
 
 from peakfit.gui.editor.window import EditorWindow
@@ -43,6 +43,8 @@ PASSES = 2  # the default fit setup
 FAILURE = "Validation tool: simulated worker failure on a first fit"
 STALL = 300.0  # seconds one state may take before the watchdog ends the run
 FIT_STALL = 900.0  # the real two-pass fit of the whole dataset
+WALK = 80  # key presses each way; the fitted window has a few dozen focus stops
+WALK_STOPS = 10  # fewer distinct stops means the keys never reached the window
 
 # Text and control-border pairs of the theme, as (foreground, surface) token names;
 # ``outline`` bounds editable controls, ``border`` buttons and tooltips.
@@ -313,6 +315,26 @@ class Session:
         w.set_profile_quantity((), False)
         w.show_view(profiles=False)
 
+    def keyboard_walk(self) -> int:
+        """Tab, then Backtab, through the fitted window from Fit; the focus stops reached.
+
+        Native macOS crashed on Tab out of the inspector, a crash no offscreen test
+        showed; on a desktop this walk is the smoke test for native focus handling.
+        """
+        stops: set[int] = set()
+        for key in (QtCore.Qt.Key.Key_Tab, QtCore.Qt.Key.Key_Backtab):
+            self.w.fit_button.setFocus(QtCore.Qt.FocusReason.TabFocusReason)
+            for _ in range(WALK):
+                QtTest.QTest.keyClick(QtWidgets.QApplication.focusWidget() or self.window, key)
+                settle(15)
+                stops.add(id(QtWidgets.QApplication.focusWidget()))
+        if len(stops) < WALK_STOPS:
+            raise RuntimeError(
+                f"Keyboard walk reached {len(stops)} focus stops; is the window active?"
+            )
+        arm_watchdog(self.stall)
+        return len(stops)
+
     def each(self, sizes, appearances, step) -> None:
         """Run ``step`` at every requested window size and appearance."""
         for size in sizes:
@@ -348,11 +370,13 @@ def run(output: Path, sizes, appearances, stall: float = STALL) -> list[dict[str
     session.w.show_fit_setup()
     session.fit()
     session.each(sizes, appearances, session.fitted_states)
+    walk = session.keyboard_walk()
     report = {
         "dataset": str(DATA.relative_to(ROOT)),
         "units": "Qt logical pixels; window.dpr converts to device pixels",
         "type_scale": asdict(type_scale()),
         "contrast": {"Light": theme_contrast(LIGHT), "Dark": theme_contrast(DARK)},
+        "keyboard_walk": {"stops": walk},
         "captures": session.records,
     }
     (output / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
