@@ -184,3 +184,15 @@ def test_cpmg_says_why_a_profile_is_not_converted(profile, reason) -> None:
     data = prepare_cpmg_data(profile, time_t2=0.04)
     assert isinstance(data, str)
     assert reason in data
+
+
+def test_a_directory_of_runs_names_its_runs_instead_of_plotting_nothing(results) -> None:
+    """``peakfit fit --output Fits`` writes Fits/<timestamp>/; the plots need the run."""
+    _result, run = results
+    runs = run.parent
+    for generate in (generate_intensity_plots, generate_cest_plots):
+        with pytest.raises(FileNotFoundError, match=f"run directory such as .*{run.name}"):
+            generate(runs, output_path=runs / "profiles.pdf")
+    with pytest.raises(FileNotFoundError, match=run.name):
+        generate_cpmg_plots(runs, 0.04, output_path=runs / "profiles.pdf")
+    assert not (runs / "profiles.pdf").exists()

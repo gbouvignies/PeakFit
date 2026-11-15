@@ -10,7 +10,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
 from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
-from peakfit.io.scientific import read_results
+from peakfit.io.scientific import missing_run_hint, read_results
 from peakfit.plot.diagnostics.autocorr import plot_autocorrelation
 from peakfit.plot.diagnostics.corner import plot_correlation_pairs
 from peakfit.plot.diagnostics.summary import plot_marginal_distributions
@@ -213,7 +213,10 @@ def _load_peak_data_from_intensities_csv(
     peak_data: defaultdict[str, list[tuple[float, float, float]]] = defaultdict(list)
     intensities_path = _resolve_intensities_csv(results_dir)
     if intensities_path is None:
-        return peak_data
+        raise FileNotFoundError(
+            f"No tables/intensities.csv in {results_dir}. "
+            + missing_run_hint(results_dir, "Refit with --format csv to produce one.")
+        )
 
     with intensities_path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
