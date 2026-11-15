@@ -254,11 +254,10 @@ class Session:
         """The Analysis page after a failed fit."""
         self.w.show_analysis_page()
         # Label and value texts of the failure rows, in reading order.
-        texts = [
-            label.text()
-            for label in self.w.panel.failure_block.findChildren(QtWidgets.QLabel)
-            if label.isVisibleTo(self.w.panel.failure_block)
-        ]
+        rows = self.w.panel.failure_rows
+        items = (rows.itemAt(i) for i in range(rows.count()))
+        shown = (item.widget() for item in items if item is not None)
+        texts = [w.text() for w in shown if isinstance(w, QtWidgets.QLabel)]
         self.capture("failure", size, appearance, failure=self.w.fitting.attempt, rows=texts)
 
     def spectral(self) -> dict[str, object]:
