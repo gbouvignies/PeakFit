@@ -188,6 +188,11 @@ class TypeScale:
 REFERENCE_TYPE = TypeScale.for_body(_REFERENCE_BODY)
 
 
+def text_room(pixels: int) -> int:
+    """A width or height for text, designed at the 13 px body, grown with the body size."""
+    return round(pixels * type_scale().body / _REFERENCE_BODY)
+
+
 class _Installed:
     scale: TypeScale | None = None
 

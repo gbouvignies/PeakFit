@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui
 
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor.labels import fit_phrases
 from peakfit.gui.editor.profiles_view import ProfilesView, cluster_tiles, paint_tile
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -113,3 +114,65 @@ def test_profile_tiles_use_the_derived_sizes(scientific):
     painter.end()
     view.deleteLater()
     assert painter.sizes == {LARGE.small, LARGE.caption}
+
+
+# A larger system font keeps the layout usable (#185): nothing is cut at 1280 px.
+
+
+def test_the_inspector_holds_a_peak_page_at_the_large_font(fitted):
+    panel = fitted.panel
+    for peak in fitted.peaks:
+        fitted.select_peak(peak.id)
+        wait_until(lambda: panel.widget().minimumSizeHint().width() <= panel.viewport().width())
+        assert panel.widget().width() <= panel.viewport().width()
+
+
+def test_the_profile_axis_has_room_for_its_scale_and_ticks(fitted):
+    plot = fitted.panel.profile.plot
+    plot.grab()  # draw the ticks
+    left = plot.getAxis("left")
+    metrics = QtGui.QFontMetrics(QtGui.QFont(left.style["tickFont"]))
+    # A rotated axis label ("×10ⁿ") sits beside the widest drawn tick label, not on it.
+    assert left.width() >= left.textWidth + left.style["tickTextOffset"][0] + metrics.height()
+    # The plot area keeps its height while the axis text grows.
+    assert plot.height() > 176
+
+
+def test_a_caption_too_long_for_its_room_drops_whole_phrases_with_an_ellipsis(qapp):
+    metrics = QtGui.QFontMetrics(qapp.font())
+    parts = [("Lanes ±8 σ", "Lanes ±8 σ"), ("8 data clipped", "<b>8 data clipped</b>")]
+    whole = metrics.horizontalAdvance("Lanes ±8 σ · 8 data clipped")
+    assert fit_phrases(parts, metrics, whole + 2) == "Lanes ±8 σ · <b>8 data clipped</b>"
+    shorter = metrics.horizontalAdvance("Lanes ±8 σ · …") + 1
+    assert fit_phrases(parts, metrics, shorter) == "Lanes ±8 σ · …"
+    assert fit_phrases(parts, metrics, 4) == "…"
+    assert fit_phrases([], metrics, 4) == ""
+
+
+def test_the_slice_caption_elides_and_keeps_its_full_text_in_the_tooltip(fitted):
+    canvas = fitted.canvas
+    canvas.gain = 2.0
+    canvas.clips = {"row": (8, 9)}
+    canvas._update_caption()
+    full = canvas.caption.toolTip()
+    assert "8 data samples clipped" in full
+    assert "9 model samples clipped" in full
+    canvas.caption.resize(2000, canvas.caption.height())
+    assert "…" not in canvas.caption.text()
+    canvas.caption.resize(80, canvas.caption.height())
+    assert canvas.caption.text().endswith("…")
+    assert canvas.caption.toolTip() == full
+
+
+def test_the_corner_readout_shows_whole_or_not_at_all(qapp, fitted):
+    canvas = fitted.canvas
+    readout = canvas.readout
+    qapp.processEvents()
+    assert readout.text()
+    if readout.isVisible():
+        assert readout.minimumSizeHint().width() <= readout.width()
+        assert readout.heightForWidth(readout.width()) <= readout.height()
+    # A corner too small for the values hides them; the status line keeps them.
+    readout.setGeometry(readout.x(), readout.y(), 60, readout.height())
+    canvas._show_readout()
+    assert not readout.isVisible()

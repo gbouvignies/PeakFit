@@ -59,10 +59,53 @@ def phrases(*lines: tuple[str, ...]) -> str:
     )
 
 
+def fit_phrases(parts: list[tuple[str, str]], metrics: QtGui.QFontMetrics, width: int) -> str:
+    """Rich text of ``(plain, rich)`` phrases joined by " · " within ``width``.
+
+    Phrases that do not fit are dropped whole from the end and "…" marks the cut,
+    so no phrase is ever shown cut in the middle.
+    """
+    for count in range(len(parts), -1, -1):
+        shown = [plain for plain, _rich in parts[:count]]
+        if count < len(parts):
+            shown.append("…")
+        if count == 0 or metrics.horizontalAdvance(" · ".join(shown)) <= width:
+            rich = [r for _plain, r in parts[:count]]
+            return " · ".join(rich + (["…"] if count < len(parts) else []))
+    return ""
+
+
 def show_text(label: QtWidgets.QLabel, text: str) -> None:
     """Set a label's text and hide it when empty, so it leaves no gap."""
     label.setText(text)
     label.setVisible(bool(text))
+
+
+class PhraseLabel(QtWidgets.QLabel):
+    """Rich-text phrases on one line that drop whole phrases, marked "…", to fit.
+
+    The tooltip holds every phrase and a hint; the label refits when resized.
+    """
+
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self._phrases: list[tuple[str, str]] = []
+
+    def set_phrases(self, phrases: list[tuple[str, str]], hint: str) -> None:
+        """Show ``(plain, rich)`` phrases; the tooltip lists them all, then ``hint``."""
+        self._phrases = phrases
+        full = " · ".join(plain for plain, _rich in phrases)
+        self.setToolTip(f"{full}\n{hint}" if full else hint)
+        self._fit()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        """Refit the phrases to the new width."""
+        super().resizeEvent(event)
+        self._fit()
+
+    def _fit(self) -> None:
+        self.setText(fit_phrases(self._phrases, self.fontMetrics(), self.width()))
 
 
 class ElidedLabel(QtWidgets.QLabel):

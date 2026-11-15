@@ -32,7 +32,7 @@ from peakfit.engine.scientific.profiles import (
 )
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
-from peakfit.gui.theme import LIGHT, Theme, color, type_scale
+from peakfit.gui.theme import LIGHT, REFERENCE_TYPE, Theme, color, type_scale
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -504,6 +504,45 @@ def ask_reference(
     return dialog
 
 
+# The profile plot at the reference type scale: its height and the left axis's
+# minimum width (wider for the A / A_ref label). Larger text adds to both.
+_PLOT_HEIGHT = 176
+_AXIS_WIDTH = 40
+_RATIO_AXIS_WIDTH = 52
+
+
+def _caption_metrics(pixels: int) -> QtGui.QFontMetrics:
+    font = QtGui.QFont(QtWidgets.QApplication.font())
+    font.setPixelSize(pixels)
+    return QtGui.QFontMetrics(font)
+
+
+def _plot_height() -> int:
+    """The reference height plus the growth of the bottom axis's two text lines."""
+    grown = _caption_metrics(type_scale().caption).height()
+    reference = _caption_metrics(REFERENCE_TYPE.caption).height()
+    return _PLOT_HEIGHT + 2 * max(0, grown - reference)
+
+
+def _left_axis_width(
+    axis: pg.AxisItem, span: tuple[float, float], length: float, scale: float, *, normalized: bool
+) -> int:
+    """Room for the widest tick label of ``span`` beside the rotated axis label."""
+    metrics = _caption_metrics(type_scale().caption)
+    widest = max(
+        (
+            metrics.horizontalAdvance(text)
+            for spacing, values in axis.tickValues(*span, max(length, 1.0))
+            for text in axis.tickStrings(values, scale, spacing)
+        ),
+        default=0,
+    )
+    # pyqtgraph's style dict; the attribute's stubs shadow it with QGraphicsItem.style.
+    offset = int(vars(axis)["style"]["tickTextOffset"][0])
+    needed = widest + offset + metrics.height() + 2
+    return max(_RATIO_AXIS_WIDTH if normalized else _AXIS_WIDTH, needed)
+
+
 class ProfilePlot(QtWidgets.QWidget):
     """The selected peak's recorded amplitudes with its cluster members, in the inspector.
 
@@ -525,7 +564,7 @@ class ProfilePlot(QtWidgets.QWidget):
         self.plot.hideButtons()
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=False, y=False)
-        self.plot.setFixedHeight(176)
+        self.plot.setFixedHeight(_plot_height())
         self.plot.setAccessibleName("Signed fitted amplitudes of the selected peak's cluster")
         font = QtGui.QFont(QtWidgets.QApplication.font())
         font.setPixelSize(type_scale().caption)
@@ -533,7 +572,7 @@ class ProfilePlot(QtWidgets.QWidget):
             axis = self.plot.getAxis(name)
             axis.setStyle(tickFont=font, tickLength=-4, maxTickLevel=0)
             axis.enableAutoSIPrefix(False)
-        self.plot.getAxis("left").setWidth(40)
+        self.plot.getAxis("left").setWidth(_AXIS_WIDTH)
         layout.addWidget(self.plot)
         self.fallback = QtWidgets.QLabel()
         self.fallback.setObjectName("warning")
@@ -782,7 +821,10 @@ class ProfilePlot(QtWidgets.QWidget):
         scale = f"×10{formatting.superscript(str(power))}" if power else ""
         quantity = f"A / A_ref ({self.reference_text()})" if normalized else ""
         left.setLabel(" ".join(t for t in (quantity, scale) if t), **style_text)
-        left.setWidth(52 if normalized else 40)
+        span = (bottom - margin, top + margin)
+        left.setWidth(
+            _left_axis_width(left, span, self.plot.height(), 10.0**-power, normalized=normalized)
+        )
         self.plot.setLabel(
             "bottom", "Plane value" if profile.plane_values else "Plane number", **style_text
         )

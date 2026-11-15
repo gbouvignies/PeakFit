@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
 _RESIDUAL = 2
 _WIDE_TOOLBAR = 1200
-_SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
+_SIDES = (280, 320)  # default navigator and inspector widths at 1280 px, 13 px body
 _UNEXPLAINED_ROWS = 8  # regions listed before "and N more"
 _REGION_CONTEXT = 24  # a framed region keeps at least this many points around it
 # Canvas display preferences an analysis records with its view.
@@ -148,9 +148,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter.addWidget(self.panel)
         for index, stretch in enumerate((0, 1, 0)):
             self.splitter.setStretchFactor(index, stretch)
-        self.splitter.setSizes([_SIDES[0], 1280 - sum(_SIDES), _SIDES[1]])
+        # The inspector holds text in a label column and fields: it grows with the font.
+        self._default_sides = (_SIDES[0], themes.text_room(_SIDES[1]))
+        sides = self._default_sides
+        self.splitter.setSizes([sides[0], 1280 - sum(sides), sides[1]])
         # Side-panel widths the user chose, kept while a panel is hidden.
-        self._side_widths = list(_SIDES)
+        self._side_widths = list(sides)
         self.splitter.splitterMoved.connect(self._remember_widths)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -636,7 +639,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         # navigator, each only where it fits the window as it is.
         saved = list(v.get("splitter") or [])
         if len(saved) == self.splitter.count():
-            self._side_widths = [int(saved[0]) or _SIDES[0], int(saved[2]) or _SIDES[1]]
+            sides = self._default_sides
+            self._side_widths = [int(saved[0]) or sides[0], int(saved[2]) or sides[1]]
         self.peaks_button.setChecked(False)
         self.toggle_navigator()
         self.inspector_button.setChecked(v.get("inspector", True))

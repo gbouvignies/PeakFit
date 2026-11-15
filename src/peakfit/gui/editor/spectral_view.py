@@ -23,6 +23,7 @@ from peakfit.gui import formatting
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakMarkers
 from peakfit.gui.editor import slices
+from peakfit.gui.editor.labels import PhraseLabel
 from peakfit.gui.editor.spectral_geometry import (
     Extents,
     SliceSizes,
@@ -445,9 +446,8 @@ class SpectralView(QtWidgets.QWidget):
                 "Scaled to this slice's visible samples over all planes, with zero included. "
                 "Wheel to magnify; double-click to reset."
             )
-        self.caption = QtWidgets.QLabel(self.view)
+        self.caption = PhraseLabel(self.view)
         self.caption.setObjectName("caption")
-        self.caption.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.caption.setAccessibleName("Slice scale")
         self.readout = QtWidgets.QLabel(self.view)
         self.readout.setObjectName("caption")
@@ -457,6 +457,7 @@ class SpectralView(QtWidgets.QWidget):
         )
         self.readout.setWordWrap(True)
         self.readout.setAccessibleName("Values at the crosshair")
+        self._readout_room = False
         self._commit = QtCore.QTimer(self)
         self._commit.setSingleShot(True)
         self._commit.setInterval(_COMMIT_MS)
@@ -1542,7 +1543,8 @@ class SpectralView(QtWidgets.QWidget):
         self.readout.setGeometry(
             int(cx) + 6, int(cy) + 4, max(0, int(cw) - 10), max(0, int(ch) - 6)
         )
-        self.readout.setVisible(cw > _READOUT_MIN[0] and ch > _READOUT_MIN[1])
+        self._readout_room = cw > _READOUT_MIN[0] and ch > _READOUT_MIN[1]
+        self._show_readout()
         self._place_legend()
         self._apply_bounds()
 
@@ -1768,15 +1770,17 @@ class SpectralView(QtWidgets.QWidget):
                 parts.append(f"Slices ×{self.gain:.3g}")
             if self._effective_sizes().lanes:
                 parts.append(f"Lanes ±{self.lane_sigma:.3g} σ_stat")
+        phrases = [(part, part) for part in parts]
         data = sum(d for d, _m in self.clips.values())
         model = sum(m for _d, m in self.clips.values())
         # In words: ▲ is the numerical-warning mark and must not count samples.
-        if data:
-            parts.append(f'<span style="color:{t.error}">{_samples(data, "data")} clipped</span>')
-        if model:
-            parts.append(f'<span style="color:{t.model}">{_samples(model, "model")} clipped</span>')
-        self.caption.setText(" · ".join(parts))
-        self.caption.setToolTip("Wheel over a slice or lane to rescale it; double-click to reset")
+        for count, kind, tone in ((data, "data", t.error), (model, "model", t.model)):
+            if count:
+                text = f"{_samples(count, kind)} clipped"
+                phrases.append((text, f'<span style="color:{tone}">{text}</span>'))
+        self.caption.set_phrases(
+            phrases, "Wheel over a slice or lane to rescale it; double-click to reset"
+        )
 
     def _update_readout(self, value: float | None, fitted: float | None) -> None:
         """Exact values at the crosshair; the slices themselves carry no numbers."""
@@ -1794,6 +1798,20 @@ class SpectralView(QtWidgets.QWidget):
             lines.append(f"model {self._intensity(fitted, power)}")
             lines.append(f"residual {(value - fitted) / noise:+.1f}{_NBSP}σ")
         self.readout.setText("<br>".join(lines))
+        self._show_readout()
+
+    def _show_readout(self) -> None:
+        """Show the corner readout only whole: hidden rather than cut in a small corner.
+
+        The status line keeps the same values.
+        """
+        readout = self.readout
+        width = readout.width()
+        fits = (
+            readout.minimumSizeHint().width() <= width
+            and readout.heightForWidth(width) <= readout.height()
+        )
+        readout.setVisible(self._readout_room and fits)
 
     def slice_state(self) -> dict[str, object]:
         """Saved view state of the slices."""

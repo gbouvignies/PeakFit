@@ -288,7 +288,9 @@ class Inspector(QtWidgets.QScrollArea):
         self.setObjectName("inspector")
         self.setWidgetResizable(True)
         self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # The workspace opens the inspector wider at a larger system font; a page wider
+        # than a narrowed inspector scrolls rather than being cut at its edge.
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setMinimumWidth(300)
         self._axes = {
             axis.label: formatting.nucleus(axis.nucleus, axis.label) for axis in (x_axis, y_axis)
