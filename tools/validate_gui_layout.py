@@ -18,6 +18,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from validate_gui_editor import settle, wait_until
 
 from peakfit.gui.editor.window import EditorWindow
+from peakfit.gui.failures import install_log
 from peakfit.gui.spectrum import read_dataset
 from peakfit.gui.theme import (
     DARK,
@@ -252,7 +253,13 @@ class Session:
     def failure(self, size: str, appearance: str) -> None:
         """The Analysis page after a failed fit."""
         self.w.show_analysis_page()
-        self.capture("failure", size, appearance, failure=self.w.fitting.attempt)
+        # Label and value texts of the failure rows, in reading order.
+        texts = [
+            label.text()
+            for label in self.w.panel.failure_block.findChildren(QtWidgets.QLabel)
+            if label.isVisibleTo(self.w.panel.failure_block)
+        ]
+        self.capture("failure", size, appearance, failure=self.w.fitting.attempt, rows=texts)
 
     def spectral(self) -> dict[str, object]:
         """Settled spectral-view sizes."""
@@ -314,6 +321,8 @@ class Session:
 def run(output: Path, sizes, appearances) -> list[dict[str, Any]]:
     """Drive every agreed state; the failure is delivered before the first fit."""
     output.mkdir(parents=True, exist_ok=True)
+    # As launch does: the failure state then names the log file (#186).
+    install_log(output / "peakfit.log")
     session = Session(output)
     session.each(sizes, appearances, session.before_fit)
     # A first fit that fails: nothing is retained, which the failure state must say.
