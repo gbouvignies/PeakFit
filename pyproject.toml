@@ -158,8 +158,10 @@ markers = [
 minversion = "9.0"
 testpaths = ["tests"]
 # Fail a hung Qt event loop or child process instead of blocking CI; the slowest
-# test takes about 25 s.
+# test takes about 25 s. The thread method also ends a test blocked in native
+# code, where a signal never reaches Python, and dumps every thread's stack.
 timeout = "300"
+timeout_method = "thread"
 
 [tool.ruff]
 line-length = 100
