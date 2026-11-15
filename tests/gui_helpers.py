@@ -4,6 +4,10 @@ from time import perf_counter
 
 from PySide6 import QtCore
 
+# Deadline for real fits, saves and cleanup: their completion is under test, not their
+# speed, and parallel suites on one machine slow them several-fold.
+COMPLETION = 120
+
 
 def wait_until(condition, timeout=10):
     """Run the Qt event loop until ``condition()`` holds, failing after ``timeout`` seconds."""

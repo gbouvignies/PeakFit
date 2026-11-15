@@ -31,6 +31,9 @@ from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 # --- Configuration ---
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "examples" / "02-advanced-fitting"
+# CLI runs finish in seconds alone, but parallel suites slow them several-fold;
+# pytest-timeout (300 s) stays the hard bound.
+SUBPROCESS_TIMEOUT = 240
 DATA_DIR = EXAMPLE_DIR / "data"
 
 # Test data files
@@ -185,7 +188,7 @@ class TestPublicWorkflows:
             capture_output=True,
             text=True,
             env=_cli_env(tmp_path),
-            timeout=60,
+            timeout=SUBPROCESS_TIMEOUT,
         )
 
         assert result.returncode == 0, (
@@ -223,7 +226,7 @@ class TestPublicWorkflows:
             capture_output=True,
             text=True,
             env=_cli_env(tmp_path),
-            timeout=90,
+            timeout=SUBPROCESS_TIMEOUT,
         )
 
         combined_output = f"{result.stdout}\n{result.stderr}"
@@ -256,7 +259,7 @@ class TestPublicWorkflows:
             capture_output=True,
             text=True,
             env=_cli_env(tmp_path),
-            timeout=90,
+            timeout=SUBPROCESS_TIMEOUT,
         )
         assert plotted.returncode == 0, f"STDOUT: {plotted.stdout}\nSTDERR: {plotted.stderr}"
         assert output_path.stat().st_size > 0
