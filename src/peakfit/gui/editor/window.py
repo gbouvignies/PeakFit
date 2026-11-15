@@ -11,6 +11,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.persistence import AnalysisActions
 from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.failures import install_log, logger
 from peakfit.gui.peaks import export_peaks
 from peakfit.gui.spectrum import (
     Dataset,
@@ -815,7 +816,10 @@ def launch(
     assert isinstance(app, QtWidgets.QApplication)
     app.setApplicationName("PeakFit")
     app.setOrganizationName("PeakFit")
-    app.setStyle("Fusion")
+    try:
+        install_log()
+    except OSError as error:  # the terminal still receives every failure
+        logger.warning("PeakFit log file unavailable: %s", error)
     window = EditorWindow()
     window.show()
     if path is not None and path.suffix == ".peakfit":

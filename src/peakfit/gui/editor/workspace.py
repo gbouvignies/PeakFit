@@ -1,6 +1,7 @@
 """Three columns: navigator, spectrum and inspector, around one editing workflow."""
 
 import math
+import sys
 from collections import Counter
 from dataclasses import replace
 from threading import Event
@@ -8,7 +9,6 @@ from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.algorithms.noise_correlation import NoisePowerStatus
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
@@ -25,14 +25,15 @@ from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
-from peakfit.gui.editor.spectral_geometry import SliceSizes
-from peakfit.gui.editor.spectral_view import SpectralView
+from peakfit.gui.editor.spectral_geometry import SliceSizes, default_sizes, stored_share
+from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
     UnexplainedRegion,
     nearest_peak,
     unexplained_regions,
 )
+from peakfit.gui.failures import failure_details
 from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
 
 _RESIDUAL = 2
 _WIDE_TOOLBAR = 1200
-_SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
+_SIDES = (280, 320)  # default navigator and inspector widths at 1280 px, 13 px body
 _UNEXPLAINED_ROWS = 8  # regions listed before "and N more"
 _REGION_CONTEXT = 24  # a framed region keeps at least this many points around it
 # Canvas display preferences an analysis records with its view.
@@ -121,9 +122,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         column.addWidget(self.canvas, 1)
         self.focus_open = False
         # The overview as it was when focus opened, restored exactly on return, and
-        # the slice sizes focus uses (residual lanes on), kept between focuses.
+        # the slice shares focus uses (residual lanes on), kept between focuses.
         self._overview: dict | None = None
-        self.focus_sizes = SliceSizes(lanes=True)
+        self.focus_sizes = default_sizes(focus=True)
         self._lanes_given_way = False
         # The focused cluster by stable peak IDs, the run it came from, the members
         # it was framed on, and the peaks a regrouping notice is about.
@@ -147,9 +148,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter.addWidget(self.panel)
         for index, stretch in enumerate((0, 1, 0)):
             self.splitter.setStretchFactor(index, stretch)
-        self.splitter.setSizes([_SIDES[0], 1280 - sum(_SIDES), _SIDES[1]])
+        # The inspector holds text in a label column and fields: it grows with the font.
+        self._default_sides = (_SIDES[0], themes.text_room(_SIDES[1]))
+        sides = self._default_sides
+        self.splitter.setSizes([sides[0], 1280 - sum(sides), sides[1]])
         # Side-panel widths the user chose, kept while a panel is hidden.
-        self._side_widths = list(_SIDES)
+        self._side_widths = list(sides)
         self.splitter.splitterMoved.connect(self._remember_widths)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -223,21 +227,21 @@ class EditorWorkspace(QtWidgets.QWidget):
         # place the next peak at once. Coordinate fields keep focus and show the
         # exact committed value.
         self.inspector.name.returnPressed.connect(self._focus_spectral_area)
-        self.inspector.deleted.connect(self.delete_peaks)
         self.inspector.fields_changed.connect(self._fields_changed)
         self.fitting.state_changed.connect(self.render_fitting)
         self._refresh()
         self.navigator.setVisible(bool(dataset.peaks))
         self.set_plane(1)
 
-    def _tool(self, name: str, tip: str, *, checkable: bool = False) -> QtWidgets.QToolButton:
+    def _tool(
+        self, icon: str, name: str, keys: str = "", *, checkable: bool = False
+    ) -> QtWidgets.QToolButton:
         button = QtWidgets.QToolButton()
         button.setCheckable(checkable)
-        button.setToolTip(tip)
-        button.setAccessibleName(tip.split(" (")[0])
+        _set_tip(button, name, keys)
         button.setIconSize(QtCore.QSize(18, 18))
         button.setFixedSize(28, 28)
-        self._icons.append((button, name))
+        self._icons.append((button, icon))
         return button
 
     def _build_toolbar(self, dataset: Dataset) -> QtWidgets.QWidget:  # noqa: PLR0915
@@ -297,16 +301,16 @@ class EditorWorkspace(QtWidgets.QWidget):
             segment.addWidget(button)
         bar.addLayout(segment)
         bar.addSpacing(themes.SPACE_XS)
-        self.add_button = self._tool("add-peak", "Add peak (A)", checkable=True)
+        self.add_button = self._tool("add-peak", "Add peak", "A", checkable=True)
         self.add_button.clicked.connect(self.start_placing)
         self.pin_button = self._tool(
-            "pin", "Pin traces at the sampled position (Space)", checkable=True
+            "pin", "Pin slices at the sampled position", "Space", checkable=True
         )
         self.pin_button.toggled.connect(self.canvas.set_pinned)
         self.canvas.pin_changed.connect(self._pin_changed)
-        full = self._tool("full", "Full spectrum (Ctrl+0)")
+        full = self._tool("full", "Full spectrum", "Ctrl+0")
         full.clicked.connect(self.full_view)
-        display = self._tool("sliders", "Display: contours, labels, trace scale")
+        display = self._tool("sliders", "Display: contours, labels, residual levels, highlights")
         display.clicked.connect(self.display_dialog)
         for button in (self.add_button, self.pin_button, full, display):
             bar.addWidget(button)
@@ -567,7 +571,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             "splitter": self.splitter.sizes(),
             "display": {name: getattr(c, name) for name in _DISPLAY},
             "slices": overview["slices"],
-            "focus_slices": {"row": focus.row, "column": focus.column, "lanes": focus.lanes},
+            "focus_slices": {
+                "row_share": focus.row,
+                "column_share": focus.column,
+                "lanes": focus.lanes,
+            },
             "mode": overview["mode"],
         }
         fitting = self.fitting
@@ -621,13 +629,18 @@ class EditorWorkspace(QtWidgets.QWidget):
         if v.get("slices"):
             c.restore_slice_state(v["slices"])
         if v.get("focus_slices"):
-            f = v["focus_slices"]
-            self.focus_sizes = SliceSizes(int(f["row"]), int(f["column"]), bool(f["lanes"]))
+            f, focus = v["focus_slices"], default_sizes(focus=True)
+            self.focus_sizes = SliceSizes(
+                stored_share(f.get("row_share"), focus.row),
+                stored_share(f.get("column_share"), focus.column),
+                bool(f.get("lanes", focus.lanes)),
+            )
         # Restored by priority: the spectral area, then the inspector, then the
         # navigator, each only where it fits the window as it is.
         saved = list(v.get("splitter") or [])
         if len(saved) == self.splitter.count():
-            self._side_widths = [int(saved[0]) or _SIDES[0], int(saved[2]) or _SIDES[1]]
+            sides = self._default_sides
+            self._side_widths = [int(saved[0]) or sides[0], int(saved[2]) or sides[1]]
         self.peaks_button.setChecked(False)
         self.toggle_navigator()
         self.inspector_button.setChecked(v.get("inspector", True))
@@ -668,10 +681,12 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _pin_changed(self, pinned: bool) -> None:
         with QtCore.QSignalBlocker(self.pin_button):
             self.pin_button.setChecked(pinned)
-        self.pin_button.setToolTip(
-            "Traces pinned · click to follow the pointer (Space)"
+        _set_tip(
+            self.pin_button,
+            "Slices pinned · click to follow the pointer"
             if pinned
-            else "Pin traces at the sampled position (Space)"
+            else "Pin slices at the sampled position",
+            "Space",
         )
 
     def _build_actions(self) -> None:
@@ -683,7 +698,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.redo_action.triggered.connect(lambda: self.history(True))
         self.add_action = QtGui.QAction("Add peak", self)
         self.add_action.triggered.connect(self.start_placing)
+        # Deletion: the Delete key on the canvas or the list (shown in the Edit menu),
+        # Edit ▸ Delete selected peaks and both context menus; one Undo entry each.
         self.delete_action = QtGui.QAction("Delete selected peaks", self)
+        keys = [QtGui.QKeySequence("Delete"), QtGui.QKeySequence("Backspace")]
+        # The menu shows the first: the key labelled delete on a Mac is Backspace.
+        self.delete_action.setShortcuts(keys[::-1] if sys.platform == "darwin" else keys)
+        self.delete_action.setShortcutContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.delete_action.triggered.connect(self.delete_peaks)
         self.actions_for_menu = [
             self.undo_action,
@@ -691,13 +712,17 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.add_action,
             self.delete_action,
         ]
-        for action in self.actions_for_menu:
+        for action in self.actions_for_menu[:-1]:
             self.addAction(action)
+        # The Delete key acts only where peaks are selected, never in a text field
+        # or on an inspector control.
         for widget in (self.canvas.view, self.navigator.list):
-            for key, callback in (("Delete", self.delete_peaks), ("Backspace", self.delete_peaks)):
-                shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), widget)
-                shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
-                shortcut.activated.connect(callback)
+            widget.addAction(self.delete_action)
+        self.canvas.context_menu_requested.connect(self._peak_menu)
+        self.navigator.list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.navigator.list.customContextMenuRequested.connect(
+            lambda position: self._peak_menu(self.navigator.list.viewport().mapToGlobal(position))
+        )
         for key, callback in (("A", self.start_placing), ("Escape", self._escape)):
             shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.view)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -909,16 +934,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         flagged = 0
         rows: list[Row] = []
         if fitting.busy:
-            rows.append(("Fit", fitting.stage, "", "", ""))
+            rows.append(Row("Fit", fitting.stage))
         elif result is not None:
             flagged = self.warnings.property("count") or 0
             rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
         # With no run the rows stay empty: the toolbar already says Not fitted.
-        if fitting.failure:
-            rows.append((fitting.attempt, fitting.failure, "warning", "", ""))
+        self._show_failure()
         if fitting.recovery_error:
             rows.append(
-                ("Recovery", "▲ " + _recovery_note(fitting.recovery_error), "warning", "", "")
+                Row("Recovery", "▲ " + _recovery_note(fitting.recovery_error), style="warning")
             )
         self.panel.show_analysis(
             self.dataset.path.stem,
@@ -996,11 +1020,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.warnings.setVisible(bool(flagged))
         self.profiles_button.setEnabled(fitting.result is not None)
-        self.profiles_button.setToolTip(
-            "Profiles: every cluster's amplitude profiles (Ctrl+2; Ctrl+1 for the spectrum)"
-            if fitting.result is not None
-            else "Profiles: available after a fit"
-        )
+        if fitting.result is not None:
+            _set_tip(
+                self.profiles_button,
+                "Profiles: every cluster's amplitude profiles",
+                "Ctrl+2; Ctrl+1 for the spectrum",
+            )
+        else:
+            _set_tip(self.profiles_button, "Profiles: available after a fit")
         if fitting.result is None and self.profiles_shown:
             self.show_view(profiles=False)
         self.update_settings_summary()
@@ -1088,10 +1115,35 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles = (self._tiles[0], cast("dict[int, Tile] | Exception", outcome))
         self._show_profiles()
 
+    def _show_failure(self) -> None:
+        """A failed attempt leads the analysis page: what failed, where and why."""
+        fitting = self.fitting
+        if not fitting.failed or fitting.failure_stage is None:
+            self.panel.show_failure([], "")
+            return
+        status = "▲ " + fitting.attempt
+        self.panel.show_failure(
+            [
+                Row("Status", status, style="error"),
+                Row("Stage", fitting.failure_stage),
+                Row("Reason", fitting.failure),
+            ],
+            failure_details(
+                status,
+                fitting.failure_stage,
+                fitting.failure,
+                [
+                    ("Dataset", str(self.dataset.path)),
+                    ("Active run", fitting.result.run_id if fitting.result else "none"),
+                ],
+            ),
+        )
+
     def _show_run_line(self) -> None:
         """One compact status line; inspection and navigation stay available."""
         fitting = self.fitting
         result = fitting.result
+        failed = fitting.failed
         if fitting.busy:
             text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
         elif result is not None:
@@ -1103,7 +1155,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + _noise_check(result.outcome.noise_model)
-                + (fitting.attempt + " · " if fitting.attempt else "")
+                + (fitting.attempt + " · " if fitting.attempt and not failed else "")
                 + (
                     f"all {len(clusters)} clusters usable"
                     if complete
@@ -1111,7 +1163,15 @@ class EditorWorkspace(QtWidgets.QWidget):
                 )
             )
         else:
-            text = fitting.attempt or "Not fitted"
+            text = "" if failed else fitting.attempt or "Not fitted"
+        if failed:
+            # A failure is unmistakable: its first words, in the error style.
+            text = " · ".join(part for part in ("▲ " + fitting.attempt, text) if part)
+        tone = "error" if failed else ""
+        if (self.summary.property("tone") or "") != tone:
+            self.summary.setProperty("tone", tone)
+            self.summary.style().unpolish(self.summary)
+            self.summary.style().polish(self.summary)
         self.summary.setText(text)
         self.summary.setToolTip(
             text
@@ -1197,6 +1257,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.edits.update(identity, peak.name, positions)
         self._refresh()
         self.canvas.select(identity)
+
+    def _peak_menu(self, position: QtCore.QPoint) -> None:
+        """The canvas and list context menu: what applies to the selected peaks."""
+        menu = QtWidgets.QMenu(self)
+        menu.addAction(self.delete_action)
+        menu.popup(position)
+        self._context_menu = menu
 
     def delete_peaks(self) -> None:
         """Deletion owns the selected draft; multi-delete is list-only."""
@@ -1381,7 +1448,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._overview = overview
             self.focus_open = True
             self._lanes_given_way = sizes.lanes != self.focus_sizes.lanes
-            self.canvas.set_sizes(sizes)
+            self.canvas.set_sizes(sizes, default_sizes(focus=True))
             self.focus_bar.show()
             self.panel.cluster_page.focus_button.hide()
         self._sync_inspector(cluster=True)
@@ -1502,7 +1569,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             # The residual is the run's; distances are to today's working peaks.
             note = (
                 f"Residual of {comparison.label}. Distances are to the current working "
-                "peaks; ◇ marks a peak added since that run. " + note
+                f"peaks; {NOT_IN_MODEL} marks a peak added since that run. " + note
             )
         found_key, outcome = self._unexplained
         if found_key != key:
@@ -1541,7 +1608,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             nearest = (
                 f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
-                + (" ◇" if region.nearest in comparison.added else "")
+                + (f" {NOT_IN_MODEL}" if region.nearest in comparison.added else "")
                 if region.nearest is not None
                 else ""
             )
@@ -1652,7 +1719,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.setup.regions.setChecked(saved["regions"])
         self.set_mode(saved["mode"])
         self.render_fitting()
-        c.set_sizes(saved["sizes"])
+        c.set_sizes(saved["sizes"], default_sizes(focus=False))
         c.restore_slice_state(saved["slices"])
         c.set_ranges(*saved["ranges"])
         # The sample too, even when the selection changed in focus: it is view state.
@@ -1826,9 +1893,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         dialog.setWindowTitle("Spectrum display")
         form = QtWidgets.QFormLayout(dialog)
         # Both contour sets are always offered: the view may switch modes after the dialog.
-        threshold = QtWidgets.QDoubleSpinBox()
+        threshold = IntensityField()
         threshold.setRange(0.01, 1e12)
-        threshold.setDecimals(4)
         threshold.setValue(self.canvas.contour_threshold)
         threshold.setKeyboardTracking(False)
         residual = QtWidgets.QDoubleSpinBox()
@@ -1843,14 +1909,17 @@ class EditorWorkspace(QtWidgets.QWidget):
         threshold.setAccessibleName("First contour")
         residual.setAccessibleName("First residual contour")
         unexplained.setAccessibleName("Unexplained signal beyond")
-        for field in (threshold, residual, unexplained):
-            field.setLocale(QtCore.QLocale.c())
         factor = QtWidgets.QDoubleSpinBox()
         factor.setRange(1.1, 5)
         factor.setValue(self.canvas.contour_factor)
         count = QtWidgets.QSpinBox()
         count.setRange(1, 20)
         count.setValue(self.canvas.contour_count)
+        factor.setAccessibleName("Level factor")
+        count.setAccessibleName("Levels per sign")
+        # One decimal convention in every field, whatever the system locale.
+        for field in (threshold, residual, unexplained, factor, count):
+            field.setLocale(QtCore.QLocale.c())
         labels = QtWidgets.QCheckBox("Show peak labels")
         labels.setChecked(self.canvas.labels_visible)
         heavy = QtWidgets.QCheckBox("Heavier contours")
@@ -1933,6 +2002,45 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._tiles_worker.close()
 
 
+def _set_tip(button: QtWidgets.QAbstractButton, name: str, keys: str = "") -> None:
+    """Accessible name and tooltip together, so both follow the state; the tooltip adds keys."""
+    button.setToolTip(f"{name} ({keys})" if keys else name)
+    button.setAccessibleName(name)
+
+
+class IntensityField(QtWidgets.QDoubleSpinBox):
+    """An intensity shown through the shared ×10ⁿ formatter; typed plain or scientific."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Display rounds; the stored value keeps what was set or typed.
+        self.setDecimals(15)
+        self.setLocale(QtCore.QLocale.c())
+
+    def textFromValue(self, value: float) -> str:  # noqa: N802 (Qt override)
+        """The value as the shared formatter shows intensities."""
+        return formatting.scaled(value)
+
+    def valueFromText(self, text: str) -> float:  # noqa: N802 (Qt override)
+        """Typed text; unchanged text keeps the exact value, not its rounded display."""
+        if text == self.textFromValue(self.value()):
+            return self.value()
+        return formatting.parse_scaled(text)
+
+    def validate(self, text: str, pos: int) -> object:
+        """Acceptable once the text reads as a number within range."""
+        try:
+            value = formatting.parse_scaled(text)
+        except ValueError:
+            return QtGui.QValidator.State.Intermediate, text, pos
+        state = (
+            QtGui.QValidator.State.Acceptable
+            if self.minimum() <= value <= self.maximum()
+            else QtGui.QValidator.State.Intermediate
+        )
+        return state, text, pos
+
+
 def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
     """The active run as label rows: identity, completeness, then when it ran."""
     clusters = result.outcome.clusters
@@ -1942,39 +2050,47 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
     model = "Complete" if usable == total else "Incomplete" if usable else "No usable model"
     stamp = result.completed_at[:19]
     rows: list[Row] = [
-        (
+        Row(
             "Run",
             f"{result.run_id[:8]} · {'Current' if current else 'Outdated'}",
-            "",
-            "",
-            result.run_id,
+            tip=result.run_id,
         ),
-        ("Model", model, "" if usable == total else "warning", "", ""),
-        ("Converged", f"{converged} / {total}", "", "", "Clusters whose optimizer converged"),
-        ("Usable", f"{usable} / {total}", "", "", "Clusters with a usable recorded result"),
-        (
+        Row("Model", model, style="" if usable == total else "warning"),
+        Row("Converged", f"{converged} / {total}", tip="Clusters whose optimizer converged"),
+        Row("Usable", f"{usable} / {total}", tip="Clusters with a usable recorded result"),
+        # Non-breaking spaces: the line wraps only at the dot.
+        Row(
             "Fitted",
-            # Non-breaking spaces: the line wraps only at the dot.
             f"{stamp[:16].replace('T', NBSP)}{NBSP}UTC · {result.execution_seconds:.1f}{NBSP}s",
-            "",
-            "",
-            f"Completed {stamp.replace('T', ' ')} UTC in {result.execution_seconds:.1f} s",
+            tip=f"Completed {stamp.replace('T', ' ')} UTC in {result.execution_seconds:.1f} s",
         ),
     ]
     if warned:
         rows.append(
-            ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
+            Row(
+                "Warnings",
+                f"▲ {warned} clusters",
+                style="warning",
+                tip="Clusters with numerical warnings",
+            )
+        )
+    noise = result.outcome.noise_model
+    if noise.power_finding:
+        # A caveat on the errors, never on the fit: what was found and what to do.
+        rows.append(
+            Row(
+                "Noise check",
+                f"▲ {', '.join(noise.power_mismatch)} · errors may be miscalibrated",
+                style="warning",
+                detail=noise.power_finding,
+            )
         )
     return rows
 
 
 def _noise_check(model: NoiseModel) -> str:
     """The run line's flag for a noise-power mismatch, naming the axes; the tooltip explains."""
-    axes = [
-        get_dimension_label(i)
-        for i, check in enumerate(model.power_check)
-        if check.status is NoisePowerStatus.MISMATCH
-    ]
+    axes = model.power_mismatch
     return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 
 

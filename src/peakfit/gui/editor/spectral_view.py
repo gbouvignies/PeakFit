@@ -23,16 +23,19 @@ from peakfit.gui import formatting
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakMarkers
 from peakfit.gui.editor import slices
+from peakfit.gui.editor.labels import PhraseLabel
 from peakfit.gui.editor.spectral_geometry import (
     Extents,
     SliceSizes,
+    default_sizes,
     drag,
     layout,
     minimum_size,
+    stored_share,
 )
 from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
-from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
+from peakfit.gui.theme import FOCUS_WIDTH, LIGHT, OWN_FOCUS_FRAME, Theme, color, type_scale
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -50,10 +53,18 @@ _FRAME_POINTS = 6  # and at least this many points on each side
 LANE_SIGMA = 8.0  # default residual lane range, ±σ_stat
 _SCALE_STEP = 1.25  # one wheel step of a manual slice or lane scale
 _COMMIT_MS = 200  # a zoom or pan is committed once the wheel or drag rests
+# A working peak a historical model does not contain; ◇ means only a review highlight.
+NOT_IN_MODEL = "☆"
+
 _PENDING_SHOW_MS = 200  # a wait shorter than this needs no label; it would only flash
 _READOUT_MIN = (40, 30)  # the corner readout needs at least this much room
+_NBSP = "\u00a0"  # binds a unit to its value, so a narrow readout never wraps it alone
 REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
+
+
+def _samples(count: int, kind: str) -> str:
+    return f"{count} {kind} sample{'s' if count != 1 else ''}"
 
 
 def framed_ranges(
@@ -239,6 +250,7 @@ class SpectralView(QtWidgets.QWidget):
     """Display observations only; scientific edits are proposals to the owning workspace."""
 
     selected = QtCore.Signal(str)
+    context_menu_requested = QtCore.Signal(QtCore.QPoint)  # global position
     sizes_changed = QtCore.Signal()
     scale_changed = QtCore.Signal()
     hovered = QtCore.Signal(object)
@@ -267,8 +279,10 @@ class SpectralView(QtWidgets.QWidget):
         self.model_planes = model_planes
         self._model_cancel = Event()
         self._model = None
-        # Slice display: user sizes, residual lanes and the intensity scale.
+        # Slice display: user shares, residual lanes and the intensity scale; the
+        # defaults are the current context's (overview or cluster focus).
         self.sizes = SliceSizes()
+        self.defaults = default_sizes(focus=False)
         self.lane_sigma = LANE_SIGMA
         self.lanes_fit = True  # False while the window has no room for the lanes
         self.gain = 1.0  # the wheel's magnification of both slices' own ranges
@@ -333,13 +347,16 @@ class SpectralView(QtWidgets.QWidget):
         self.view.viewport().installEventFilter(self)
         self.view.installEventFilter(self)
         self.setFocusProxy(self.view)
+        # Keyboard focus is shown on the 2D plot, where A, Space and E/O/R act,
+        # rather than by the shared ring around the whole canvas.
+        self.view.setProperty(OWN_FOCUS_FRAME, True)
         self.view.setAccessibleName(
             "2D spectrum with native slices; Space pins slices; A places peak; arrows step sample"
         )
         outer.addWidget(self.view)
         scene = cast("pg.GraphicsScene", self.view.scene())
         font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION)
+        font.setPixelSize(type_scale().caption)
         metrics = QtGui.QFontMetrics(font)
         self.extents = Extents(
             left=metrics.horizontalAdvance("000.0") + metrics.height() + 18,
@@ -394,6 +411,12 @@ class SpectralView(QtWidgets.QWidget):
         )
         for divider in (self.row_divider, self.column_divider):
             scene.addItem(divider)
+        self.focus_frame = QtWidgets.QGraphicsRectItem()
+        self.focus_frame.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        self.focus_frame.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.focus_frame.setZValue(70)
+        self.focus_frame.hide()
+        scene.addItem(self.focus_frame)
         # Experimental and model values at native samples, joined by lines; no markers.
         self.curve_x, self.model_x = pg.PlotDataItem(), pg.PlotDataItem()
         self.curve_y, self.model_y = pg.PlotDataItem(), pg.PlotDataItem()
@@ -423,9 +446,8 @@ class SpectralView(QtWidgets.QWidget):
                 "Scaled to this slice's visible samples over all planes, with zero included. "
                 "Wheel to magnify; double-click to reset."
             )
-        self.caption = QtWidgets.QLabel(self.view)
+        self.caption = PhraseLabel(self.view)
         self.caption.setObjectName("caption")
-        self.caption.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.caption.setAccessibleName("Slice scale")
         self.readout = QtWidgets.QLabel(self.view)
         self.readout.setObjectName("caption")
@@ -435,6 +457,7 @@ class SpectralView(QtWidgets.QWidget):
         )
         self.readout.setWordWrap(True)
         self.readout.setAccessibleName("Values at the crosshair")
+        self._readout_room = False
         self._commit = QtCore.QTimer(self)
         self._commit.setSingleShot(True)
         self._commit.setInterval(_COMMIT_MS)
@@ -480,10 +503,11 @@ class SpectralView(QtWidgets.QWidget):
         self._regions: tuple[tuple[str, ...], ...] = ()
         self._region_labels = np.zeros(0, dtype=np.int32)
         self._selected_region = -1
-        # Against a historical model: a diamond marks a working peak that model does
-        # not contain; × marks a model peak's recorded position, linked by a dotted
-        # line to where it was moved.
-        self.added_marks = self._scatter("d", 15, 21)
+        # Against a historical model: a star (☆, NOT_IN_MODEL) marks a working peak
+        # that model does not contain, distinct from the ◇ of a review highlight;
+        # × marks a model peak's recorded position, linked by a dotted line to
+        # where it was moved.
+        self.added_marks = self._scatter("star", 15, 21)
         self.recorded_marks = self._scatter("x", 9, 18)
         self.recorded_links = pg.PlotDataItem(connect="pairs")
         self.recorded_links.setZValue(18)
@@ -599,8 +623,11 @@ class SpectralView(QtWidgets.QWidget):
         """Selection pins once; following hover never changes it.
 
         ``center`` puts the peak in the middle of the view at the current zoom, for
-        a selection made away from the spectrum (a list, a link). Otherwise the
-        view moves only as far as needed to keep the peak inside it.
+        a selection made away from the spectrum (a list, a link), but never pans the
+        view past the data's extent: on an axis narrower than the data the centred
+        range is clamped inside it, and an axis already showing the whole extent
+        stays put. Otherwise the view moves only as far as needed to keep the peak
+        inside it.
         """
         self.selected_id = peak_id
         self.markers.selected_id = peak_id
@@ -614,9 +641,15 @@ class SpectralView(QtWidgets.QWidget):
             view = self.box
             ranges = view.viewRange()
             shifted = []
-            for value, (low, high) in zip((x, y), ranges, strict=True):
+            extents = [(float(min(a)), float(max(a))) for a in (self.ppm_x, self.ppm_y)]
+            for value, (low, high), (first, last) in zip((x, y), ranges, extents, strict=True):
                 if center:
-                    delta = value - (low + high) / 2
+                    width = high - low
+                    if width >= last - first:
+                        delta = 0.0  # the whole extent is shown: the view does not move
+                    else:
+                        start = min(max(value - width / 2, first), last - width)
+                        delta = start - low
                 else:
                     margin = (high - low) * 0.05
                     delta = min(value - low - margin, 0) + max(value - high + margin, 0)
@@ -817,7 +850,7 @@ class SpectralView(QtWidgets.QWidget):
     def _intensity(value: float, power: int) -> str:
         """An intensity in a given power of ten, so values read side by side align."""
         number = f"{value * 10.0**-power:.6g}"
-        return f"{number} ×10{formatting.superscript(str(power))}" if power else number
+        return f"{number}{_NBSP}×10{formatting.superscript(str(power))}" if power else number
 
     def set_pinned(self, pinned: bool) -> None:
         """Pin the inspection sample independently of a selected assignment."""
@@ -867,6 +900,13 @@ class SpectralView(QtWidgets.QWidget):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self._choose(self._hits(event.scenePos()), event.scenePos())
             event.accept()
+
+    def _context_menu(self, event: QtGui.QContextMenuEvent) -> None:
+        """Right-clicking a marker selects it first, so the menu acts on that peak."""
+        hits = self._hits(self.view.mapToScene(event.pos()))
+        if len(hits) == 1 and hits[0].id != self.selected_id:
+            self.selected.emit(hits[0].id)
+        self.context_menu_requested.emit(event.globalPos())
 
     def _choose(self, hits: list[WorkingPeak], scene_position) -> None:
         if not hits:
@@ -1301,7 +1341,7 @@ class SpectralView(QtWidgets.QWidget):
                 items.append(key(t.model, solid, f"model · {run}" if run else "model"))
         if run and self.comparison_mode:
             if any(i in self._by_id for i in self.added):
-                items.append(key(t.warning, "◇", "not in this model"))
+                items.append(key(t.warning, NOT_IN_MODEL, "not in this model"))
             if self.departed:
                 items.append(key(t.secondary, "×", "position in this model"))
         if self.regions_visible and self.region_source:
@@ -1309,7 +1349,7 @@ class SpectralView(QtWidgets.QWidget):
         if len(self.unadopted.data):
             items.append(key(t.model, "□", "fitted position, not adopted"))
         self.legend.setText(
-            f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
+            f'<div style="color:{t.secondary};font-size:{type_scale().caption}px">'
             + "&nbsp;&nbsp; ".join(items)
             + "</div>"
         )
@@ -1331,7 +1371,7 @@ class SpectralView(QtWidgets.QWidget):
         for axis in (self.bottom_axis, self.left_axis):
             axis.setPen(pg.mkPen(t.divider))
             axis.setTextPen(pg.mkPen(t.secondary))
-        style = {"color": t.secondary, "font-size": f"{FONT_CAPTION + 1}px"}
+        style = {"color": t.secondary, "font-size": f"{type_scale().small}px"}
         for axis, spectral in ((self.bottom_axis, self.x_axis), (self.left_axis, self.y_axis)):
             axis.labelStyle = style
             axis.setLabel(f"{self.axis_title(spectral)}  (ppm)")
@@ -1340,6 +1380,9 @@ class SpectralView(QtWidgets.QWidget):
         for divider in (self.row_divider, self.column_divider):
             divider.color, divider.hot_color = t.border, t.accent
             divider.update()
+        frame = QtGui.QPen(QtGui.QColor(t.focus), FOCUS_WIDTH)
+        frame.setJoinStyle(QtCore.Qt.PenJoinStyle.MiterJoin)
+        self.focus_frame.setPen(frame)
         self._style_traces()
         self.marker_halo.setPen(pg.mkPen(color(t.plot, 0.9), width=2.6))
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
@@ -1360,7 +1403,7 @@ class SpectralView(QtWidgets.QWidget):
         for label, value in ((self.hover_label, t.text), (self.selection_label, t.accent)):
             label.setColor(value)
         font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION + 1)
+        font.setPixelSize(type_scale().small)
         self.hover_label.setFont(font)
         bold = QtGui.QFont(font)
         bold.setWeight(QtGui.QFont.Weight.DemiBold)
@@ -1406,8 +1449,20 @@ class SpectralView(QtWidgets.QWidget):
         if event.type() == QtCore.QEvent.Type.Paint and watched is self.view.viewport():
             # Paint-completion measurements use a queued callback after paintEvent.
             self._paint_timer.start(0)
+        if watched is self.view and event.type() in (
+            QtCore.QEvent.Type.FocusIn,
+            QtCore.QEvent.Type.FocusOut,
+        ):
+            self.focus_frame.setVisible(event.type() == QtCore.QEvent.Type.FocusIn)
         if event.type() == QtCore.QEvent.Type.Leave:
             self.hover(None)
+        if (
+            event.type() == QtCore.QEvent.Type.ContextMenu
+            and watched is self.view.viewport()
+            and isinstance(event, QtGui.QContextMenuEvent)
+        ):
+            self._context_menu(event)
+            return True
         if event.type() == QtCore.QEvent.Type.MouseButtonDblClick:
             return self._double_click(self.view.mapToScene(event.position().toPoint()))
         if event.type() == QtCore.QEvent.Type.KeyPress:
@@ -1475,6 +1530,9 @@ class SpectralView(QtWidgets.QWidget):
             if rect is not None:
                 item.setGeometry(QtCore.QRectF(*rect))
         x, y, w, h = geometry.main
+        # The frame's stroke lies just outside the plot area, over no data.
+        half = FOCUS_WIDTH / 2
+        self.focus_frame.setRect(QtCore.QRectF(x - half, y - half, w + 2 * half, h + 2 * half))
         self.left_axis.setGeometry(QtCore.QRectF(0, y, self.extents.left, h))
         self.bottom_axis.setGeometry(QtCore.QRectF(x, y + h, w, self.extents.bottom))
         self.row_divider.setRect(QtCore.QRectF(*geometry.row_divider))
@@ -1485,7 +1543,8 @@ class SpectralView(QtWidgets.QWidget):
         self.readout.setGeometry(
             int(cx) + 6, int(cy) + 4, max(0, int(cw) - 10), max(0, int(ch) - 6)
         )
-        self.readout.setVisible(cw > _READOUT_MIN[0] and ch > _READOUT_MIN[1])
+        self._readout_room = cw > _READOUT_MIN[0] and ch > _READOUT_MIN[1]
+        self._show_readout()
         self._place_legend()
         self._apply_bounds()
 
@@ -1538,9 +1597,11 @@ class SpectralView(QtWidgets.QWidget):
         self._relayout()
         self.sizes_changed.emit()
 
-    def set_sizes(self, sizes: SliceSizes) -> None:
-        """Adopt saved or framing-specific slice sizes."""
+    def set_sizes(self, sizes: SliceSizes, defaults: SliceSizes | None = None) -> None:
+        """Adopt saved or framing-specific slice shares, and that context's defaults."""
         self.sizes = sizes
+        if defaults is not None:
+            self.defaults = defaults
         self._relayout()
 
     def resize_slice(self, which: str, step: int) -> None:
@@ -1553,16 +1614,13 @@ class SpectralView(QtWidgets.QWidget):
         self.sizes_changed.emit()
 
     def reset_size(self, which: str) -> None:
-        """Restore one slice's default size, within the divider's limits."""
-        default = getattr(SliceSizes(), which)
-        self.sizes = drag(
-            self.sizes, which, default, self.view.width(), self.view.height(), self.extents
-        )
+        """Restore one slice's default share for the current context (overview or focus)."""
+        self.sizes = replace(self.sizes, **{which: getattr(self.defaults, which)})
         self._relayout()
         self.sizes_changed.emit()
 
     def reset_sizes(self) -> None:
-        """Restore both slices' default sizes."""
+        """Restore both slices' default shares."""
         for which in ("row", "column"):
             self.reset_size(which)
 
@@ -1712,48 +1770,65 @@ class SpectralView(QtWidgets.QWidget):
                 parts.append(f"Slices ×{self.gain:.3g}")
             if self._effective_sizes().lanes:
                 parts.append(f"Lanes ±{self.lane_sigma:.3g} σ_stat")
+        phrases = [(part, part) for part in parts]
         data = sum(d for d, _m in self.clips.values())
         model = sum(m for _d, m in self.clips.values())
-        if data:
-            parts.append(f'<span style="color:{t.error}">▲ {data} clipped</span>')
-        if model:
-            parts.append(f'<span style="color:{t.model}">△ {model} model clipped</span>')
-        self.caption.setText(" · ".join(parts))
-        self.caption.setToolTip("Wheel over a slice or lane to rescale it; double-click to reset")
+        # In words: ▲ is the numerical-warning mark and must not count samples.
+        for count, kind, tone in ((data, "data", t.error), (model, "model", t.model)):
+            if count:
+                text = f"{_samples(count, kind)} clipped"
+                phrases.append((text, f'<span style="color:{tone}">{text}</span>'))
+        self.caption.set_phrases(
+            phrases, "Wheel over a slice or lane to rescale it; double-click to reset"
+        )
 
     def _update_readout(self, value: float | None, fitted: float | None) -> None:
         """Exact values at the crosshair; the slices themselves carry no numbers."""
         lines = [
             f"<b>{formatting.number(self.ppm_x[self.ix], self.decimals_x)} · "
-            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm</b>"
+            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)}{_NBSP}ppm</b>"
         ]
         power = formatting.exponent(max(abs(value or 0.0), abs(fitted or 0.0)) or 1.0)
         if value is not None:
-            lines.append(f"I {self._intensity(value, power)} a.u.")
+            lines.append(f"I {self._intensity(value, power)}{_NBSP}a.u.")
         if self.comparison_mode and fitted is None:
             lines.append("model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
             lines.append(f"model {self._intensity(fitted, power)}")
-            lines.append(f"residual {(value - fitted) / noise:+.1f} σ")
+            lines.append(f"residual {(value - fitted) / noise:+.1f}{_NBSP}σ")
         self.readout.setText("<br>".join(lines))
+        self._show_readout()
+
+    def _show_readout(self) -> None:
+        """Show the corner readout only whole: hidden rather than cut in a small corner.
+
+        The status line keeps the same values.
+        """
+        readout = self.readout
+        width = readout.width()
+        fits = (
+            readout.minimumSizeHint().width() <= width
+            and readout.heightForWidth(width) <= readout.height()
+        )
+        readout.setVisible(self._readout_room and fits)
 
     def slice_state(self) -> dict[str, object]:
         """Saved view state of the slices."""
         return {
-            "row": self.sizes.row,
-            "column": self.sizes.column,
+            "row_share": self.sizes.row,
+            "column_share": self.sizes.column,
             "lanes": self.sizes.lanes,
             "lane_sigma": self.lane_sigma,
             "gain": self.gain,
         }
 
     def restore_slice_state(self, state: dict) -> None:
-        """Adopt saved slice sizes, lanes and scale."""
+        """Adopt saved slice shares, lanes and scale; sizes saved in pixels are ignored."""
         self.sizes = replace(
             self.sizes,
-            row=int(state.get("row", self.sizes.row)),
-            column=int(state.get("column", self.sizes.column)),
+            row=stored_share(state.get("row_share"), self.sizes.row),
+            column=stored_share(state.get("column_share"), self.sizes.column),
             lanes=bool(state.get("lanes", self.sizes.lanes)),
         )
         self.lane_sigma = float(state.get("lane_sigma", LANE_SIGMA))

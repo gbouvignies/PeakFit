@@ -51,11 +51,13 @@ be canceled while its private file read finishes.
 The **row slice** above the 2D plot and the **column slice** to its right are native
 row/column cross-sections: lines through the native samples, with no markers and
 no values between samples. Each shares its frequency axis exactly with the 2D plot.
-Move over the plot to preview them. The **Pin traces** tool, Space on the canvas, or
+Move over the plot to preview them. The **Pin slices** tool, Space on the canvas, or
 a click on blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
 selected peak or its coordinate draft. Choosing a peak in the Peaks list, a cluster
-row, a change summary or warning navigation centres it at the current zoom; a click
+row, a change summary or warning navigation centres it at the current zoom within
+the data: the view never extends past the spectrum's extent, and at full spectrum
+it does not move; a click
 on the spectrum or a member link on a cluster page leaves the view where it is, and
 cluster focus keeps its frame. Plane controls preserve acquisition order,
 including repeated or unordered plane values. Missing values are labeled honestly;
@@ -98,8 +100,12 @@ precision when focused/copied. Untouched fields retain their original float64 va
 Dot-decimal/scientific notation is accepted; a comma is also accepted when it is
 the local decimal separator. Thousands separators and mixed punctuation are not.
 
-Delete acts on the selected peak; native modifier selection in the list permits
-one-step multi-delete. Undo/Redo restores exact records. In a clean coordinate
+Delete (Backspace on a Mac keyboard) on the spectrum or in the Peaks list,
+**Edit → Delete selected peaks** (its key shown) and the spectrum's and list's
+context menus delete the selected peak as one Undo entry, without confirmation;
+the peak page has no Delete button. Right-clicking a marker selects it before the
+menu opens. Native modifier selection in the list permits one-step multi-delete.
+Undo/Redo restores exact records. In a clean coordinate
 field, Cmd/Ctrl+Z invokes peak Undo; within a draft, ordinary text Undo remains
 available. Undo labels identify the edit.
 
@@ -129,8 +135,10 @@ review leads (active run, changes from the previous run, warning navigation and
 unexplained signal) and the setup follows it. The active run reads as label rows:
 Run (short ID and Current or Outdated, the full ID in the tooltip), Model, Converged
 and Usable as counts of clusters, Fitted (date, time in UTC and duration), and
-Warnings when any cluster has one; a failure or a recovery problem adds a row in the
-warning style. The setup's values share that column. A click on the toolbar run summary,
+Warnings when any cluster has one, and Noise check when the run's noise-power check
+found a mismatch: the axes and that the errors may be miscalibrated, with what was
+found and what to do as its caption, the wording of the run line's tooltip. A
+recovery problem adds a row in the warning style. The setup's values share that column. A click on the toolbar run summary,
 or **Analysis ▸ Active run**, opens the page at the review. The summary names the
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
@@ -173,6 +181,21 @@ the settings summary steps aside while a fit runs. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
+
+A failed fit says whether anything was kept: **Failed · no result yet** when there
+is no active run, **Failed · previous result retained** otherwise; a canceled fit
+reads **Canceled · …** the same way. A failure leads the run line in the error
+style with ▲ (“▲ Failed · previous result retained · Run …”), and the analysis page
+opens with a **Last fit attempt** section above the setup and the run review:
+status, the stage that failed (Preparation, Fitting or Completion), the reason and,
+when the application logs to a file, the log path. **Copy details** puts the
+status, stage, message, dataset, active run, PeakFit, Python and Qt versions,
+platform and log path on the clipboard for a report. Every failure's traceback
+goes to the terminal that started PeakFit and to the per-user log file
+`~/Library/Logs/PeakFit/peakfit.log` (macOS), `%LOCALAPPDATA%\PeakFit\Logs\peakfit.log`
+(Windows) or `$XDG_STATE_HOME/peakfit/peakfit.log`, by default
+`~/.local/state/peakfit/peakfit.log` (Linux), so a failure can be reported
+without a terminal. The section disappears when the next fit starts.
 
 When two peaks' fitted shapes are near-collinear (1 − |cos| ≤ 10⁻⁴ over the
 fitting samples), their fitted positions are not adopted: their markers stay at
@@ -231,7 +254,7 @@ places the slices through its extreme, keeping the plane, the comparison mode an
 selection. A list belongs to one plane, run and threshold: another plane needs
 another request. For an Outdated run the list is that run's historical residual,
 titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
-and follow each edit, and a nearest peak added since the run is marked ◇. The list is descriptive,
+and follow each edit, and a nearest peak added since the run is marked ☆. The list is descriptive,
 captioned “Diagnostic only · residual beyond ±5 σ_stat”; the tooltip adds that it never
 adds or proposes peaks and never flags clusters, and that a signal may be left
 unmodelled on purpose.
@@ -268,11 +291,15 @@ persists through hover, planes and zoom until a double-click on the slice,
 **Default slice intensities**, a new dataset or focusing another cluster; the wheel
 over a lane sets the lane scale. A caption above the row slice appears only when
 there is something to say: the residual or lane scale, the gain, and counts of
-clipped samples, ▲ for data and △ for the model. The corner readout gives the exact
+clipped samples in words (“3 data samples clipped · 1 model sample clipped”). The corner readout gives the exact
 values at the sample, intensity and model in one power of ten (the status bar
-repeats them only when a collapsed column slice leaves no room for the readout). Drag the
-divider between a slice and the plot to resize it (below 48 px it collapses; drag
-it back to reopen), double-click a divider for the default size. **View → Slices**
+repeats them only when a collapsed column slice leaves no room for the readout).
+Slices take a share of the spectral view (by default 22 % of its height for the row
+slice and 18 % of its width for the column slice; 30 % and 26 % in cluster focus),
+so they grow with the window ([measured sizes](validation/gui-audit-followup.md)). Drag the divider between a slice and the plot to
+resize it (below 48 px it collapses; drag it back to reopen); the new size is kept
+as a share, so it follows window resizes and panel toggles. Double-click a divider
+for the default of the overview or of focus, whichever you are in. **View → Slices**
 offers all of these from the menu and keyboard.
 
 Model planes compute asynchronously. Old-plane model/residual graphics disappear
@@ -289,7 +316,8 @@ convergence and usable/total clusters, so a narrow window shortens only the tail
 its tooltip keeps the full text. Clusters with a numerical warning have their own
 amber label (▲ N) that never elides. When the run's noise-power check found
 processing the header does not record, the line shows **▲ Noise check (F2)**, naming
-the axes, before the counts; the tooltip gives what was found and what to do
+the axes, before the counts; the tooltip, and the Analysis page's Noise check row
+reachable without a pointer, give what was found and what to do
 ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). It is a
 warning about the errors only, never about the fit.
 
@@ -339,7 +367,9 @@ scales, mode, fitting-region display and sample. Leaving focus never reverts an
 edit or a fit. In an inspector field with a draft, or during a drag or placement,
 the first Escape cancels that and the next one leaves focus. **Full spectrum**
 (Cmd/Ctrl+0) reframes the cluster while in focus. Focus keeps its own slice sizes
-from one focus to the next; Save records the overview it returns to.
+from one focus to the next; Save records the overview it returns to and both sets
+of slice shares. An analysis saved before slice sizes became shares reopens with
+the default shares.
 
 Corrections happen in focus with the overview's edits and the same Undo/Redo:
 dragging the selected marker shows a ghost at the proposed position while the
@@ -357,7 +387,8 @@ changed, a line under the bar says how: “Regrouped by run … · was … · jo
 in; a peak added since says which peaks it is now fitted with, with a link back to
 the cluster that was on show. A canceled or failed fit keeps every working edit and
 focus.
-On a peak page, **Review cluster ›** opens its cluster page (the page header gives its size); selecting a peak
+On a peak page, **Review cluster ›** sits beside the peak's name in the page
+header, under the cluster size (“PEAK · CLUSTER OF 3”), and opens its cluster page; selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
@@ -398,25 +429,32 @@ showing old values.
 
 **Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
 the active run's profiles in the centre, one tile per cluster, in the cluster list's
-order and filter: sort or filter the list and the tiles follow. Each tile overlays
+order and filter: sort or filter the list and the tiles follow. Tiles adapt to the
+width: as many columns as keep each tile at least 210 px wide (logical pixels), tiles
+at most 320 px wide, height following width; a wider window or panel adds columns
+rather than enlarging tiles, and the selected tile stays selected and in view as
+the columns reflow ([validation across window sizes](validation/gui-audit-followup.md)). Each tile overlays
 every member's recorded signed amplitudes on one vertical scale that includes zero,
 so a dip shared between correlated members, opposite signs or a large/small split
 show at a glance; members keep the cluster page's colours and order, named under the
 plot, a flagged member followed by ↔ (the correlated-profile flag; the tooltip names
 the flagged members, or that the correlation was not assessed). The header gives the cluster's mark, first member and size, and its χ²ᵣ,
-|r|max and |ρ|. A member whose amplitude is not identifiable or not established is
+|r|max and |ρ|; in a narrow tile the measures are shortened, never the name. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
-plane. Choosing a tile selects its cluster, as a cluster row does; double-click or
+plane. Opening Profiles marks the selected peak's tile and keeps the selection;
+with nothing selected, no tile is chosen. Clicking a tile or moving to one with the
+arrow keys selects its cluster, as a cluster row does; double-click or
 Enter opens it in focus on the spectrum. Comparison and canvas tools step aside
-while Profiles shows; the plane strip, selection and inspector stay. Tiles show
+while Profiles shows; the plane strip, selection and inspector stay, and returning
+to the spectrum keeps the selection. Tiles show
 no error bars: the inspector's profile carries them. The quantity chip over the tiles
 is the inspector's: raw amplitudes or ratios to the chosen reference planes, one
 choice for the session, made in either place. In ratios a dotted line marks 1; a
 member whose ratio is unavailable is left out and named under its tile, and a tile
 with no member to normalize keeps raw amplitudes and says why, as the inspector's
 profile does. **Export PDF…** writes the tiles shown, in their order, to A4
-landscape pages (twelve per page) titled with the dataset, run, quantity and filter;
+landscape pages (twelve per page, whatever the on-screen columns) titled with the dataset, run, quantity and filter;
 it is a figure of recorded values, written only when complete. After an edit the caption
 says the tiles are that run's historical values; before a fit Profiles is
 unavailable.
@@ -444,18 +482,25 @@ uncertainty of the profile. Strongly overlapping peaks can also have errors
 correlated across planes, which no independent bar shows. Where that exceeds the
 validated tolerance, the **correlated-profile flag**
 ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties), `correlated_profile`)
-marks the member with ↔ in the legend, and a caption under the plot says, for the
-selected peak, which diagnostic was found (largest correlated mode relative to c, or
-|ρ| with a partner) and that downstream fits treating the per-plane errors as
-independent can misstate parameter uncertainty. It is a caption, not a warning: a
-limit of independent per-plane errors, not of the data, and it changes nothing.
+marks the member with ↔ in the legend. When the selected peak is flagged, one
+caption under the plot names the flagged members, for example “Errors of 53N-H and
+147N-H are correlated across planes; error bars alone do not show this
+covariance.” It says nothing about the size of any σ: the marginal and profile σ
+are unaffected. Its tooltip gives the diagnostic found (largest correlated mode
+relative to c, or |ρ| with a partner); **About these error bars** adds that
+downstream fits treating the per-plane errors (`intensity_err`) as independent can
+misstate parameter uncertainty, and that the results archive records the
+covariance. It is a caption, not a warning: a limit of independent per-plane
+errors, not of the data, and it changes nothing.
 Where the cluster's lineshape factors are withheld, the caption says the correlation
 was not assessed; runs with one plane show no flag. Where the run models the
 processed noise correlation the errors are sandwich errors; otherwise they assume
 independent points. The note beside the plot says so in a few words (“±1 profile
-σ · noise correlation modelled”), with any points off scale, by plane, on a line of
-their own; χ²ᵣ is with the cluster's measures; **About these error bars** below it
-gives the noise model in full. The inspector's provenance states it once for the
+σ · noise correlation modelled”), followed by “noise check ▲ F2”, naming the axes,
+when the run's noise-power check found a mismatch, then any points off scale, by
+plane, and whether the current plane is one of them, in the same note, which wraps
+only between phrases; χ²ᵣ is with the cluster's measures; **About these
+error bars** below it gives the noise model and the noise-power finding in full. The inspector's provenance states it once for the
 run.
 
 Each member's amplitude is classified from the run's recorded shapes, with the
@@ -516,7 +561,8 @@ Drafts retain the accepted comparison. A committed manual scientific change mark
 the run **Outdated**; Overlay and Residual stay selectable and keep showing that
 run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
 legend, the pending label and the mode tooltips. On
-the spectrum, ◇ marks a working peak the model does not contain, and × the
+the spectrum, ☆ marks a working peak the model does not contain (legend
+“☆ not in this model”; ◇ is kept for review highlights), and × the
 model's recorded position of a peak moved or deleted since, with a dotted line to
 the peak. The cluster and peak pages still report that run's statistics as
 “Recorded by an outdated run”. The historical comparison is withdrawn, with the
@@ -556,8 +602,11 @@ their existing close protection. Exporting an outdated run never marks different
 working peaks as preserved. Failed or canceled exports leave the state unchanged.
 MCMC and full cluster refinement remain out of scope.
 
-The **Display** tool changes signed contour threshold, spacing/count, labels and
-stroke weight. Contours are graded from light low levels to strong high levels;
+The **Display** tool holds contours (signed first contour, level factor, levels per
+sign, stroke weight), peak labels, residual levels (first residual contour and the
+unexplained-signal threshold) and the review highlights. Every field uses a decimal
+point whatever the system locale; the first contour reads in the shared ×10ⁿ form
+and accepts plain or scientific entry (2500, 1.5e5). Contours are graded from light low levels to strong high levels;
 measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
 keep a plot-coloured halo so they stay visible over contours; the selected and
@@ -573,6 +622,13 @@ Cmd/Ctrl+Shift+F focuses the selected peak's cluster and Escape returns; under
 their intensities and Cmd/Ctrl+Shift+L shows or hides the residual lanes.
 View also provides exact sample coordinates and frequency ranges. Help lists the
 shortcuts. Delete and Space in text fields retain their ordinary text behavior.
+
+The control that has keyboard focus carries a blue ring, separate from the
+selected-row and checked-button fills; a list or tree shows it on the view's
+edge. The ring appears when you move focus with Tab, Backtab or a shortcut, or
+press a key, and stays hidden after a mouse click. When the spectrum has focus,
+even after a click, a frame in the same colour surrounds the 2D plot: A, Space,
+E/O/R and the arrow keys then act on the spectrum.
 
 See [the approved design](PeakFit_GUI_Design_Specification_v2.0.md) and
 [editor validation](validation/gui-v2-editor.md) and

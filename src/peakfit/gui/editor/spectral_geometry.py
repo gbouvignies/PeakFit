@@ -2,9 +2,11 @@
 
 The row slice sits above the 2D plot and the column slice to its right. Each shares
 its spectral extent with the plot by construction: the row slice has the plot's x
-and width, the column slice its y and height. Sizes are logical pixels the user
-controls; when space is short, lanes compress first, then slices, so the 2D plot
-keeps its minimum. Rectangles are (x, y, width, height) tuples; no Qt here.
+and width, the column slice its y and height. Slice sizes are shares of the view
+(the row slice's of its height, the column slice's of its width), so they follow
+the window; each layout resolves them to logical pixels. When space is short,
+lanes compress first, then slices, so the 2D plot keeps its minimum. Rectangles
+are (x, y, width, height) tuples; no Qt here.
 """
 
 from dataclasses import dataclass, replace
@@ -14,6 +16,11 @@ SLICE_MIN = 72  # a visible slice compresses no further
 SLICE_COLLAPSE = 48  # a divider dragged below this collapses the slice
 LANE_MIN = 24  # a visible residual lane compresses no further
 SLICE_MAX = 0.45  # a slice takes at most this share of the view
+# Default shares (row slice of the height, column slice of the width). Focus gives
+# the slices more room while the 2D contours stay large enough to judge overlap.
+# Kept after visual acceptance at 1280×800 to 2560×1440 (docs/validation/gui-audit-followup.md).
+OVERVIEW_ROW, OVERVIEW_COLUMN = 0.22, 0.18
+FOCUS_ROW, FOCUS_COLUMN = 0.30, 0.26
 GAP = 7  # divider thickness
 HEADER = 22  # caption row above the row slice
 PAD = 4  # right margin
@@ -23,12 +30,29 @@ Rect = tuple[float, float, float, float]
 
 @dataclass(frozen=True, slots=True)
 class SliceSizes:
-    """User-controlled sizes; 0 collapses a slice. Lanes follow their slice."""
+    """User-controlled shares of the view; 0 collapses a slice. Lanes follow their slice."""
 
-    row: int = 150  # row-slice height
-    column: int = 130  # column-slice width
+    row: float = OVERVIEW_ROW  # row-slice height over the view's height
+    column: float = OVERVIEW_COLUMN  # column-slice width over the view's width
     lanes: bool = False
-    lane: int = 44  # residual lane thickness when shown
+    lane: int = 44  # residual lane thickness in pixels when shown
+
+
+@dataclass(frozen=True, slots=True)
+class SlicePixels:
+    """Slice and lane sizes in logical pixels, as one layout uses them."""
+
+    row: int
+    column: int
+    lanes: bool
+    lane: int
+
+
+def default_sizes(*, focus: bool) -> SliceSizes:
+    """The default shares for the overview or for cluster focus (residual lanes on)."""
+    if focus:
+        return SliceSizes(row=FOCUS_ROW, column=FOCUS_COLUMN, lanes=True)
+    return SliceSizes()
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +76,7 @@ class Layout:
     column_divider: Rect
     header: Rect
     corner: Rect
-    sizes: SliceSizes  # after compression
+    sizes: SlicePixels  # after compression
 
 
 def _compress(available: float, lane: int, size: int, *, lanes: bool) -> tuple[int, int]:
@@ -66,13 +90,28 @@ def _compress(available: float, lane: int, size: int, *, lanes: bool) -> tuple[i
     return lane, size
 
 
-def effective(width: float, height: float, sizes: SliceSizes, extents: Extents) -> SliceSizes:
-    """The sizes that fit: lanes compress first, then slices; collapsed stays collapsed."""
+def stored_share(value: object, default: float) -> float:
+    """A share read from saved view state, within [0, SLICE_MAX]; anything else is the default."""
+    if isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 1:
+        return default
+    return min(float(value), SLICE_MAX)
+
+
+def _resolve(share: float, extent: float) -> int:
+    """A share of ``extent`` in pixels, between the slice minimum and maximum; 0 stays 0."""
+    if share <= 0:
+        return 0
+    return max(SLICE_MIN, round(min(share, SLICE_MAX) * extent))
+
+
+def effective(width: float, height: float, sizes: SliceSizes, extents: Extents) -> SlicePixels:
+    """The pixel sizes that fit: lanes compress first, then slices; collapsed stays so."""
     room_x = width - extents.left - MAIN_MIN[0] - GAP - PAD
     room_y = height - HEADER - MAIN_MIN[1] - GAP - extents.bottom
-    lane_x, column = _compress(room_x, sizes.lane, sizes.column, lanes=sizes.lanes)
-    lane_y, row = _compress(room_y, sizes.lane, sizes.row, lanes=sizes.lanes)
-    return replace(sizes, row=row, column=column, lane=min(lane_x, lane_y))
+    column, row = _resolve(sizes.column, width), _resolve(sizes.row, height)
+    lane_x, column = _compress(room_x, sizes.lane, column, lanes=sizes.lanes)
+    lane_y, row = _compress(room_y, sizes.lane, row, lanes=sizes.lanes)
+    return SlicePixels(row, column, sizes.lanes, min(lane_x, lane_y))
 
 
 def layout(width: float, height: float, sizes: SliceSizes, extents: Extents) -> Layout:
@@ -116,14 +155,18 @@ def drag(
     height: float,
     extents: Extents,
 ) -> SliceSizes:
-    """A divider dragged to ``value`` px: collapse below the threshold, keep the 2D minimum."""
+    """A divider dragged to ``value`` px, kept as a share of the view.
+
+    Below the collapse threshold the slice collapses; the 2D minimum and the maximum
+    share bound it.
+    """
     if which == "row":
+        extent = height
         room = height - HEADER - GAP - extents.bottom - MAIN_MIN[1]
-        room -= sizes.lane if sizes.lanes else 0
-        limit = min(room, SLICE_MAX * height)
     else:
+        extent = width
         room = width - extents.left - GAP - PAD - MAIN_MIN[0]
-        room -= sizes.lane if sizes.lanes else 0
-        limit = min(room, SLICE_MAX * width)
-    size = int(min(value, limit))
-    return replace(sizes, **{which: size if size >= SLICE_COLLAPSE else 0})
+    room -= sizes.lane if sizes.lanes else 0
+    size = int(min(value, room, SLICE_MAX * extent))
+    share = size / extent if size >= SLICE_COLLAPSE and extent > 0 else 0.0
+    return replace(sizes, **{which: share})

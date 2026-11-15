@@ -32,7 +32,7 @@ from peakfit.engine.scientific.profiles import (
 )
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
-from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
+from peakfit.gui.theme import LIGHT, REFERENCE_TYPE, Theme, color, type_scale
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -86,20 +86,43 @@ def correlation_findings(correlation: PeakProfileCorrelation, partner: str) -> s
     return "; ".join(found)
 
 
-def correlation_text(name: str, correlation: PeakProfileCorrelation | None, partner: str) -> str:
-    """The flag in a sentence for one peak; empty when there is nothing to say."""
-    if correlation is None:
-        return ""
-    if correlation.status is ProfileCorrelation.NOT_ASSESSED:
-        return f"Correlation of {name}'s errors across planes not assessed: {NOT_ASSESSED_REASON}"
-    if not correlation.flagged:
-        return ""
-    return (
-        f"{CORRELATED_MARK} {name}: errors correlated across planes "
-        f"({correlation_findings(correlation, partner)}). Treated as independent, the "
-        "per-plane errors can misstate downstream parameter uncertainty: a limit of that "
-        "approximation, not of the data."
+def _names(names: Sequence[str]) -> str:
+    """Join names as in prose: A; A and B; A, B and C."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def correlated_note(series: Sequence[ProfileSeries]) -> tuple[str, str]:
+    """The selected peak's correlated-profile flag in one sentence, and its tooltip.
+
+    ``series`` starts with the selected peak. The sentence names every flagged member
+    shown: their errors are correlated across planes, which independent error bars
+    cannot show. It says nothing about the size of each σ, which is unaffected; the
+    consequence for downstream fits is in the tooltip and About these error bars.
+    Empty when the selected peak carries no flag.
+    """
+    selected = series[0] if series else None
+    if selected is None or selected.correlation is None:
+        return "", ""
+    if selected.correlation.status is ProfileCorrelation.NOT_ASSESSED:
+        text = (
+            f"Correlation of {selected.assignment}'s errors across planes not assessed: "
+            f"{NOT_ASSESSED_REASON}"
+        )
+        return text, ""
+    if not selected.flagged:
+        return "", ""
+    # The selected peak first, then the other flagged members the legend shows.
+    members = [selected] + [s for s in series[1:] if s.flagged and s.identifiability.determined]
+    note = (
+        f"Errors of {_names([s.assignment for s in members])} are correlated across planes; "
+        "error bars alone do not show this covariance."
     )
+    findings = "; ".join(
+        f"{s.assignment}: {correlation_findings(s.correlation, s.correlation_partner)}"
+        for s in members
+        if s.correlation is not None
+    )
+    return note, f"{findings}. {CORRELATED_LIMIT}"
 
 
 WITHIN_TOLERANCE_TEXT = (
@@ -481,6 +504,45 @@ def ask_reference(
     return dialog
 
 
+# The profile plot at the reference type scale: its height and the left axis's
+# minimum width (wider for the A / A_ref label). Larger text adds to both.
+_PLOT_HEIGHT = 176
+_AXIS_WIDTH = 40
+_RATIO_AXIS_WIDTH = 52
+
+
+def _caption_metrics(pixels: int) -> QtGui.QFontMetrics:
+    font = QtGui.QFont(QtWidgets.QApplication.font())
+    font.setPixelSize(pixels)
+    return QtGui.QFontMetrics(font)
+
+
+def _plot_height() -> int:
+    """The reference height plus the growth of the bottom axis's two text lines."""
+    grown = _caption_metrics(type_scale().caption).height()
+    reference = _caption_metrics(REFERENCE_TYPE.caption).height()
+    return _PLOT_HEIGHT + 2 * max(0, grown - reference)
+
+
+def _left_axis_width(
+    axis: pg.AxisItem, span: tuple[float, float], length: float, scale: float, *, normalized: bool
+) -> int:
+    """Room for the widest tick label of ``span`` beside the rotated axis label."""
+    metrics = _caption_metrics(type_scale().caption)
+    widest = max(
+        (
+            metrics.horizontalAdvance(text)
+            for spacing, values in axis.tickValues(*span, max(length, 1.0))
+            for text in axis.tickStrings(values, scale, spacing)
+        ),
+        default=0,
+    )
+    # pyqtgraph's style dict; the attribute's stubs shadow it with QGraphicsItem.style.
+    offset = int(vars(axis)["style"]["tickTextOffset"][0])
+    needed = widest + offset + metrics.height() + 2
+    return max(_RATIO_AXIS_WIDTH if normalized else _AXIS_WIDTH, needed)
+
+
 class ProfilePlot(QtWidgets.QWidget):
     """The selected peak's recorded amplitudes with its cluster members, in the inspector.
 
@@ -502,15 +564,15 @@ class ProfilePlot(QtWidgets.QWidget):
         self.plot.hideButtons()
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=False, y=False)
-        self.plot.setFixedHeight(176)
+        self.plot.setFixedHeight(_plot_height())
         self.plot.setAccessibleName("Signed fitted amplitudes of the selected peak's cluster")
         font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION)
+        font.setPixelSize(type_scale().caption)
         for name in ("left", "bottom"):
             axis = self.plot.getAxis(name)
             axis.setStyle(tickFont=font, tickLength=-4, maxTickLevel=0)
             axis.enableAutoSIPrefix(False)
-        self.plot.getAxis("left").setWidth(40)
+        self.plot.getAxis("left").setWidth(_AXIS_WIDTH)
         layout.addWidget(self.plot)
         self.fallback = QtWidgets.QLabel()
         self.fallback.setObjectName("warning")
@@ -674,18 +736,10 @@ class ProfilePlot(QtWidgets.QWidget):
         self.diagnostics.setText(diagnostics)
         self.diagnostics_toggle.setVisible(bool(diagnostics))
         self.diagnostics.setVisible(bool(diagnostics) and self.diagnostics_toggle.isChecked())
-        selected = profile.series[0] if profile is not None else None
-        correlated = (
-            correlation_text(
-                selected.assignment, selected.correlation, selected.correlation_partner
-            )
-            if selected is not None
-            else ""
-        )
+        correlated, findings = correlated_note(profile.series if profile is not None else ())
         self.correlated.setText(correlated)
-        # The full meaning, and what to do next, on hover.
-        marked = selected is not None and selected.flagged
-        self.correlated.setToolTip(CORRELATED_LIMIT if marked else "")
+        # The findings and the downstream consequence on hover; About has the latter.
+        self.correlated.setToolTip(findings)
         self.correlated.setVisible(bool(correlated))
         if profile is None:
             return
@@ -761,13 +815,16 @@ class ProfilePlot(QtWidgets.QWidget):
             xRange=(low - pad, high + pad), yRange=(bottom - margin, top + margin), padding=0
         )
         power = formatting.exponent(max(abs(bottom), abs(top)))
-        style_text = {"color": self.theme.faint, "font-size": f"{FONT_CAPTION}px"}
+        style_text = {"color": self.theme.faint, "font-size": f"{type_scale().caption}px"}
         left = self.plot.getAxis("left")
         left.setScale(10.0**-power)
         scale = f"×10{formatting.superscript(str(power))}" if power else ""
         quantity = f"A / A_ref ({self.reference_text()})" if normalized else ""
         left.setLabel(" ".join(t for t in (quantity, scale) if t), **style_text)
-        left.setWidth(52 if normalized else 40)
+        span = (bottom - margin, top + margin)
+        left.setWidth(
+            _left_axis_width(left, span, self.plot.height(), 10.0**-power, normalized=normalized)
+        )
         self.plot.setLabel(
             "bottom", "Plane value" if profile.plane_values else "Plane number", **style_text
         )
@@ -874,9 +931,15 @@ class ProfilePlot(QtWidgets.QWidget):
             self.plane_line.setValue(float(profile.x[columns[0]]))
         off = bool(self._hidden_text) and columns.size > 0 and not shown
         # The qualifiers that change what a bar means, in a few words (About has the
-        # full explanation); what is unusual about the data on the next line. χ²ᵣ is
+        # full explanation); then what is unusual about the data. χ²ᵣ is
         # with the cluster's measures.
         noise = "modelled" if profile.noise_model.modelled else "not modelled"
+        # The run's noise-power check found processing the modelled correlation
+        # misses: a caveat on these errors, named by axis; About and the Analysis
+        # page give what was found and what to do.
+        mismatch = profile.noise_model.power_mismatch
+        if mismatch:
+            noise += f" · noise check ▲ {', '.join(mismatch)}"
         shown = self._normalized
         quantity = (
             f"±1σ of the ratio, lineshape uncertainty included · noise correlation {noise} · "
@@ -892,8 +955,9 @@ class ProfilePlot(QtWidgets.QWidget):
             for part in (self._hidden_text, "current plane is off scale" if off else "")
             if part
         ]
-        # Wraps only between phrases, so no qualifier is split across lines.
-        self.note.setText(phrases((*quantity.split(" · "), extra), tuple(states)))
+        # One paragraph: what the bars are, then what is off scale. It wraps only
+        # between phrases, so no qualifier is split across lines.
+        self.note.setText(phrases((*quantity.split(" · "), extra, *states)))
         # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
         if shown is None:
             quantity_text = (
@@ -922,10 +986,19 @@ class ProfilePlot(QtWidgets.QWidget):
                     "error too."
                 )
             )
+        # Where the selected peak is flagged, what that means for downstream fits.
+        selected = profile.series[0]
+        downstream = (
+            f" {selected.assignment} carries {CORRELATED_MARK}. {CORRELATED_LIMIT}"
+            if selected.flagged
+            else ""
+        )
         explanation = (
             quantity_text
+            + downstream
             + " Errors are never rescaled by χ²ᵣ. "
             + profile.noise_model.description
+            + (" " + profile.noise_model.power_warning if profile.noise_model.power_warning else "")
             + " χ²ᵣ is a goodness-of-fit diagnostic: well above 1, the noise level, the "
             "lineshape model or the noise assumptions do not describe the data, so these "
             "error bars need not match the observed scatter."

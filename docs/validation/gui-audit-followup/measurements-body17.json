@@ -1,0 +1,1495 @@
+{
+  "dataset": "examples/02-advanced-fitting/data",
+  "units": "Qt logical pixels; window.dpr converts to device pixels",
+  "type_scale": {
+    "body": 17,
+    "small": 16,
+    "caption": 14,
+    "title": 20,
+    "display": 39
+  },
+  "contrast": {
+    "Light": {
+      "text/panel": 15.296259304443499,
+      "text/chrome": 14.886361260753855,
+      "text/plot": 15.818750325555197,
+      "secondary/panel": 5.330044751625263,
+      "secondary/chrome": 5.187214084794532,
+      "faint/panel": 5.084116810779622,
+      "faint/chrome": 4.947876342234295,
+      "outline/panel": 3.529916938508779,
+      "outline/chrome": 3.4353247889718417,
+      "outline/plot": 3.6504921634008647,
+      "border/panel": 1.5044626897933266,
+      "border/chrome": 1.4641471916655455
+    },
+    "Dark": {
+      "text/panel": 13.073253786494298,
+      "text/chrome": 13.651294773052562,
+      "text/plot": 14.336960700031204,
+      "secondary/panel": 7.282847077133843,
+      "secondary/chrome": 7.604862099420679,
+      "faint/panel": 5.118431620525047,
+      "faint/chrome": 5.34474584282033,
+      "outline/panel": 3.3429153988466798,
+      "outline/chrome": 3.4907242111506536,
+      "outline/plot": 3.6660534155855378,
+      "border/panel": 1.6822597941271076,
+      "border/chrome": 1.7566418207385024
+    }
+  },
+  "captures": [
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          392,
+          460
+        ],
+        "row_slice": [
+          392,
+          152
+        ],
+        "column_slice": [
+          104,
+          460
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          392,
+          460
+        ],
+        "row_slice": [
+          392,
+          152
+        ],
+        "column_slice": [
+          104,
+          460
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Light",
+      "file": "fit-setup-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          582,
+          554
+        ],
+        "row_slice": [
+          582,
+          178
+        ],
+        "column_slice": [
+          146,
+          554
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "fit-setup",
+      "appearance": "Dark",
+      "file": "fit-setup-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          582,
+          554
+        ],
+        "row_slice": [
+          582,
+          178
+        ],
+        "column_slice": [
+          146,
+          554
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
+    },
+    {
+      "state": "failure",
+      "appearance": "Light",
+      "file": "failure-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
+    },
+    {
+      "state": "failure",
+      "appearance": "Dark",
+      "file": "failure-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "spectral": {
+        "plot": [
+          392,
+          460
+        ],
+        "row_slice": [
+          392,
+          152
+        ],
+        "column_slice": [
+          104,
+          460
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 96,
+        "fitted_top": 610,
+        "fitted_bottom": 742,
+        "fitted_notes_bottom": 816
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 96,
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 96,
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ]
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "spectral": {
+        "plot": [
+          360,
+          362
+        ],
+        "row_slice": [
+          360,
+          198
+        ],
+        "column_slice": [
+          112,
+          362
+        ],
+        "row_lane": [
+          360,
+          24
+        ],
+        "column_lane": [
+          24,
+          362
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "spectral": {
+        "plot": [
+          360,
+          386
+        ],
+        "row_slice": [
+          360,
+          198
+        ],
+        "column_slice": [
+          136,
+          386
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          634,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          210,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1280x800-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          634,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          210,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "spectral": {
+        "plot": [
+          426,
+          460
+        ],
+        "row_slice": [
+          426,
+          152
+        ],
+        "column_slice": [
+          112,
+          460
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 96,
+        "fitted_top": 627,
+        "fitted_bottom": 759,
+        "fitted_notes_bottom": 850
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 96,
+        "fitted_top": 665,
+        "fitted_bottom": 797,
+        "fitted_notes_bottom": 888
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "peak_page": {
+        "viewport_height": 687,
+        "peak_page_top": 96,
+        "fitted_top": 665,
+        "fitted_bottom": 797,
+        "fitted_notes_bottom": 888
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ]
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "spectral": {
+        "plot": [
+          360,
+          362
+        ],
+        "row_slice": [
+          360,
+          198
+        ],
+        "column_slice": [
+          154,
+          362
+        ],
+        "row_lane": [
+          360,
+          24
+        ],
+        "column_lane": [
+          24,
+          362
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [
+        {
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
+          "size": [
+            331,
+            19
+          ],
+          "needed": [
+            485,
+            19
+          ]
+        }
+      ],
+      "spectral": {
+        "plot": [
+          376,
+          386
+        ],
+        "row_slice": [
+          376,
+          198
+        ],
+        "column_slice": [
+          162,
+          386
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          634,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          210,
+          156
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1280x800-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1280,
+          800
+        ],
+        "dpr": 2.0,
+        "label": "1280\u00d7800 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          634,
+          649
+        ],
+        "columns": 3,
+        "tile": [
+          210,
+          156
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Light",
+      "file": "overview-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          582,
+          554
+        ],
+        "row_slice": [
+          582,
+          178
+        ],
+        "column_slice": [
+          146,
+          554
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Light",
+      "file": "noise-check-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Light",
+      "file": "peak-158EN-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 96,
+        "fitted_top": 610,
+        "fitted_bottom": 742,
+        "fitted_notes_bottom": 816
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Light",
+      "file": "peak-53N-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 96,
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Light",
+      "file": "peak-22N-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 96,
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Light",
+      "file": "cluster-22N-H-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Light",
+      "file": "focus-overlay-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          474,
+          426
+        ],
+        "row_slice": [
+          474,
+          236
+        ],
+        "column_slice": [
+          212,
+          426
+        ],
+        "row_lane": [
+          474,
+          44
+        ],
+        "column_lane": [
+          44,
+          426
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Light",
+      "file": "focus-residual-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          518,
+          470
+        ],
+        "row_slice": [
+          518,
+          236
+        ],
+        "column_slice": [
+          212,
+          470
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Light",
+      "file": "profiles-raw-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          778,
+          770
+        ],
+        "columns": 3,
+        "tile": [
+          258,
+          186
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Light",
+      "file": "profiles-normalized-1512x982-light.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          778,
+          770
+        ],
+        "columns": 3,
+        "tile": [
+          258,
+          186
+        ]
+      }
+    },
+    {
+      "state": "overview",
+      "appearance": "Dark",
+      "file": "overview-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          582,
+          554
+        ],
+        "row_slice": [
+          582,
+          178
+        ],
+        "column_slice": [
+          146,
+          554
+        ],
+        "row_lane": null,
+        "column_lane": null
+      },
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "noise-check",
+      "appearance": "Dark",
+      "file": "noise-check-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "noise_check": [
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
+      ]
+    },
+    {
+      "state": "peak-158EN-H",
+      "appearance": "Dark",
+      "file": "peak-158EN-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 96,
+        "fitted_top": 610,
+        "fitted_bottom": 742,
+        "fitted_notes_bottom": 816
+      }
+    },
+    {
+      "state": "peak-53N-H",
+      "appearance": "Dark",
+      "file": "peak-53N-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 96,
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
+      }
+    },
+    {
+      "state": "peak-22N-H",
+      "appearance": "Dark",
+      "file": "peak-22N-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "peak_page": {
+        "viewport_height": 808,
+        "peak_page_top": 96,
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
+      }
+    },
+    {
+      "state": "cluster-22N-H",
+      "appearance": "Dark",
+      "file": "cluster-22N-H-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": []
+    },
+    {
+      "state": "focus-overlay",
+      "appearance": "Dark",
+      "file": "focus-overlay-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          474,
+          426
+        ],
+        "row_slice": [
+          474,
+          236
+        ],
+        "column_slice": [
+          212,
+          426
+        ],
+        "row_lane": [
+          474,
+          44
+        ],
+        "column_lane": [
+          44,
+          426
+        ]
+      }
+    },
+    {
+      "state": "focus-residual",
+      "appearance": "Dark",
+      "file": "focus-residual-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "spectral": {
+        "plot": [
+          518,
+          470
+        ],
+        "row_slice": [
+          518,
+          236
+        ],
+        "column_slice": [
+          212,
+          470
+        ],
+        "row_lane": null,
+        "column_lane": null
+      }
+    },
+    {
+      "state": "profiles-raw",
+      "appearance": "Dark",
+      "file": "profiles-raw-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          778,
+          770
+        ],
+        "columns": 3,
+        "tile": [
+          258,
+          186
+        ]
+      }
+    },
+    {
+      "state": "profiles-normalized",
+      "appearance": "Dark",
+      "file": "profiles-normalized-1512x982-dark.webp",
+      "window": {
+        "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+        "qt_platform": "cocoa",
+        "logical": [
+          1512,
+          921
+        ],
+        "dpr": 2.0,
+        "label": "1512\u00d7921 logical @ DPR 2.0"
+      },
+      "clipped": [],
+      "profiles": {
+        "viewport": [
+          778,
+          770
+        ],
+        "columns": 3,
+        "tile": [
+          258,
+          186
+        ]
+      }
+    }
+  ]
+}

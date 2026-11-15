@@ -2,15 +2,31 @@
 
 import logging
 from concurrent.futures import CancelledError
+from copy import deepcopy
+from pathlib import Path
 
 import pytest
+from builders import two_cluster_dataset
 from gui_helpers import wait_until
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
+from peakfit.gui import fit_process
+from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
+from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor.fitting import FailureStage
 from peakfit.gui.editor.window import EditorWindow
-from peakfit.gui.failures import WorkerError, child_failure, failure_message, raise_child_failure
+from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.failures import (
+    WorkerError,
+    child_failure,
+    close_log,
+    failure_message,
+    install_log,
+    raise_child_failure,
+)
 from peakfit.gui.project_process import project_operation
+from peakfit.gui.spectrum import Dataset
 
 
 def test_worker_failure_shows_its_message_and_logs_the_child_traceback(tmp_path, caplog):
@@ -93,3 +109,184 @@ def test_close_refused_during_an_analysis_operation_explains_why(qapp, monkeypat
     window._busy = False
     assert window.close()
     qapp.processEvents()
+
+
+def test_unexpected_failure_message_has_no_doubled_punctuation():
+    message = failure_message(RuntimeError("Dataset fit worker exited with code 0."))
+    assert message.startswith("Unexpected RuntimeError: Dataset fit worker exited with code 0. ")
+    assert ".." not in message
+
+
+@pytest.fixture(scope="module")
+def scientific():
+    spectra, peaks, config, prepared = two_cluster_dataset()
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    return spectra, peaks, config, result
+
+
+@pytest.fixture
+def workspace(qapp, scientific):
+    spectra, peaks, config, _ = scientific
+    dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
+    widget = EditorWorkspace(dataset)
+    widget.fitting.configuration = config.model_copy(deep=True)
+    widget.fitting.setup_seen = True
+    widget.resize(1280, 750)
+    widget.show()
+    qapp.processEvents()
+    yield widget
+    widget.stop()
+    widget.close()
+    widget.deleteLater()
+    QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+
+
+def _crash(*_args, **_kwargs):
+    """A defect in the fit job: an unexpected error with a traceback."""
+    return {}["runs"]
+
+
+def _failed_fit(workspace, monkeypatch):
+    monkeypatch.setattr(fit_process, "run_child", _crash)
+    fitting = workspace.fitting
+    wait_until(lambda: fitting.prepared is not None)
+    fitting.fit()
+    wait_until(lambda: not fitting.busy)
+
+
+def _publish(workspace, result):
+    fitting = workspace.fitting
+    fitting._submitted_revision = workspace.edits.revision
+    fitting.process.state = "completed"
+    fitting._finished(0, result)
+    wait_until(lambda: not fitting.busy)
+    assert fitting.result is result, fitting.failure
+
+
+def test_a_failed_first_fit_says_there_is_no_result_yet(workspace, monkeypatch):
+    seeds = workspace.peaks
+    assert not workspace.fitting.failed
+    _failed_fit(workspace, monkeypatch)
+    fitting = workspace.fitting
+    assert fitting.failed
+    assert fitting.failure_stage is FailureStage.FITTING
+    assert fitting.attempt == "Failed · no result yet"
+    assert "Unexpected KeyError: 'runs'." in fitting.failure
+    assert fitting.result is None
+    assert workspace.peaks == seeds
+
+
+def test_a_failed_refit_says_the_previous_result_is_retained(workspace, scientific, monkeypatch):
+    result = scientific[3]
+    _publish(workspace, result)
+    seeds = workspace.peaks
+    _failed_fit(workspace, monkeypatch)
+    fitting = workspace.fitting
+    assert fitting.attempt == "Failed · previous result retained"
+    assert fitting.result is result
+    assert fitting.current
+    assert workspace.peaks == seeds
+
+
+def test_a_canceled_fit_says_whether_a_result_is_retained(workspace, scientific):
+    fitting = workspace.fitting
+    fitting.cancel()
+    assert fitting.attempt == "Canceled · no result yet"
+    assert not fitting.failed
+    _publish(workspace, scientific[3])
+    fitting.cancel()
+    assert fitting.attempt == "Canceled · previous result retained"
+
+
+def _foreground(label: QtWidgets.QLabel) -> str:
+    return label.palette().color(label.foregroundRole()).name()
+
+
+@pytest.mark.parametrize("theme", [themes.LIGHT, themes.DARK])
+def test_the_run_line_shows_a_failure_first_in_the_error_role(
+    workspace, scientific, monkeypatch, theme
+):
+    themes.apply(workspace, theme)
+    summary = workspace.summary
+    _failed_fit(workspace, monkeypatch)
+    assert summary.text() == "▲ Failed · no result yet"
+    assert _foreground(summary) == QtGui.QColor(theme.error).name()
+
+    _publish(workspace, scientific[3])
+    assert summary.text().startswith("Run ")
+    assert _foreground(summary) != QtGui.QColor(theme.error).name()
+
+    _failed_fit(workspace, monkeypatch)
+    assert summary.text().startswith("▲ Failed · previous result retained · Run ")
+    assert _foreground(summary) == QtGui.QColor(theme.error).name()
+
+
+def _analysis_sections(panel):
+    layout = panel._analysis_layout
+    widgets = (layout.itemAt(i).widget() for i in range(layout.count()))
+    return [w for w in widgets if w is not None and not w.isHidden()]
+
+
+def _row_values(grid: QtWidgets.QGridLayout) -> dict[str, str]:
+    values = {}
+    for row in range(grid.rowCount()):
+        label, value = (grid.itemAtPosition(row, c) for c in (0, 1))
+        if label is not None and value is not None:
+            title, shown = label.widget(), value.widget()
+            assert isinstance(title, QtWidgets.QLabel)
+            assert isinstance(shown, QtWidgets.QLabel)
+            values[title.text()] = shown.text()
+    return values
+
+
+def test_the_failure_is_the_first_section_of_the_analysis_page(workspace, scientific, monkeypatch):
+    panel = workspace.panel
+    assert panel.failure_block not in _analysis_sections(panel)
+    _failed_fit(workspace, monkeypatch)
+    assert _analysis_sections(panel)[0] is panel.failure_block
+    rows = _row_values(panel.failure_rows)
+    assert rows["Status"] == "▲ Failed · no result yet"
+    assert rows["Stage"] == "Fitting"
+    assert "Unexpected KeyError: 'runs'." in rows["Reason"]
+
+    _publish(workspace, scientific[3])
+    assert panel.failure_block not in _analysis_sections(panel)
+    _failed_fit(workspace, monkeypatch)
+    sections = _analysis_sections(panel)
+    assert sections[:2] == [panel.failure_block, panel.review_block]
+    assert _row_values(panel.failure_rows)["Status"] == "▲ Failed · previous result retained"
+    # The failure is no longer repeated among the active run's rows.
+    assert not any(label.startswith("Failed") for label in _row_values(panel.run_rows))
+
+
+@pytest.fixture
+def log_file(tmp_path, capsys):  # noqa: ARG001 - capture stderr before the handler binds it
+    """An installed log; its terminal handler writes to the captured stderr."""
+    path = install_log(tmp_path / "logs" / "peakfit.log")
+    yield path
+    close_log()
+
+
+def test_copy_details_and_the_log_file_report_a_failure_without_a_terminal(
+    workspace, monkeypatch, log_file, capsys
+):
+    _failed_fit(workspace, monkeypatch)
+    panel = workspace.panel
+    assert _row_values(panel.failure_rows)["Log"] == str(log_file)
+    logged = log_file.read_text(encoding="utf-8")
+    assert "Dataset fit failed" in logged
+    assert "Traceback (most recent call last)" in logged
+    assert "KeyError: 'runs'" in logged
+    # Logging to the terminal continues.
+    assert "KeyError: 'runs'" in capsys.readouterr().err
+
+    QtGui.QGuiApplication.clipboard().clear()
+    QtTest.QTest.mouseClick(panel.copy_details, QtCore.Qt.MouseButton.LeftButton)
+    copied = QtGui.QGuiApplication.clipboard().text()
+    assert "Status: ▲ Failed · no result yet" in copied
+    assert "Stage: Fitting" in copied
+    assert "Message: Unexpected KeyError: 'runs'." in copied
+    assert "Dataset: synthetic.ft2" in copied
+    assert "Active run: none" in copied
+    assert f"Log: {log_file}" in copied

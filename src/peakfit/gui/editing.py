@@ -16,7 +16,6 @@ class PeakInspector(QtWidgets.QWidget):
     """Edit one complete assignment without rounding unchanged coordinates."""
 
     commit_requested = QtCore.Signal()
-    deleted = QtCore.Signal()
     fields_changed = QtCore.Signal()
 
     def __init__(self, x_title: str, y_title: str) -> None:
@@ -29,11 +28,6 @@ class PeakInspector(QtWidgets.QWidget):
         self.details = QtWidgets.QLabel("Coordinates are unfolded ppm")
         self.details.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.details.setWordWrap(True)
-        self.delete = QtWidgets.QPushButton("Delete peak")
-        self.delete.setToolTip(
-            "Delete this peak and discard pending text; Undo restores committed values"
-        )
-        self.delete.installEventFilter(self)
         for row, (title, field) in enumerate(
             (("Name", self.name), (x_title, self.x_field), (y_title, self.y_field))
         ):
@@ -46,9 +40,7 @@ class PeakInspector(QtWidgets.QWidget):
             field.returnPressed.connect(self.commit_requested)
             field.textChanged.connect(self._fields_changed)
             field.installEventFilter(self)
-        layout.addWidget(self.delete, 0, 2)
-        layout.addWidget(self.details, 3, 0, 1, 3)
-        self.delete.clicked.connect(self.deleted)
+        layout.addWidget(self.details, 3, 0, 1, 2)
         self._peak: WorkingPeak | None = None
         self._focus_commit = QtCore.QTimer(self)
         self._focus_commit.setSingleShot(True)
@@ -64,8 +56,7 @@ class PeakInspector(QtWidgets.QWidget):
     ) -> None:
         """Populate precise fields; the caller retains selection and identity."""
         self._peak = peak
-        controls = (self.name, self.x_field, self.y_field, self.delete)
-        for control in controls:
+        for control in (self.name, self.x_field, self.y_field):
             control.setEnabled(peak is not None)
         for field, value in zip(
             (self.name, self.x_field, self.y_field),
@@ -98,8 +89,6 @@ class PeakInspector(QtWidgets.QWidget):
 
     def _commit_on_focus_leave(self) -> None:
         focus = QtWidgets.QApplication.focusWidget()
-        # Delete owns its pending text: merely focusing it must never commit or
-        # validate a draft before the user can choose to delete the committed peak.
         if (
             self.pending
             and self.isVisible()
@@ -110,7 +99,7 @@ class PeakInspector(QtWidgets.QWidget):
             and QtWidgets.QApplication.activeModalWidget() is None
             and focus is not None
             and focus.window() == self.window()
-            and focus not in (self.name, self.x_field, self.y_field, self.delete)
+            and focus not in (self.name, self.x_field, self.y_field)
         ):
             self.commit_requested.emit()
 

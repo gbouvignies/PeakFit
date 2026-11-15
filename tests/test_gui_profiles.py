@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from builders import two_cluster_dataset
+from builders import cpmg_like_dataset, decay_dataset, two_cluster_dataset
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtTest, QtWidgets
 
@@ -15,7 +15,17 @@ from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import workspace as workspace_module
-from peakfit.gui.editor.profiles_view import cluster_tiles, shown_rows
+from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, peak_profile
+from peakfit.gui.editor.profiles_view import (
+    TILE_ASPECT,
+    TILE_MAX_WIDTH,
+    TILE_MIN_HEIGHT,
+    TILE_MIN_WIDTH,
+    ProfilesView,
+    cluster_tiles,
+    shown_rows,
+    tile_grid,
+)
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.spectrum import Dataset
@@ -96,7 +106,9 @@ def test_profiles_follow_the_run_navigator_order_and_selection(workspace, scient
 
     # Choosing a tile selects its cluster; a selection elsewhere marks its tile.
     last = len(w.profiles.tile_ids()) - 1
-    w.profiles.list.setCurrentIndex(w.profiles.model.index(last))
+    point = w.profiles.list.visualRect(w.profiles.model.index(last)).center()
+    viewport = w.profiles.list.viewport()
+    QtTest.QTest.mouseClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=point)
     assert w.selected_id in w.profiles.tile_ids()[last]
     assert w.panel.cluster_view
     other = w.profiles.tile_ids()[0][0]
@@ -291,13 +303,26 @@ def test_the_correlated_profile_flag_reads_alike_on_profile_tiles_and_cluster_pa
     profile = w.panel.profile
     note = profile.correlated.text()
     assert profile.correlated.isVisible()
-    assert "correlated across planes" in note
-    assert "|ρ| 0.17" in note
-    # A limit of the approximation, not a verdict on the data.
-    assert "not of the data" in note
-    assert "independent" in note
-    assert all(word not in note.lower() for word in ("discard", "bad", "unreliable"))
-    assert "intensity_err" in profile.correlated.toolTip()  # the full meaning on hover
+    # One plain sentence naming the flagged members, selected peak first: the bars
+    # do not show the covariance between planes. It never says σ is understated.
+    names = {i.engine_name: i.assignment for i in result.inputs.identities}
+    first, second = names[pair.peak_names[0]], names[pair.peak_names[1]]
+    assert note == (
+        f"Errors of {first} and {second} are correlated across planes; "
+        "error bars alone do not show this covariance."
+    )
+    assert all(
+        word not in note.lower()
+        for word in ("understat", "underestimat", "too small", "discard", "bad", "unreliable")
+    )
+    # The findings and the downstream consequence stay one step away.
+    assert "|ρ| 0.17" in profile.correlated.toolTip()
+    assert "intensity_err" in profile.correlated.toolTip()
+    profile.about_toggle.setChecked(True)
+    about = profile.about.text()
+    assert "intensity_err" in about
+    assert "downstream" in about.lower()
+    assert "not of the data" in about
     assert profile.legend.text().count("↔") == 2  # both members carry the mark
     show_profiles(w)
     assert "↔ errors correlated across planes" in _tile_text(w, member)
@@ -338,3 +363,222 @@ def test_withheld_lineshape_factors_leave_the_profile_not_assessed(workspace, sc
     assert "correlation across planes not assessed" in _tile_text(w, member)
     w.select_peak(member, cluster=True)
     assert _review_value(w.panel.cluster_page, "Profile errors").text() == "not assessed"
+
+
+def _activate(w):
+    """Make the workspace the active window, so focus changes deliver focus events."""
+    w.activateWindow()
+    assert QtTest.QTest.qWaitForWindowActive(w)
+
+
+def test_showing_profiles_keeps_the_selected_peak_both_ways(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    _activate(w)
+    # A member of the last cluster, so the first tile can never be mistaken for it.
+    last = [r.ids for r in w.navigator.shown_reviews()][-1]
+    chosen = last[-1]
+    w.select_peak(chosen)
+    assert w.selected_id == chosen
+
+    show_profiles(w)
+    wait_until(lambda: w.profiles.list.hasFocus())
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id == chosen
+    current = w.profiles.list.currentIndex()
+    assert current.isValid()
+    assert chosen in w.profiles.tile_ids()[current.row()]
+    assert w.profiles.list.selectionModel().isSelected(current)
+
+    w.show_view(profiles=False)
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id == chosen
+    show_profiles(w)  # a second opening reuses the built tiles
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id == chosen
+
+
+def test_showing_profiles_with_nothing_selected_selects_nothing(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    _activate(w)
+    w.select_peak(None)
+    show_profiles(w)
+    wait_until(lambda: w.profiles.list.hasFocus())
+    QtWidgets.QApplication.processEvents()
+    assert w.selected_id is None
+    assert not w.profiles.list.selectionModel().hasSelection()
+
+
+def test_keys_and_clicks_on_tiles_still_choose_a_cluster(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    _activate(w)
+    show_profiles(w)
+    wait_until(lambda: w.profiles.list.hasFocus())
+    tiles = w.profiles.tile_ids()
+    assert len(tiles) >= 2
+    viewport = w.profiles.list.viewport()
+    point = w.profiles.list.visualRect(w.profiles.model.index(1)).center()
+    QtTest.QTest.mouseClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=point)
+    assert w.selected_id in tiles[1]
+    assert w.panel.cluster_view
+    QtTest.QTest.keyClick(w.profiles.list, QtCore.Qt.Key.Key_Left)
+    assert w.selected_id in tiles[0]
+    QtTest.QTest.keyClick(w.profiles.list, QtCore.Qt.Key.Key_Right)
+    assert w.selected_id in tiles[1]
+
+
+# Adaptive tiles: the grid fills the width with as many readable tiles as fit.
+
+WIDTHS = range(120, 4000, 13)
+
+
+def test_tiles_stay_within_the_limits_at_every_width():
+    for width in WIDTHS:
+        columns, size = tile_grid(width)
+        assert columns >= 1
+        assert size.width() >= TILE_MIN_WIDTH, width
+        if columns > 1:
+            assert size.width() <= TILE_MAX_WIDTH, width
+        assert size.height() >= TILE_MIN_HEIGHT
+        assert size.height() == max(TILE_MIN_HEIGHT, round(size.width() * TILE_ASPECT))
+        if width >= TILE_MIN_WIDTH:
+            assert columns * size.width() <= width, width
+
+
+def test_a_single_column_fills_the_width():
+    # Between one maximum tile and two minimum tiles, one tile takes the whole width.
+    for width in range(TILE_MAX_WIDTH + 1, 2 * TILE_MIN_WIDTH):
+        columns, size = tile_grid(width)
+        assert (columns, size.width()) == (1, width), width
+    assert tile_grid(TILE_MIN_WIDTH - 50)[1].width() == TILE_MIN_WIDTH
+
+
+def test_width_beyond_the_maximum_adds_columns():
+    previous = 0
+    for width in WIDTHS:
+        columns, size = tile_grid(width)
+        assert columns >= previous  # widening never removes a column
+        previous = columns
+        if width >= TILE_MIN_WIDTH:
+            # Unused width never holds another minimum tile: it goes to a new column.
+            assert width - columns * size.width() < TILE_MIN_WIDTH, width
+    assert tile_grid(4 * TILE_MAX_WIDTH)[0] >= 4
+
+
+def _many_tiles(scientific, count: int) -> list:
+    """``count`` tiles, each cluster recorded under its own member IDs."""
+    result = scientific[-1]
+    axes = list(scientific[0].spectral_params)
+    reviews = review_clusters(result, axes, ["¹H", "¹⁵N"][: len(axes)], HighlightRules())
+    base = list(cluster_tiles(result, reviews, None).values())
+    tiles = []
+    for n in range(count):
+        tile = base[n % len(base)]
+        review = replace(tile.review, cluster_id=n, ids=tuple(f"{i}#{n}" for i in tile.review.ids))
+        tiles.append(replace(tile, review=review))
+    return tiles
+
+
+@pytest.fixture
+def grid(qapp, scientific):
+    view = ProfilesView()
+    view.set_tiles(_many_tiles(scientific, 40), "40 clusters", "")
+    view.show()
+    qapp.processEvents()
+    yield view
+    view.close()
+    view.deleteLater()
+    QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+
+
+def _layout(view) -> tuple[int, QtCore.QSize]:
+    """Columns and tile size as the user sees them: tiles sharing the first row."""
+    QtWidgets.QApplication.processEvents()
+    rects = [view.list.visualRect(view.model.index(row)) for row in range(view.model.rowCount())]
+    first = [r for r in rects if r.top() == rects[0].top()]
+    return len(first), rects[0].size()
+
+
+@pytest.mark.parametrize("width", [480, 700, 1000, 1400, 2000])
+def test_the_view_fills_its_width_with_tiles_within_the_limits(grid, width):
+    grid.resize(width, 700)
+    columns, size = _layout(grid)
+    assert TILE_MIN_WIDTH <= size.width() <= TILE_MAX_WIDTH
+    assert size.height() >= TILE_MIN_HEIGHT
+    available = grid.list.viewport().width()
+    assert columns * size.width() <= available
+    assert available - columns * size.width() < TILE_MIN_WIDTH  # no room left for another
+
+
+def test_a_wider_view_adds_columns_not_larger_tiles(grid):
+    grid.resize(3 * TILE_MAX_WIDTH, 700)
+    narrow, _ = _layout(grid)
+    grid.resize(6 * TILE_MAX_WIDTH, 700)
+    wide, size = _layout(grid)
+    assert wide > narrow
+    assert size.width() <= TILE_MAX_WIDTH
+
+
+def test_reflowing_keeps_the_selected_tile_selected_and_visible(grid):
+    chosen = []
+    grid.cluster_chosen.connect(chosen.append)
+    grid.resize(1400, 500)
+    QtWidgets.QApplication.processEvents()
+    target = grid.tile_ids()[33][0]
+    grid.select(target)
+    for width in (500, 1900, 800):
+        grid.resize(width, 500)
+        QtWidgets.QApplication.processEvents()
+        current = grid.list.currentIndex()
+        assert current.row() == 33, width
+        assert grid.list.selectionModel().isSelected(current)
+        assert grid.list.viewport().rect().contains(grid.list.visualRect(current)), width
+    assert chosen == []  # reflowing never chooses a cluster
+    assert grid.selected == target
+
+
+def test_pdf_pages_keep_their_layout_at_any_view_width(grid, tmp_path):
+    for width in (480, 2000):
+        grid.resize(width, 600)
+        QtWidgets.QApplication.processEvents()
+        grid.export_figure(str(tmp_path / f"w{width}.pdf"))
+        # Twelve tiles per A4 page, whatever the on-screen grid.
+        assert "Exported 40 tiles on 4 pages" in grid.caption.text()
+
+
+@pytest.mark.parametrize(("build", "planes"), [(cpmg_like_dataset, 20), (decay_dataset, 10)])
+def test_short_series_tiles_carry_every_plane(build, planes):
+    # Fixtures for the tile-size validation: short series fit and tile like CEST.
+    spectra, _peaks, _config, prepared = build()
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    axes = list(spectra.spectral_params)
+    reviews = review_clusters(result, axes, ["¹H", "¹⁵N"][: len(axes)], HighlightRules())
+    tiles = cluster_tiles(result, reviews, tuple(spectra.z_values))
+    assert len(tiles) == 2
+    for tile in tiles.values():
+        assert tile.profile is not None
+        assert tile.profile.x.size == planes
+        assert all(s.amplitudes.size == planes for s in tile.profile.series)
+
+
+def test_what_the_bars_are_and_what_is_off_scale_share_one_note(qapp):
+    _spectra, _peaks, _config, prepared = cpmg_like_dataset()
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    peak = result.inputs.identities[0].working_id
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    # The first plane lies far from the rest, so it is framed out; it is the current one.
+    x = np.concatenate(([-12000.0], np.arange(shown.x.size - 1) * 25.0))
+    panel = ProfilePlot()
+    panel.show()
+    panel.show_profile(replace(shown, x=x), int(shown.source_planes[0]))
+    qapp.processEvents()
+    note = panel.note.text()
+    assert "±1 profile σ" in note
+    assert "1 point off scale" in note
+    assert "current plane is off scale" in note
+    # One paragraph that wraps only between phrases, not a line for each kind.
+    assert "<br>" not in note
+    panel.close()

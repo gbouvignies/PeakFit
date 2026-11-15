@@ -32,18 +32,49 @@ from peakfit.gui.editor.profile import (
     quantity_menu,
     reference_text,
 )
-from peakfit.gui.theme import FONT_CAPTION, FONT_SMALL, LIGHT, SPACE_M, SPACE_S, Theme
+from peakfit.gui.theme import (
+    LIGHT,
+    REFERENCE_TYPE,
+    SPACE_M,
+    SPACE_S,
+    Theme,
+    TypeScale,
+    type_scale,
+)
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.editor.review import ClusterReview
 
-_TILE = QtCore.QSize(240, 184)  # preferred tile; columns stretch to fill the width
-_MIN_WIDTH = 200
+# Adaptive tile grid (on screen only; PDF pages keep their fixed layout). Limits kept
+# after visual acceptance (docs/validation/gui-audit-followup.md): at the minimum a
+# tile's plot is about 190 px wide (about 1.5 px per plane of the bundled 131-plane
+# CEST series), and the narrowest dips there stay recognisable; 1280×800 then shows
+# three columns instead of two. Height follows the width, with a floor that keeps the
+# plot area near 90 px under header and legend.
+TILE_MIN_WIDTH = 210
+TILE_MAX_WIDTH = 320
+TILE_ASPECT = 0.72  # tile height / tile width
+TILE_MIN_HEIGHT = 156
 _PAD = 8
 _ROLE = QtCore.Qt.ItemDataRole.UserRole
 # PDF pages: A4 landscape at 96 dpi, four columns by three rows of tiles.
 _PDF_DPI, _PDF_COLUMNS, _PDF_ROWS = 96, 4, 3
+
+
+def tile_grid(width: int) -> tuple[int, QtCore.QSize]:
+    """Column count and tile size for an available width in logical pixels.
+
+    Columns are the largest count whose tiles meet the minimum width; tiles stretch to
+    fill the width up to the maximum, so further width adds a column instead. A
+    single column fills the whole width, even past the maximum, rather than leave
+    dead space beside it; a width narrower than one minimum tile still gets one
+    minimum tile.
+    """
+    columns = max(1, width // TILE_MIN_WIDTH)
+    widest = TILE_MAX_WIDTH if columns > 1 else max(TILE_MIN_WIDTH, width)
+    tile = min(widest, max(TILE_MIN_WIDTH, width // columns))
+    return columns, QtCore.QSize(tile, max(TILE_MIN_HEIGHT, round(tile * TILE_ASPECT)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +101,7 @@ class Style:
 
     theme: Theme
     font: QtGui.QFont
+    sizes: TypeScale  # on screen the application's; in PDF pages the reference sizes
     plane: int = -1  # zero-based source plane marked on every tile; -1 for none
     selected: str | None = None
     reference: tuple[int, ...] = ()
@@ -219,7 +251,7 @@ def paint_tile(
     top = _header(painter, inner, tile, style)
     if tile.profile is None:
         area = QtCore.QRectF(inner.left(), top + 4, inner.width(), inner.bottom() - top - 4)
-        caption = _font(style.font, FONT_CAPTION)
+        caption = _font(style.font, style.sizes.caption)
         _text(painter, area, tile.reason, theme.secondary, caption, center=True)
     else:
         shown = shown_rows(tile.profile, style.reference, style.normalized)
@@ -232,8 +264,8 @@ def paint_tile(
 def _header(painter, inner: QtCore.QRectF, tile: Tile, style: Style) -> float:
     """Mark, first member and count, then the cluster's measures; returns its bottom."""
     theme, review = style.theme, tile.review
-    small, caption = _font(style.font, FONT_SMALL), _font(style.font, FONT_CAPTION)
-    height = FONT_SMALL + 6
+    small, caption = _font(style.font, style.sizes.small), _font(style.font, style.sizes.caption)
+    height = style.sizes.small + 6
     row = QtCore.QRectF(inner.left(), inner.top(), inner.width(), height)
     x = row.left()
     if review.warnings or review.highlights:
@@ -243,11 +275,15 @@ def _header(painter, inner: QtCore.QRectF, tile: Tile, style: Style) -> float:
     count = len(review.names)
     name = (review.names[0] if review.names else "") + (f"  +{count - 1}" if count > 1 else "")
     measures = _measures(review)
-    width = QtGui.QFontMetrics(caption).horizontalAdvance(measures)
-    right = QtCore.QRectF(row.right() - width, row.top(), width, height)
+    bold = _font(style.font, style.sizes.small, bold=style.selected in review.ids)
+    # A narrow tile keeps the cluster's name whole and elides its measures instead.
+    named = min(QtGui.QFontMetrics(bold).horizontalAdvance(name), row.right() - x)
+    width = min(
+        QtGui.QFontMetrics(caption).horizontalAdvance(measures), row.right() - x - named - 6
+    )
+    right = QtCore.QRectF(row.right() - max(0.0, width), row.top(), max(0.0, width), height)
     _text(painter, right, measures, theme.secondary, caption)
     left = QtCore.QRectF(x, row.top(), max(0.0, right.left() - x - 6), height)
-    bold = _font(style.font, FONT_SMALL, bold=style.selected in review.ids)
     _text(painter, left, name, theme.text, bold)
     return row.bottom()
 
@@ -255,9 +291,9 @@ def _header(painter, inner: QtCore.QRectF, tile: Tile, style: Style) -> float:
 def _legend(painter, inner: QtCore.QRectF, profile: PeakProfile, shown: Shown, style) -> float:
     """Members in their profile colours, then what is not drawn; returns its top."""
     theme = style.theme
-    height = FONT_CAPTION + 5
+    height = style.sizes.caption + 5
     top = inner.bottom() - (2 if shown.notes else 1) * height
-    font = _font(style.font, FONT_CAPTION)
+    font = _font(style.font, style.sizes.caption)
     metrics = QtGui.QFontMetrics(font)
     painter.setFont(font)
     colors = theme.members
@@ -291,7 +327,8 @@ def _plot(painter, area: QtCore.QRectF, tile: Tile, shown: Shown, style: Style) 
     visible = np.ones(x.size, dtype=bool) if frame is None else (x >= frame[0]) & (x <= frame[1])
     if not shown.rows or not visible.any():
         note = "No member's amplitude is determined"
-        _text(painter, area, note, theme.secondary, _font(style.font, FONT_CAPTION), center=True)
+        caption = _font(style.font, style.sizes.caption)
+        _text(painter, area, note, theme.secondary, caption, center=True)
         return
     values = np.concatenate([v[visible] for _i, v in shown.rows])
     finite = values[np.isfinite(values)]
@@ -357,8 +394,8 @@ def export_pdf(path: Path, tiles: list[Tile], style: Style, title: str) -> int:
         painter = QtGui.QPainter(writer)
         try:
             page = QtCore.QRectF(painter.viewport())
-            caption = _font(style.font, FONT_SMALL)
-            heading = FONT_SMALL + 14
+            caption = _font(style.font, style.sizes.small)
+            heading = style.sizes.small + 14
             width = page.width() / _PDF_COLUMNS
             height = (page.height() - heading) / _PDF_ROWS
             for number in range(pages):
@@ -443,6 +480,33 @@ class _TileDelegate(QtWidgets.QStyledItemDelegate):
         )
 
 
+class _TileList(QtWidgets.QListView):
+    """The tile grid; it tells user moves of the current tile from programmatic ones.
+
+    Qt also moves the current tile when the list gains focus or is repopulated; only
+    a click or keyboard navigation counts as the user choosing a cluster.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.user_move = False
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        """A press on a tile chooses its cluster."""
+        self._as_user(super().mousePressEvent, event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        """Keyboard navigation chooses the cluster it lands on."""
+        self._as_user(super().keyPressEvent, event)
+
+    def _as_user(self, handler, event) -> None:
+        self.user_move = True
+        try:
+            handler(event)
+        finally:
+            self.user_move = False
+
+
 class ProfilesView(QtWidgets.QWidget):
     """Scan every cluster's profiles; choose one to review it, activate it to focus it."""
 
@@ -458,7 +522,7 @@ class ProfilesView(QtWidgets.QWidget):
         self.reference: tuple[int, ...] = ()
         self.normalized = False
         self.title = "Profiles"  # names the dataset and run in exported figures
-        self.tile_size = QtCore.QSize(_TILE)
+        self.tile_size = tile_grid(TILE_MIN_WIDTH)[1]
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(SPACE_M, SPACE_S, SPACE_M, 0)
         layout.setSpacing(SPACE_S)
@@ -491,9 +555,9 @@ class ProfilesView(QtWidgets.QWidget):
         self.empty.hide()
         layout.addWidget(self.empty, 1)
 
-    def _build_list(self) -> QtWidgets.QListView:
+    def _build_list(self) -> _TileList:
         """A wrapping, virtualized grid of painted tiles."""
-        self.list = QtWidgets.QListView()
+        self.list = _TileList()
         self.list.setObjectName("profiles")
         self.list.setViewMode(QtWidgets.QListView.ViewMode.IconMode)
         self.list.setMovement(QtWidgets.QListView.Movement.Static)
@@ -518,6 +582,7 @@ class ProfilesView(QtWidgets.QWidget):
         return Style(
             self.theme,
             QtGui.QFont(self.font()),
+            type_scale(),
             self.plane,
             self.selected,
             self.reference,
@@ -590,9 +655,14 @@ class ProfilesView(QtWidgets.QWidget):
             if self.normalized
             else "signed amplitudes"
         )
-        # Printed figures carry no selection or current-plane mark.
+        # Printed figures carry no selection or current-plane mark, and keep the
+        # reference type sizes so their page layout does not follow the screen's font.
         style = Style(
-            LIGHT, QtGui.QFont(self.font()), reference=self.reference, normalized=self.normalized
+            LIGHT,
+            QtGui.QFont(self.font()),
+            REFERENCE_TYPE,
+            reference=self.reference,
+            normalized=self.normalized,
         )
         try:
             pages = export_pdf(destination, self.model.tiles, style, f"{self.title} · {quantity}")
@@ -610,9 +680,12 @@ class ProfilesView(QtWidgets.QWidget):
         )
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
-        """Refit the columns whenever the tiles' viewport changes width."""
+        """Refit the columns whenever the tiles' viewport resizes; keep the current tile in view."""
         if watched is self.list.viewport() and event.type() == QtCore.QEvent.Type.Resize:
             self._fit_columns()
+            current = self.list.currentIndex()
+            if current.isValid():
+                self.list.scrollTo(current)
         return super().eventFilter(watched, event)
 
     def _mode_menu(self) -> None:
@@ -635,10 +708,8 @@ class ProfilesView(QtWidgets.QWidget):
         )
 
     def _fit_columns(self) -> None:
-        """Columns fill the width: as many preferred-size tiles as fit, then stretched."""
-        width = self.list.viewport().width() - 2
-        columns = max(1, width // _TILE.width())
-        size = QtCore.QSize(max(_MIN_WIDTH, width // columns), _TILE.height())
+        """Columns fill the width with as many tiles as stay readable (``tile_grid``)."""
+        _columns, size = tile_grid(self.list.viewport().width() - 2)
         if size != self.tile_size or self.list.gridSize() != size:
             self.tile_size = size
             self.list.setGridSize(size)
@@ -649,6 +720,9 @@ class ProfilesView(QtWidgets.QWidget):
         return self.selected if self.selected in ids else (ids[0] if ids else None)
 
     def _current_changed(self, current, _previous) -> None:
+        # Focus and population move the current tile too; they never choose a cluster.
+        if not self.list.user_move:
+            return
         if current.isValid() and (target := self._target(current.row())):
             self.cluster_chosen.emit(target)
 

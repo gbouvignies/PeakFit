@@ -1,5 +1,6 @@
 """Plain-text labels: selectable styled text, and one that elides without losing its text."""
 
+from dataclasses import dataclass
 from html import escape
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -10,9 +11,16 @@ from peakfit.gui.theme import SPACE_M
 # for their values.
 LABEL_WIDTH = 104
 
-# One review row: muted label, value, label style of the value, caption under the
-# value, tooltip on the value.
-type Row = tuple[str, str, str, str, str]
+
+@dataclass(frozen=True)
+class Row:
+    """One review row: a muted label, its value, and the value's style, caption and tooltip."""
+
+    label: str
+    value: str
+    style: str = ""
+    detail: str = ""
+    tip: str = ""
 
 
 def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
@@ -20,15 +28,15 @@ def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
     grid.setColumnMinimumWidth(0, LABEL_WIDTH)
     grid.setColumnStretch(1, 1)
     line = 0
-    for label, value, style, detail, tip in rows:
-        title = text_label(label, "muted")
+    for row in rows:
+        title = text_label(row.label, "muted")
         grid.addWidget(title, line, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-        shown = text_label(value, style, wrap=True)
-        shown.setToolTip(tip)
+        shown = text_label(row.value, row.style, wrap=True)
+        shown.setToolTip(row.tip)
         grid.addWidget(shown, line, 1)
         line += 1
-        if detail:
-            grid.addWidget(text_label(detail, "caption", wrap=True), line, 1)
+        if row.detail:
+            grid.addWidget(text_label(row.detail, "caption", wrap=True), line, 1)
             line += 1
 
 
@@ -51,10 +59,53 @@ def phrases(*lines: tuple[str, ...]) -> str:
     )
 
 
+def fit_phrases(parts: list[tuple[str, str]], metrics: QtGui.QFontMetrics, width: int) -> str:
+    """Rich text of ``(plain, rich)`` phrases joined by " · " within ``width``.
+
+    Phrases that do not fit are dropped whole from the end and "…" marks the cut,
+    so no phrase is ever shown cut in the middle.
+    """
+    for count in range(len(parts), -1, -1):
+        shown = [plain for plain, _rich in parts[:count]]
+        if count < len(parts):
+            shown.append("…")
+        if count == 0 or metrics.horizontalAdvance(" · ".join(shown)) <= width:
+            rich = [r for _plain, r in parts[:count]]
+            return " · ".join(rich + (["…"] if count < len(parts) else []))
+    return ""
+
+
 def show_text(label: QtWidgets.QLabel, text: str) -> None:
     """Set a label's text and hide it when empty, so it leaves no gap."""
     label.setText(text)
     label.setVisible(bool(text))
+
+
+class PhraseLabel(QtWidgets.QLabel):
+    """Rich-text phrases on one line that drop whole phrases, marked "…", to fit.
+
+    The tooltip holds every phrase and a hint; the label refits when resized.
+    """
+
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self._phrases: list[tuple[str, str]] = []
+
+    def set_phrases(self, phrases: list[tuple[str, str]], hint: str) -> None:
+        """Show ``(plain, rich)`` phrases; the tooltip lists them all, then ``hint``."""
+        self._phrases = phrases
+        full = " · ".join(plain for plain, _rich in phrases)
+        self.setToolTip(f"{full}\n{hint}" if full else hint)
+        self._fit()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        """Refit the phrases to the new width."""
+        super().resizeEvent(event)
+        self._fit()
+
+    def _fit(self) -> None:
+        self.setText(fit_phrases(self._phrases, self.fontMetrics(), self.width()))
 
 
 class ElidedLabel(QtWidgets.QLabel):

@@ -1,0 +1,80 @@
+{
+  "window": "1280\u00d7800 logical @ DPR 2.0",
+  "checks": {
+    "180-light": {
+      "selected_in_profiles": true,
+      "selected_after_return": true
+    },
+    "181-light": {
+      "edge_peak": "126EN-H",
+      "extent": [
+        [
+          6.500391416511055,
+          10.497546741951686
+        ],
+        [
+          110.69619313551303,
+          129.33575579862836
+        ]
+      ],
+      "unchanged_at_full": true,
+      "zoomed": [
+        [
+          9.498257910591528,
+          10.497546741951686
+        ],
+        [
+          110.69619313551303,
+          115.35608380129187
+        ]
+      ],
+      "zoomed_within_extent": true
+    },
+    "183-tab-walk-light": [
+      "QPushButton:tab",
+      "QTreeWidget:Clusters of the active run; warning or highlight, first me",
+      "_SceneView:2D spectrum with native slices; Space pins slices; A places",
+      "Inspector:inspector",
+      "STOP: Tab from the Inspector scroll area segfaults natively"
+    ],
+    "180-dark": {
+      "selected_in_profiles": true,
+      "selected_after_return": true
+    },
+    "181-dark": {
+      "edge_peak": "126EN-H",
+      "extent": [
+        [
+          6.500391416511055,
+          10.497546741951686
+        ],
+        [
+          110.69619313551303,
+          129.33575579862836
+        ]
+      ],
+      "unchanged_at_full": true,
+      "zoomed": [
+        [
+          9.498257910591528,
+          10.497546741951686
+        ],
+        [
+          110.69619313551303,
+          115.35608380129187
+        ]
+      ],
+      "zoomed_within_extent": true
+    },
+    "183-tab-walk-dark": [
+      "QPushButton:tab",
+      "QTreeWidget:Clusters of the active run; warning or highlight, first me",
+      "_SceneView:2D spectrum with native slices; Space pins slices; A places",
+      "Inspector:inspector",
+      "STOP: Tab from the Inspector scroll area segfaults natively"
+    ],
+    "188-labels-with-star": [
+      "<div style=\"color:#a3aeba;font-size:11px\"><span style=\"white-space:nowrap\"><span style=\"color:#8fb3ea\">\u2501\u2501</span>&nbsp;measured +</span>&nbsp;&nbsp; <span style=\"white-space:nowrap\"><span style=\"color:#d08ad0\">\u254d\u254d</span>&nbsp;\u2212</span>&nbsp;&nbsp; <span style=\"white-space:nowrap\"><span style=\"color:#e9a83c\">\u2501\u2501</span>&nbsp;model \u00b7 Run c0d85895 \u00b7 historical</span>&nbsp;&nbsp; <span style=\"white-space:nowrap\"><span style=\"color:#e2a24a\">\u2606</span>&nbsp;not in this model</span></div>"
+    ]
+  }
+}

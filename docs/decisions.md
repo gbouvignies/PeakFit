@@ -139,8 +139,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - It is shown only on the data the run recorded: spectral axes, source plane
   indices, plane values and the spectrum's identity, shape and source files must
   match the run's input snapshot. Otherwise it is withdrawn with the reason.
-- Working peaks are compared with the run's adopted working peaks by stable ID: ◇
-  marks a peak the model does not contain; × the model's position of a peak moved or
+- Working peaks are compared with the run's adopted working peaks by stable ID: ☆
+  (◇ until 2026-11-14) marks a peak the model does not contain; × the model's position of a peak moved or
   deleted since, so a residual centred on the old position is read correctly.
 - The unexplained list keeps the run's regions but measures distances to the
   current working peaks, recomputed after every edit and said in its note: the
@@ -1361,3 +1361,123 @@ Short records of non‑obvious design choices and trade‑offs.
   gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.
+
+## 2026-11-14: Centring from lists stays within the data (#181)
+- Choosing a peak or cluster away from the spectrum (lists, links, change summary,
+  warning navigation) centres it at the current zoom, then clamps the range inside
+  the data's extent on each axis narrower than the data; an axis already showing
+  the whole extent does not move. Plain centring panned an edge cluster at full
+  spectrum to 8.03–12.03 ppm on data spanning 6.50–10.50 ppm, leaving 40–50 % of
+  the 2D plot and part of both slices empty.
+- A click on the spectrum keeps the minimal reveal; cluster focus keeps its frame.
+
+## 2026-11-14: One meaning per review glyph (#188)
+- ◇ means only a review highlight (navigator, cluster page, tiles, run changes).
+  A working peak a historical model does not contain was also marked ◇ (spectrum,
+  legend, unexplained list, its note); it is now ☆, drawn as a hollow star in the
+  warning colour with its own legend entry “☆ not in this model”. A star is
+  distinct in shape from every other spectrum mark (+ peak, □ unadopted, × recorded
+  position, ◇ highlight) and renders in the system fonts.
+- ▲ means only a numerical warning. The slice caption counted clipped samples as
+  “▲ 3 clipped · △ 1 model clipped”; it now says “3 data samples clipped · 1 model
+  sample clipped”. The edge marks themselves (filled for data, hollow for model)
+  are unchanged.
+
+## 2026-11-14: Failure log file (#186)
+- **A per-user log file.** PeakFit launched from a desktop launcher has no terminal,
+  so `launch` adds a file to the `peakfit.gui` log: `~/Library/Logs/PeakFit/`
+  (macOS), `%LOCALAPPDATA%\PeakFit\Logs\` (Windows), `$XDG_STATE_HOME/peakfit/`
+  (Linux), each `peakfit.log`. Only errors are written, with their tracebacks,
+  including those raised in worker processes. The terminal keeps receiving them.
+- **Bounded.** One rotated predecessor of at most 1 MB; no retention setting.
+- **Shown, not hidden.** The failure section of the analysis page shows the path,
+  and **Copy details** includes it. If the file cannot be created, PeakFit starts
+  anyway and logs to the terminal only.
+
+## 2026-11-14: Adaptive Profiles tiles (#191)
+- The Profiles grid takes the largest column count whose tiles are at least
+  `TILE_MIN_WIDTH` = 210 px wide; tiles stretch to fill the width up to
+  `TILE_MAX_WIDTH` = 320 px; height is 0.72 × width, at least 156 px. Further width
+  adds a column. Replaces a 240 px preferred width, unbounded stretch and fixed
+  184 px height, which gave two columns (about 7 tiles per screen) at 1280×800.
+- Reasoning for the provisional values: at 1280×800 the Profiles viewport measured
+  654 px wide (offscreen, default panels), so three columns need a minimum of at
+  most 217 px. At 210 px the plot is about 190 px wide, about 3 px per plane of a
+  60-plane CEST profile; the plot area keeps about 90 px of height under header and
+  legend. Synthetic short series (`cpmg_like_dataset`, 20 planes with an outlier;
+  `decay_dataset`, 10 planes) were drawn at 210, 260 and 320 px: the outlier and
+  both members stay distinguishable at 210 px.
+- At 210 px a multi-member header cannot hold the name and all measures, so the
+  header keeps the cluster's name whole and elides the measures (full text in the
+  tooltip).
+- Pending: visual acceptance on the bundled CEST tiles and of the view at
+  1280×800, 1512×982, 1920×1080 and 2560×1440 with DPR, both appearances, using the
+  validation tool of #179; the constants may change with it.
+- PDF export keeps A4 landscape, twelve tiles per page.
+
+## 2026-11-14: Native slices take shares of the spectral view (#190)
+- Replaces the fixed slice sizes of 2026-11-06 (row 150 px, column 130 px at every
+  window size, so a larger window enlarged only the 2D plot). A slice size is now a
+  share of the spectral view: the row slice's of its height, the column slice's of
+  its width. Defaults: 22 % / 18 % in the overview, 30 % / 26 % in cluster focus,
+  which gives lineshape, model and signed residual more room while the 2D contours
+  stay large enough to judge overlap. These are provisional named constants in
+  `spectral_geometry` until visual validation on the bundled dataset (#179).
+- The space rules hold: slice minimum 72 px, collapse below 48 px, maximum 45 % of
+  the view, lanes 24 px minimum, 2D plot 360×300 minimum, compression lanes →
+  slices → other side panel, and the window is never enlarged. Lanes keep a fixed
+  thickness in pixels.
+- Divider drags and Cmd/Ctrl+Alt+arrows are stored as shares, so proportions
+  survive window resizes and panel toggles; double-click restores the default of
+  the current context (overview or focus).
+- **Breaking.** Saved view state stores `row_share`/`column_share` for the overview
+  and for focus. Slice sizes saved in pixels (`row`/`column`) are ignored: those
+  analyses reopen at the default shares, with no migration.
+
+## 2026-11-14: Peak page brings fitted values into view (#189)
+- **Review cluster › in the header.** It sits beside the peak's name, under the
+  cluster size, instead of on a row of its own above the editor.
+- **No Delete peak button.** Deletion is the Delete key (Backspace on a Mac
+  keyboard) on the spectrum or the Peaks list, **Edit → Delete selected peaks**,
+  which now shows the key, and a context menu on the spectrum and the list (new:
+  the specification already treated context menus as shortcuts to menu commands).
+  Each is one Undo entry without confirmation. Right-clicking a marker selects it
+  first, so the menu never acts on a peak other than the one under the pointer.
+  The key is bound only to the spectrum and the list, never to inspector controls.
+- **Correlated-profile caption in one sentence.** “Errors of 53N-H and 147N-H are
+  correlated across planes; error bars alone do not show this covariance.” It
+  names the flagged members and makes no claim about the size of any σ: the
+  marginal and profile σ are correct as recorded; what independent bars cannot
+  carry is the covariance between planes. The diagnostic found is in the tooltip;
+  the consequence for downstream fits that treat `intensity_err` as independent
+  moved to **About these error bars**.
+- **One note under the legend.** What the bars are (“±1 profile σ · noise
+  correlation modelled · noise check ▲ F2”) and what is off scale (“1 point off
+  scale (plane 1) · current plane is off scale”) form one paragraph that wraps only
+  between phrases, instead of two lines. The quantity and off-scale chips stay on
+  their own line: beside the legend they would not fit at 1280×800 (inspector
+  content about 430 px; chips about 355 px).
+- **Measured** with `tools/validate_gui_layout.py` (Fitted amplitude-row bottom in
+  inspector content px for 158EN-H / 53N-H / 22N-H; viewport in brackets; all
+  logical @ DPR 2.0; the 1512×982 and 1920×1080 requests are clamped by the screen
+  to 921 px high): before 722 / 830 / 833 at 1280×800 [687]; after 681 / 724 / 740
+  at every size, 1160×720 [607], 1280×800 [687], 1440×900 [787], 1512×921 [808],
+  1920×921 [808]. At 1280×800 a single peak's table is now in view; for clusters it
+  needs 37–53 px of scrolling, which the ticket accepts. The profile plot keeps its
+  176 px height and the inspector width.
+
+## 2026-11-15: Slice shares and tile limits kept after matrix validation (#190, #191, #192)
+- **Slice shares unchanged**: 22 % / 18 % in the overview, 30 % / 26 % in cluster
+  focus. At 1280×800 logical @ DPR 2.0 focus leaves the 2D plot at 384×350, close
+  to its 360×300 floor, with 198/176 px slices; larger focus shares would push the
+  plot to its floor at the common laptop size, smaller ones bring the slices under
+  200 px. At 1920×1080 and 2560×1440 (offscreen, DPR 1.0) all three stay useful.
+- **Tile limits unchanged**: 210–320 px wide, 0.72 × width, at least 156 px. On
+  screen tiles are 213–267 px; narrow CEST dips, multi-member clusters and the
+  synthetic 20- and 10-plane series stay distinguishable at the minimum.
+  One exception from review: when only one column fits (321–419 px), its tile
+  fills the width instead of stopping at 320 px beside dead space.
+- Evidence, the matrix and what was not verified (native DPR 1, full-height large
+  screens, Linux, compositor fractional scaling, a real large system font):
+  [validation note](validation/gui-audit-followup.md). The acceptance tool gained
+  `--body-px` (simulated system font) and a per-capture list of clipped labels.

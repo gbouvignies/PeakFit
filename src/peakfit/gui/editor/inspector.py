@@ -39,6 +39,7 @@ from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import correlation_matrix
 from peakfit.gui.editor.setup import FitSetup
+from peakfit.gui.failures import log_path
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
@@ -58,7 +59,7 @@ class PreciseInspector(PeakInspector):
         """Populate a new committed group without feeding formatted values into science."""
         self._peak = peak
         self._baseline = {}
-        for field in (self.name, self.x_field, self.y_field, self.delete):
+        for field in (self.name, self.x_field, self.y_field):
             field.setEnabled(peak is not None)
         dx, dy = self.decimals
         values = (
@@ -287,7 +288,9 @@ class Inspector(QtWidgets.QScrollArea):
         self.setObjectName("inspector")
         self.setWidgetResizable(True)
         self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # The workspace opens the inspector wider at a larger system font; a page wider
+        # than a narrowed inspector scrolls rather than being cut at its edge.
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setMinimumWidth(300)
         self._axes = {
             axis.label: formatting.nucleus(axis.nucleus, axis.label) for axis in (x_axis, y_axis)
@@ -302,20 +305,26 @@ class Inspector(QtWidgets.QScrollArea):
         self.kind = _label("", "section")
         self.title = _label("", "title")
         self.status = _label("", "muted", wrap=True)
-        for widget in (self.kind, self.title, self.status):
-            layout.addWidget(widget)
-        # Peak page
-        self.peak_page = QtWidgets.QWidget()
-        peak = QtWidgets.QVBoxLayout(self.peak_page)
-        peak.setContentsMargins(0, themes.SPACE_XS, 0, 0)
-        peak.setSpacing(themes.SPACE_S)
+        # The peak page's header: identity and size above, Review cluster beside the
+        # identity, so the link takes no row of its own.
         self.cluster_link = QtWidgets.QPushButton()
         self.cluster_link.setObjectName("link")
         self.cluster_link.setFlat(True)
         self.cluster_link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.cluster_link.clicked.connect(self.cluster_requested)
         self.cluster_link.hide()
-        peak.addWidget(self.cluster_link, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        heading = QtWidgets.QHBoxLayout()
+        heading.setSpacing(themes.SPACE_S)
+        heading.addWidget(self.title, 1)
+        heading.addWidget(self.cluster_link, 0, QtCore.Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(self.kind)
+        layout.addLayout(heading)
+        layout.addWidget(self.status)
+        # Peak page
+        self.peak_page = QtWidgets.QWidget()
+        peak = QtWidgets.QVBoxLayout(self.peak_page)
+        peak.setContentsMargins(0, themes.SPACE_XS, 0, 0)
+        peak.setSpacing(themes.SPACE_S)
         x_title = f"{self._axes[x_axis.label]} · {x_axis.label} ppm"
         y_title = f"{self._axes[y_axis.label]} · {y_axis.label} ppm"
         self.editor = PreciseInspector(x_title, y_title)
@@ -327,10 +336,6 @@ class Inspector(QtWidgets.QScrollArea):
         grid.setHorizontalSpacing(themes.SPACE_S)
         grid.setVerticalSpacing(6)
         grid.setColumnMinimumWidth(0, LABEL_WIDTH)  # the inspector's shared label column
-        # Same validated group-commit component, composed vertically in the inspector.
-        grid.removeWidget(self.editor.delete)
-        grid.addWidget(self.editor.delete, 4, 0, 1, 2, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.editor.delete.setObjectName("chip")
         self.editor.details.setMinimumWidth(0)
         self.draft = _label("", "warning")
         self.draft.hide()
@@ -411,6 +416,23 @@ class Inspector(QtWidgets.QScrollArea):
         analysis.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
         self._analysis_layout = analysis
+        # A failed attempt leads the page, above the two blocks that follow.
+        self.failure_block = QtWidgets.QWidget()
+        failure = QtWidgets.QVBoxLayout(self.failure_block)
+        failure.setContentsMargins(0, 0, 0, 0)
+        failure.setSpacing(themes.SPACE_S)
+        section(failure, "Last fit attempt")
+        self.failure_rows = QtWidgets.QGridLayout()
+        self.failure_rows.setHorizontalSpacing(themes.SPACE_S)
+        self.failure_rows.setVerticalSpacing(3)
+        failure.addLayout(self.failure_rows)
+        self.copy_details = QtWidgets.QPushButton("Copy details")
+        self.copy_details.setToolTip("Copy the stage, message and diagnostic context")
+        self.copy_details.clicked.connect(self._copy_failure_details)
+        failure.addWidget(self.copy_details, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self._failure_details = ""
+        self.failure_block.hide()
+        analysis.addWidget(self.failure_block)
         # Two blocks: the fit setup leads before the first fit, the run review after.
         self.setup_block = QtWidgets.QWidget()
         setup = QtWidgets.QVBoxLayout(self.setup_block)
@@ -531,6 +553,8 @@ class Inspector(QtWidgets.QScrollArea):
         self.peak_page.setVisible(peak is not None and not cluster)
         self.cluster_page.setVisible(cluster)
         self.analysis_page.setVisible(peak is None)
+        if peak is None or cluster:
+            self.cluster_link.hide()  # shown again by the peak page's recorded result
         source, target = (
             (self.peak_profile_slot, self.cluster_page.profile_slot)
             if cluster
@@ -567,8 +591,9 @@ class Inspector(QtWidgets.QScrollArea):
             return
         layout = self._analysis_layout
         first = self.review_block if fitted else self.setup_block
-        if layout.indexOf(first) != 0:
-            layout.insertWidget(0, first)
+        after_failure = layout.indexOf(self.failure_block) + 1
+        if layout.indexOf(first) != after_failure:
+            layout.insertWidget(after_failure, first)
         for widget in (self.unexplained_section, self.unexplained_button, self.unexplained_note):
             widget.setVisible(fitted)
         self.kind.setText("ANALYSIS")
@@ -582,6 +607,26 @@ class Inspector(QtWidgets.QScrollArea):
         _clear(self.run_rows)
         label_rows(self.run_rows, run)
         self.next_button.setVisible(warned)
+
+    def show_failure(self, rows: list[Row], details: str) -> None:
+        """Lead the analysis page with a failed attempt, or hide it with no rows.
+
+        ``details`` is the plain text **Copy details** puts on the clipboard.
+        """
+        self._failure_details = details
+        self.failure_block.setVisible(bool(rows))
+        path = log_path()
+        if rows and path is not None:
+            rows = [
+                *rows,
+                Row("Log", str(path), style="caption", tip="The traceback is in this file"),
+            ]
+        _clear(self.failure_rows)
+        label_rows(self.failure_rows, rows)
+
+    def _copy_failure_details(self) -> None:
+        clipboard = QtGui.QGuiApplication.clipboard()
+        clipboard.setText(self._failure_details)
 
     def show_result(
         self,
@@ -690,7 +735,7 @@ class Inspector(QtWidgets.QScrollArea):
         self._changes_key = key
         self.changes_title.setVisible(bool(parent))
         _clear(self.changes)
-        rows: list[Row] = [("Parent run", parent, "", "", "")] if parent else []
+        rows: list[Row] = [Row("Parent run", parent)] if parent else []
 
         def flush() -> None:
             if rows:
@@ -705,7 +750,7 @@ class Inspector(QtWidgets.QScrollArea):
             kind = entry[0]
             if kind == "row":
                 _kind, label, value, tip = entry
-                rows.append((label, value, "", "", tip))
+                rows.append(Row(label, value, tip=tip))
                 continue
             flush()
             if kind == "link":
@@ -770,7 +815,7 @@ class Inspector(QtWidgets.QScrollArea):
         self._reveal = False
 
         def scroll():  # once the reordered page has its geometry
-            if self._analysis_layout.indexOf(target) == 0:  # keep the page header in view
+            if self._analysis_layout.indexOf(target) == 1:  # keep the page header in view
                 self.verticalScrollBar().setValue(0)
                 return
             body = self.widget()
@@ -959,18 +1004,23 @@ class Inspector(QtWidgets.QScrollArea):
             label_rows(
                 self.review,
                 [
-                    ("Warnings" if i == 0 else "", f"▲ {w.kind}", "warning", w.detail, "")
+                    Row(
+                        "Warnings" if i == 0 else "",
+                        f"▲ {w.kind}",
+                        style="warning",
+                        detail=w.detail,
+                    )
                     for i, w in enumerate(warned)
                 ]
-                or [("Warnings", "none", "", "", "No numerical warnings recorded")],
+                or [Row("Warnings", "none", tip="No numerical warnings recorded")],
             )
             return
         by_engine = result.index.by_engine
         matrix = correlation_matrix(cluster)
         if len(cluster.peak_names) == 1:
-            correlation = ("ρ", "not applicable", "", "", "Single-peak cluster")
+            correlation = Row("ρ", "not applicable", tip="Single-peak cluster")
         elif matrix is None:
-            correlation = ("ρ", "unavailable", "", "", "Covariance not recorded")
+            correlation = Row("ρ", "unavailable", tip="Covariance not recorded")
         else:
             index = cluster.peak_names.index(engine)
             row = matrix[index].copy()
@@ -978,12 +1028,11 @@ class Inspector(QtWidgets.QScrollArea):
             partner = int(np.nanargmax(np.abs(row)))
             name = cluster.peak_names[partner]
             other = by_engine[name].assignment if name in by_engine else name
-            correlation = (
+            correlation = Row(
                 f"ρ {other}",
                 formatting.number(float(row[partner]), 2),
-                "",
-                CORRELATION_QUALIFIER,
-                "Strongest amplitude correlation with another member, conditional on "
+                detail=CORRELATION_QUALIFIER,
+                tip="Strongest amplitude correlation with another member, conditional on "
                 "the fitted lineshapes",
             )
         assignments = dict(zip(review.ids, review.names, strict=True))

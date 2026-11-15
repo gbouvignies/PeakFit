@@ -126,8 +126,9 @@ The desktop application keeps the Qt event loop free of scientific and disk work
   a staged directory by rename.
 - Every job boundary (background lane, fit process, archive process, export) logs
   a failure's full traceback to the `peakfit.gui` logger, which prints to the
-  terminal that started PeakFit; worker processes send theirs back with the
-  failure (`gui.failures`). Dialogs show `ValueError`/`OSError` messages as raised,
+  terminal that started PeakFit and, once `launch` installs it, to the per-user
+  log file (`gui.failures.install_log`); worker processes send theirs back with
+  the failure (`gui.failures`). Dialogs show `ValueError`/`OSError` messages as raised,
   and ask for a report for anything else.
 - The editor renders fitting state on its transitions, never by polling:
   `DatasetFitting.state_changed` fires when a job or result changes, and the
@@ -141,6 +142,30 @@ The desktop application keeps the Qt event loop free of scientific and disk work
 
 Measured latencies are local evidence, not portable guarantees; native
 measurements and screenshots are recorded under `docs/validation/`.
+
+### GUI acceptance captures
+
+`uv run python tools/validate_gui_layout.py --output <dir>` drives the real window
+on the bundled `02-advanced-fitting` dataset and writes WebP captures and
+`measurements.json` to `<dir>`, which must lie outside the repository. States: fit
+setup before the fit, a failed first fit, then after a real two-pass fit the
+overview, the noise-check text when present, the peak pages of 158EN-H, 53N-H and
+22N-H, the cluster page and cluster focus (Overlay, Residual) of 22N-H, and the
+Profiles view (raw, normalized to plane 1). `--sizes 1280x800 1440x900` and
+`--appearance Light Dark` choose the matrix (defaults: 1280×800, 1440×900,
+1160×720, both appearances). Each capture records platform, Qt platform plugin,
+logical window size and device-pixel ratio (`1280×800 logical @ DPR 2.0`), plus its
+measurements in Qt logical pixels: 2D plot, slice and lane sizes; inspector
+viewport height and the Fitted table's top and bottom (inspector content
+coordinates, the bottom of its last value row); Profiles columns and tile size.
+The report also gives the theme's text/surface and control-border/surface contrast
+ratios and the type scale in use. Each capture lists `clipped` labels, visible text
+that needs more room than it was given; `--body-px 17` simulates a larger system
+font (the type scale for that body size) to find fixed sizes that cut text. As
+`launch` does, it installs the log file (`<dir>/peakfit.log`), so the failure
+state records its rows, the log path among them. Run it on a desktop; offscreen
+captures are not native acceptance evidence.
+Its measurements are tested in `tests/test_gui_layout_validation.py`.
 
 ## Whole-dataset desktop fitting and review
 
