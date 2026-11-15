@@ -156,7 +156,7 @@ def plot_intensity(
 
     Examples:
         peakfit plot intensity Fits/20240101_120000/
-        peakfit plot intensity results/ -o profiles.pdf
+        peakfit plot intensity Fits/20240101_120000/ -o profiles.pdf
     """
     output_path = output or (results / "intensity_profiles.pdf")
     _configure_plot_ui(

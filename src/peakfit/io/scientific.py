@@ -203,9 +203,23 @@ def read_results(results_dir: Path, needed_by: str):
     if not archive.is_file():
         raise FileNotFoundError(
             f"No scientific.npz in {results_dir}: {needed_by} the archive PeakFit writes "
-            "with every fit. Refit to produce one."
+            f"with every fit. {missing_run_hint(results_dir, 'Refit to produce one.')}"
         )
     return read_scientific(archive)
+
+
+def missing_run_hint(results_dir: Path, otherwise: str) -> str:
+    """Point at the runs inside ``results_dir``, which ``peakfit fit --output`` creates.
+
+    Each fit writes ``<output>/<timestamp>/``; passing ``<output>`` itself is the usual
+    slip. With no run inside, ``otherwise`` is the advice.
+    """
+    runs = sorted(archive.parent.name for archive in results_dir.glob("*/scientific.npz"))
+    if not runs:
+        return otherwise
+    return f"Pass a run directory such as {results_dir / runs[-1]}" + (
+        f" ({len(runs)} runs here)." if len(runs) > 1 else "."
+    )
 
 
 def read_metadata(archive):
