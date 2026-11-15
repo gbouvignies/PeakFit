@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from builders import cpmg_like_dataset, decay_dataset, two_cluster_dataset
 from gui_helpers import wait_until
-from PySide6 import QtCore, QtTest, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
 from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.scientific.profiles import Normalized, normalize
@@ -582,3 +582,37 @@ def test_what_the_bars_are_and_what_is_off_scale_share_one_note(qapp):
     # One paragraph that wraps only between phrases, not a line for each kind.
     assert "<br>" not in note
     panel.close()
+
+
+def test_a_screen_reader_hears_words_and_one_comparison_choice(workspace, scientific):
+    """What VoiceOver reads: names, roles and keyboard routes, never bare glyphs."""
+    w = workspace
+    a11y = QtGui.QAccessible.queryAccessibleInterface
+    # The inspector takes focus so arrows scroll it; the stop must have a name.
+    assert a11y(w.panel).text(QtGui.QAccessible.Text.Name) == "Inspector"
+    publish(w, scientific[-1])
+    # Experimental / Overlay / Residual are one choice (spec §5), as Peaks / Clusters.
+    roles = {a11y(b).role() for b in (*w.mode_buttons, *w.navigator.tab_buttons)}
+    assert roles == {QtGui.QAccessible.Role.RadioButton}
+    overlay = w.mode_buttons[1]
+    QtTest.QTest.mouseClick(overlay, QtCore.Qt.MouseButton.LeftButton)
+    QtTest.QTest.mouseClick(overlay, QtCore.Qt.MouseButton.LeftButton)
+    assert [b.isChecked() for b in w.mode_buttons] == [False, True, False]
+    # The warning column speaks words; ▲ and ◇ stay visual.
+    tree = w.navigator.tree
+    spoken = [
+        tree.topLevelItem(i).data(0, QtCore.Qt.ItemDataRole.AccessibleTextRole)
+        for i in range(tree.topLevelItemCount())
+    ]
+    assert spoken
+    assert all(s and not {"▲", "◇"} & set(s) for s in spoken)
+    # A tile says how to focus its cluster from the keyboard, and Return does it.
+    w.show_view(profiles=True)
+    wait_until(lambda: "Computing" not in w.profiles.caption.text())
+    tiles = w.profiles.list
+    index = w.profiles.model.index(0)
+    assert "Return to focus" in index.data(QtCore.Qt.ItemDataRole.AccessibleTextRole)
+    tiles.setCurrentIndex(index)
+    tiles.setFocus()
+    QtTest.QTest.keyClick(tiles, QtCore.Qt.Key.Key_Return)
+    wait_until(lambda: w.focus_open)

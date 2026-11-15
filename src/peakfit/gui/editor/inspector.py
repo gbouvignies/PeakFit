@@ -286,6 +286,8 @@ class Inspector(QtWidgets.QScrollArea):
     def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
         super().__init__()
         self.setObjectName("inspector")
+        # Focusable so arrows scroll it; a screen reader names the stop.
+        self.setAccessibleName("Inspector")
         self.setWidgetResizable(True)
         self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         # The workspace opens the inspector wider at a larger system font; a page wider
