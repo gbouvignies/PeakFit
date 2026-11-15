@@ -64,7 +64,7 @@ outside the repository, as the tool requires.
 | Linux X11 and Wayland, any size | No Linux desktop on this machine | A Linux session (e.g. the Ubuntu workstation) running the same tool natively, `xcb` and `wayland` plugins |
 | Linux fractional scaling 1.25 and 1.5 | Offscreen `QT_SCALE_FACTOR` exercises Qt's scaling of the layout, not a compositor's fractional scaling or font hinting | Ubuntu with GNOME fractional scaling at 125 % and 150 % (X11 and Wayland) |
 | Linux large system font | `--body-px 17` installs the type scale a 17 px system font would produce; it does not change the platform font, so native widgets that read the system font directly were not exercised | Ubuntu with Large Text or a 13–14 pt interface font |
-| Screen-reader output, real-mouse gestures, PDF output | Out of scope here (spec #178) | Moderated walkthrough |
+| Screen-reader output | Out of scope here (spec #178) | Moderated walkthrough |
 
 ## Measurements, native (macOS, cocoa, DPR 2.0, body 13 px)
 
@@ -253,6 +253,16 @@ fits. At body 13 px nothing changed.
   in full (wrapped) above Copy details.
 - **Both appearances.** Every state was captured in light and dark at every native
   size; geometry is identical between them.
+
+## Final native acceptance (macOS 27.2.1, cocoa, DPR 2.0, #193 at 587d0f6)
+
+| Check | Input | Result |
+| --- | --- | --- |
+| Backspace and Delete in text fields leave the selected peak | Real keyboard, by hand ([Native input checks](../development.md#native-input-checks), steps 1–2) | Pass |
+| Right-click and Ctrl-click menus on markers and Peaks rows select, delete, and undo in one step | Real mouse, by hand (step 3) | Pass |
+| Overview and focus at body 13 and 17 px, 1280×800 and 1512×921 | Capture tool | Pass; at 17 px in focus the 2D plot sits at its 360 px minimum and residual lanes at 24 px |
+| Dragged slice shares survive resize, focus, save and reopen | The dividers' drag handler, not a real mouse drag | Pass; shares exact, pixels compressed at 1160×720 by design |
+| Profiles PDF export | Export from the reopened analysis | Pass; 121 tiles on 11 A4-landscape pages |
 
 ## Issues found and their status
 

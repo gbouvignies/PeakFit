@@ -174,6 +174,36 @@ native acceptance evidence. CI's non-required `Native smoke (macOS)` job runs it
 uploads the captures.
 Its measurements are tested in `tests/test_gui_layout_validation.py`.
 
+For a check the tool does not cover, script it with the tool's `Session` (import
+`validate_gui_layout` with `tools/` on `sys.path`): it opens the real window on the
+bundled dataset and offers `fit()`, `capture()` and `each()`. Create the
+`QApplication` before the `Session`, and run the script's body under
+`if __name__ == "__main__":`. Fit workers start with `spawn`, which re-imports the
+script, so without the guard the first fit fails with "Dataset fit worker exited
+with code 1".
+
+### Native input checks
+
+Qt test events bypass the native event path, so keyboard and context-menu behavior
+needs real input on macOS. Open a fitted analysis with
+`uv run peakfit gui <analysis.peakfit>` and watch the peak count above the
+navigator (**Peaks N**).
+
+1. Backspace in a text field edits only the text. With a peak selected, press
+   Backspace and Delete in the plane field, a peak-page position field and a field
+   of the Display dialog: the text edits and the count does not change.
+2. Backspace on the spectrum deletes. Click the 2D plot, click a peak marker, press
+   Backspace: the count drops by one; ⌘Z restores it. Edit ▸ Delete selected peaks
+   shows ⌫.
+3. Context menus select, then act. A right-click on a peak marker, a Ctrl-click on
+   another marker and a right-click on a Peaks list row each select that peak and
+   open a menu with Delete selected peaks. Deleting removes that peak; one ⌘Z brings
+   it back at its position.
+
+A failure to watch for: the count dropping in step 1, or a menu acting on a peak
+other than the one under the pointer. Record the result, the PeakFit commit and the
+macOS version in the validation note.
+
 ## Whole-dataset desktop fitting and review
 
 The GUI runs `run_pipeline_iter` in its existing disposable-process bridge, with a
