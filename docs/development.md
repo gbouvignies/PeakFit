@@ -163,8 +163,11 @@ ratios and the type scale in use. Each capture lists `clipped` labels, visible t
 that needs more room than it was given; `--body-px 17` simulates a larger system
 font (the type scale for that body size) to find fixed sizes that cut text. As
 `launch` does, it installs the log file (`<dir>/peakfit.log`), so the failure
-state records its rows, the log path among them. Run it on a desktop; offscreen
-captures are not native acceptance evidence.
+state records its rows, the log path among them. A watchdog ends the run with
+every thread's traceback when one state takes longer than `--stall` seconds
+(default 300; the fit gets 900), so a modal dialog or a native deadlock fails
+instead of hanging. Run it on a desktop; offscreen captures are not native
+acceptance evidence.
 Its measurements are tested in `tests/test_gui_layout_validation.py`.
 
 ## Whole-dataset desktop fitting and review

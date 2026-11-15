@@ -1,6 +1,8 @@
 """The measurements of the GUI acceptance tool (tools/validate_gui_layout.py)."""
 
 import importlib
+import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 
@@ -181,3 +183,21 @@ def test_clipped_labels_reports_visible_text_cut_by_its_fixed_size(qapp, tool):
 def test_device_pixel_ratio_text_keeps_fractional_scale_factors(tool, dpr, text):
     # Linux fractional scaling (1.25, 1.75) must not read as 1.2 or 1.8.
     assert tool.dpr_text(dpr) == text
+
+
+def test_watchdog_ends_a_blocked_run_with_its_tracebacks():
+    # A modal dialog or native deadlock blocks the main thread where no wait can see it.
+    script = (
+        "import sys, time; sys.path.insert(0, sys.argv[1]);"
+        "import validate_gui_layout as tool; tool.arm_watchdog(0.5); time.sleep(60)"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", script, str(TOOLS)],
+        capture_output=True,
+        text=True,
+        timeout=50,
+        check=False,
+    )
+    assert done.returncode != 0
+    assert "Timeout" in done.stderr
+    assert 'File "<string>"' in done.stderr  # where the main thread was blocked

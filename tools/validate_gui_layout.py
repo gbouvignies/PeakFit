@@ -7,6 +7,7 @@ every record also states the device-pixel ratio and the Qt platform plugin.
 """
 
 import argparse
+import faulthandler
 import json
 import platform
 from dataclasses import asdict
@@ -40,6 +41,8 @@ CLUSTER = "22N-H"
 REFERENCE = (0,)  # the off-resonance reference plane of the CEST series
 PASSES = 2  # the default fit setup
 FAILURE = "Validation tool: simulated worker failure on a first fit"
+STALL = 300.0  # seconds one state may take before the watchdog ends the run
+FIT_STALL = 900.0  # the real two-pass fit of the whole dataset
 
 # Text and control-border pairs of the theme, as (foreground, surface) token names;
 # ``outline`` bounds editable controls, ``border`` buttons and tooltips.
@@ -84,6 +87,16 @@ def window_record(widget: QtWidgets.QWidget) -> dict[str, object]:
         "dpr": dpr,
         "label": f"{width}×{height} logical @ DPR {dpr_text(dpr)}",
     }
+
+
+def arm_watchdog(seconds: float) -> None:
+    """End the process with every thread's traceback if it is still here in ``seconds``.
+
+    The waits below time out on their own, but a modal dialog or a native deadlock
+    blocks the event loop where no wait can see it; the watchdog thread still fires.
+    Re-arming replaces the previous deadline.
+    """
+    faulthandler.dump_traceback_later(seconds, exit=True)
 
 
 def steady(measure, interval=50, timeout=10.0):
@@ -209,8 +222,10 @@ def noise_check_text(window: QtWidgets.QWidget) -> list[str]:
 class Session:
     """The real window on the bundled dataset, captured state by state."""
 
-    def __init__(self, output: Path) -> None:
+    def __init__(self, output: Path, stall: float = STALL) -> None:
         self.output = output
+        self.stall = stall
+        arm_watchdog(stall)
         self.window = EditorWindow()
         self.window.install_dataset(
             read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
@@ -244,6 +259,7 @@ class Session:
                 **measures,
             }
         )
+        arm_watchdog(self.stall)
 
     def before_fit(self, size: str, appearance: str) -> None:
         """Loaded, unfitted: the inspector opens at the fit setup."""
@@ -309,20 +325,22 @@ class Session:
     def fit(self) -> None:
         """Run the default two-pass fit of the reviewed setup, as Fit does."""
         w = self.w
+        arm_watchdog(max(self.stall, FIT_STALL))
         wait_until(lambda: w.fitting.prepared is not None, timeout=60)
         w.fit_button.click()
         wait_until(lambda: not w.fitting.busy, timeout=600)
+        arm_watchdog(self.stall)
         assert w.fitting.current, w.fitting.failure
         assert w.fitting.result is not None
         assert w.fitting.result.outcome.n_optimizer_passes == PASSES
 
 
-def run(output: Path, sizes, appearances) -> list[dict[str, Any]]:
+def run(output: Path, sizes, appearances, stall: float = STALL) -> list[dict[str, Any]]:
     """Drive every agreed state; the failure is delivered before the first fit."""
     output.mkdir(parents=True, exist_ok=True)
     # As launch does: the failure state then names the log file (#186).
     install_log(output / "peakfit.log")
-    session = Session(output)
+    session = Session(output, stall)
     session.each(sizes, appearances, session.before_fit)
     # A first fit that fails: nothing is retained, which the failure state must say.
     session.w.fitting._finished(0, RuntimeError(FAILURE))
@@ -338,6 +356,7 @@ def run(output: Path, sizes, appearances) -> list[dict[str, Any]]:
         "captures": session.records,
     }
     (output / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
+    faulthandler.cancel_dump_traceback_later()
     return session.records
 
 
@@ -353,6 +372,13 @@ def main() -> None:
         metavar="PX",
         help="simulate a system font of this body size (logical px) to check clipping",
     )
+    parser.add_argument(
+        "--stall",
+        type=float,
+        default=STALL,
+        metavar="S",
+        help=f"end the run with tracebacks when one state takes longer (default {STALL:.0f} s)",
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT):
@@ -360,7 +386,7 @@ def main() -> None:
     _app = QtWidgets.QApplication([])  # alive for the run
     if args.body_px:
         use_type_scale(TypeScale.for_body(args.body_px))
-    records = run(output, args.sizes, args.appearance)
+    records = run(output, args.sizes, args.appearance, args.stall)
     for record in records:
         window = record["window"]
         extra = {k: v for k, v in record.items() if k not in ("state", "file", "window")}
