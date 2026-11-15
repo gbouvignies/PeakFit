@@ -294,6 +294,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             button.setObjectName("segment")
             button.setProperty("edge", ("first", "", "last")[index])
             button.setCheckable(True)
+            # One choice group (spec §5): a screen reader hears radio buttons.
+            button.setAutoExclusive(True)
             button.setChecked(index == 0)
             button.setEnabled(index == 0)
             button.clicked.connect(lambda _checked=False, mode=index: self.set_mode(mode))

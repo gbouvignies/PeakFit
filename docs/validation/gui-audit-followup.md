@@ -64,7 +64,7 @@ outside the repository, as the tool requires.
 | Linux X11 and Wayland, any size | No Linux desktop on this machine | A Linux session (e.g. the Ubuntu workstation) running the same tool natively, `xcb` and `wayland` plugins |
 | Linux fractional scaling 1.25 and 1.5 | Offscreen `QT_SCALE_FACTOR` exercises Qt's scaling of the layout, not a compositor's fractional scaling or font hinting | Ubuntu with GNOME fractional scaling at 125 % and 150 % (X11 and Wayland) |
 | Linux large system font | `--body-px 17` installs the type scale a 17 px system font would produce; it does not change the platform font, so native widgets that read the system font directly were not exercised | Ubuntu with Large Text or a 13–14 pt interface font |
-| Screen-reader output | Out of scope here (spec #178) | Moderated walkthrough |
+| Spoken VoiceOver output | The accessibility tree Qt hands VoiceOver was audited (below); hearing it needs macOS Accessibility or VoiceOver AppleScript permission, or a person | A moderated VoiceOver walkthrough of the same states |
 
 ## Measurements, native (macOS, cocoa, DPR 2.0, body 13 px)
 
@@ -263,6 +263,27 @@ fits. At body 13 px nothing changed.
 | Overview and focus at body 13 and 17 px, 1280×800 and 1512×921 | Capture tool | Pass; at 17 px in focus the 2D plot sits at its 360 px minimum and residual lanes at 24 px |
 | Dragged slice shares survive resize, focus, save and reopen | The dividers' drag handler, not a real mouse drag | Pass; shares exact, pixels compressed at 1160×720 by design |
 | Profiles PDF export | Export from the reopened analysis | Pass; 121 tiles on 11 A4-landscape pages |
+
+## Screen-reader names (macOS, cocoa, `main` at da2e2ec)
+
+What VoiceOver reads is what Qt's accessibility tree exposes. A script drove the real
+window through the capture tool's `Session` (fit setup, overview, a peak, a cluster,
+cluster focus, normalized Profiles at 1280×800), Tabbed through each state and walked
+the tree, recording name, role, state, value and description.
+
+| Check | Result |
+| --- | --- |
+| Every button, field, checkbox, list, tree and slider has a name | Pass in all six states (82–166 nodes each) |
+| Disabled actions say why | Pass: Overlay/Residual “Requires a run with usable clusters”; Profiles “available after a fit” |
+| Spectrum view | Named with its keys; its description is the pinned position and intensity |
+| Inspector focus stop | **Fixed**: was unnamed |
+| Comparison selector (spec §5: one choice group) | **Fixed**: was three independent checkboxes; now radio buttons |
+| Cluster warning column | **Fixed**: read “▲”, “◇” or nothing; now “Numerical warning: …”, “Highlight: …” or “No numerical warning or highlight” |
+| Return on a Profiles tile | **Fixed**: did nothing on macOS (Qt's item views edit, never activate, on Return), although `docs/gui.md` promised it; tiles now say “double-click or Return to focus” |
+| A focused ppm field reads its full float64 value | Accepted: the field shows the exact value while editing |
+
+Not fixed: cluster-row cells are read one by one (“158EN-H”, “1”, “9.55”) and rely
+on VoiceOver announcing column headers, which only a spoken walkthrough confirms.
 
 ## Issues found and their status
 

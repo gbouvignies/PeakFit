@@ -270,6 +270,8 @@ Optimized working coordinates remain exportable as ordinary peak CSV.
 
 A usable completed run opens **Overlay**, showing the sum of every usable cluster
 at native coordinates and both aligned slices. Selection never isolates the model.
+Experimental, Overlay and Residual are one choice: Tab reaches the group once and
+the arrow keys move between them.
 **Residual** shows `(native experiment − total usable model) / σ_stat`, including
 model tails outside fitting masks. Default signed contours are ±3, ±5, ±8, ±13 and
 ±21 σ_stat; Display can scale these levels by changing the first residual contour.

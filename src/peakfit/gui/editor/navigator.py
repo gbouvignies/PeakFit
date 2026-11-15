@@ -443,6 +443,14 @@ class Navigator(QtWidgets.QWidget):
         item.setText(0, "▲" if warned else "◇" if review.highlights else "")
         tips = [f"▲ {w.kind}" for w in review.warnings] + [f"◇ {h.rule}" for h in review.highlights]
         item.setToolTip(0, "\n".join(tips) or "No numerical warning or highlight")
+        spoken = [f"Numerical warning: {w.kind}" for w in review.warnings] + [
+            f"Highlight: {h.rule}" for h in review.highlights
+        ]
+        item.setData(
+            0,
+            QtCore.Qt.ItemDataRole.AccessibleTextRole,
+            "; ".join(spoken) or "No numerical warning or highlight",
+        )
         item.setForeground(0, QtGui.QBrush(self._warning if warned else self._subdued))
         item.setText(1, names[0] if names else "")
         item.setToolTip(1, " · ".join(names))

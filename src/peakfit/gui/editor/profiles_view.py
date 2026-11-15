@@ -203,7 +203,7 @@ def _describe(tile: Tile, reference: tuple[int, ...], normalized: bool) -> str:
         quantity = (
             f"A / A_ref ({reference_text(reference)})" if shown.ratio else "Signed amplitudes"
         )
-        lines.append(f"{quantity}, all members on one scale · double-click to focus")
+        lines.append(f"{quantity}, all members on one scale · double-click or Return to focus")
     return "\n".join(lines)
 
 
@@ -496,7 +496,16 @@ class _TileList(QtWidgets.QListView):
         self._as_user(super().mousePressEvent, event)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
-        """Keyboard navigation chooses the cluster it lands on."""
+        """Keyboard navigation chooses the cluster it lands on; Return focuses it.
+
+        On macOS Qt's item views treat Return as "edit", never "activate", which left
+        the keyboard no way to focus a tile's cluster.
+        """
+        if event.key() in (QtCore.Qt.Key.Key_Return, QtCore.Qt.Key.Key_Enter) and (
+            self.currentIndex().isValid()
+        ):
+            self.activated.emit(self.currentIndex())
+            return
         self._as_user(super().keyPressEvent, event)
 
     def _as_user(self, handler, event) -> None:
