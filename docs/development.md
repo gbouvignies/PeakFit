@@ -166,8 +166,12 @@ font (the type scale for that body size) to find fixed sizes that cut text. As
 state records its rows, the log path among them. A watchdog ends the run with
 every thread's traceback when one state takes longer than `--stall` seconds
 (default 300; the fit gets 900), so a modal dialog or a native deadlock fails
-instead of hanging. Run it on a desktop; offscreen captures are not native
-acceptance evidence.
+instead of hanging. After the captures it walks the fitted window with Tab, then
+Backtab, from Fit (`keyboard_walk.stops` in the report) and fails if the keys
+reached fewer than 10 focus stops. Run it on a desktop; offscreen captures are not
+native acceptance evidence. CI's non-required `Native smoke (macOS)` job runs it at
+1280×800 Light on a hosted runner, fails on a crash or any `clipped` label, and
+uploads the captures.
 Its measurements are tested in `tests/test_gui_layout_validation.py`.
 
 ## Whole-dataset desktop fitting and review
