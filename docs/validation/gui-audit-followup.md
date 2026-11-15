@@ -27,6 +27,11 @@ is what the window manager gave and is authoritative.
   native font rendering, a Qt menu bar inside the window).
 - Spot checks of #180, #181, #183 and #188 used a scratch script driving the same
   session (results in [spot-checks.json](gui-audit-followup/spot-checks.json)).
+- Review fixes (15 November 2026, after code review of PR #193): reruns of
+  `--sizes 1280x800` (body 13 px, both appearances) and
+  `--sizes 1280x800 1512x982 --body-px 17` on the fixed branch, same machine. At
+  body 13 px every measurement is identical to the tables below; the 17 px results
+  replace `measurements-body17.json`.
 
 Evidence in [gui-audit-followup/](gui-audit-followup/): `measurements.json`
 (native, 168 captures: 7 sizes × 2 appearances × 12 states),
@@ -91,6 +96,13 @@ Fitted positions are in inspector content coordinates (the convention of the
 14 November 2026 audit, whose 1280×800 baseline was 709/817/820 against 687). At
 1280×800 the multi-member pages need 37–53 px of scrolling, which spec #178 accepts.
 
+**Audit baseline reproduced by the tool (#179).** The tool at f39b922 (the #179
+commit, before #184, #186 and #189), extracted with `git archive f39b922` into a
+scratch directory and run there natively with
+`uv run --frozen python tools/validate_gui_layout.py --output <dir> --sizes 1280x800 --appearance Light`,
+records `1280×800 logical @ DPR 2.0` with Fitted bottoms **709 / 817 / 820** for
+158EN-H / 53N-H / 22N-H against a 687 px viewport: the audit's numbers exactly.
+
 ### Offscreen: full-height large sizes and scale factors
 
 | Recorded size | Overview: 2D plot, row h, column w | Focus Overlay: 2D plot, row h, column w | Fitted bottom / viewport | Profiles columns, tile |
@@ -140,8 +152,9 @@ and 18 % of its width for the column slice; cluster focus 30 % / 26 %.
 width, at least 156 px.
 
 - On screen the tile is 213–267 px wide (3 columns at 1280×800, 4 at 1512, 6 at
-  1920, 9 at 2560); the maximum applies only to one-column widths of 321–419 px,
-  and the height floor sets the height up to about 217 px wide.
+  1920, 9 at 2560), and the height floor sets the height up to about 217 px wide.
+  Where only one column fits (321–419 px) its tile now fills the width instead of
+  stopping at 320 px beside dead space (review fix; `decisions.md`).
 - CEST tiles, raw and normalized to plane 1: the narrow dips of 32N-H and 39N-H
   near the edge of the offset range, the overlapping two-member clusters
   (53N-H/147N-H, 128N-H/138N-H) and the four-member 22N-H cluster remain
@@ -157,28 +170,53 @@ width, at least 156 px.
 ## Larger system font (#185), simulated body 17 px
 
 `--body-px 17` (caption 14, small 16, title 20 px), 1280×800 and 1512×921 logical
-@ DPR 2.0, both appearances. Text grows everywhere, and the spectral and Profiles
-geometry stays within its rules (overview plot 472×460, focus plot 374×342 at
-1280×800; Profiles 3 columns of 214×156). Fixed sizes that clip or crowd text at
-1280×800:
+@ DPR 2.0, both appearances.
 
-1. **Inspector width.** The inspector keeps its 300–320 px default width, so its
-   content is cut at the right edge without a scroll bar: the members table loses
-   its LW N column, the Name/ppm fields and "Review cluster ›" are cut, and long
-   caption lines lose their last characters.
-2. **Navigator cluster column.** Cluster names are elided in the middle ("15…-H",
-   "16…-H") because the column width does not follow the font.
-3. **Focus lane caption.** "Lanes ±8 σ_stat · 8 data samples clipped · 9 model
-   samples clipped" needs 428 px in a 374 px label and is cut without elision.
-4. **Profile plot axis.** The fixed 40 px left axis lets the "×10⁹" exponent
-   label touch the tick labels.
-5. **Peak page.** The Fitted table moves down by about 70–90 px (bottoms 751/806/826
-   against a 687 px viewport).
+**Before the review fixes** (tip of the branch at b66691a plus the tool), fixed sizes
+clipped or crowded text at 1280×800: (1) the inspector kept its 300–320 px width, so
+its content was cut at the right edge without a scroll bar (members' LW N column,
+Name/ppm fields, "Review cluster ›", last characters of caption lines); (2) cluster
+names were elided in the navigator ("15…-H"); (3) the focus lane caption "Lanes ±8
+σ_stat · 8 data samples clipped · 9 model samples clipped" needed 428 px in a 374 px
+label and was cut without elision; (4) the fixed 40 px profile axis let the "×10⁹"
+label touch the tick labels; (5) the Fitted table moved down to 751/806/826.
 
-The run line in the toolbar is elided with an ellipsis by design and is not a
-clipping finding. Row height (28 px) and the 156 px tile minimum held at 17 px:
-navigator rows and tile headers were not cut vertically. At 1512×921 the clipping
-detector reports nothing.
+**After the review fixes** (rerun, `measurements-body17.json`):
+
+| Recorded size | Overview: 2D plot, row h, column w | Focus Overlay: 2D plot, row h, column w (lanes) | Fitted bottom / viewport | Profiles |
+| --- | --- | --- | --- | --- |
+| 1280×800 logical @ DPR 2.0, light | 392×460, 152, 104 | 360×362, 198, 112 (24) | 742, 780, 780 / 687 | 634, 3, 210×156 |
+| 1280×800 logical @ DPR 2.0, dark (second pass) | 426×460, 152, 112 | 360×362, 198, 112 (24) | 759, 797, 797 / 687 | 634, 3, 210×156 |
+| 1512×921 logical @ DPR 2.0, both | 582×554, 178, 146 | 474×426, 236, 212 | 742, 780, 780 / 808 (all visible) | 778, 3, 258×186 |
+
+1. **Inspector.** It opens at a width that grows with the body size (320 px at
+   13 px, 418 px at 17 px; its 300 px minimum is unchanged so the window is never
+   enlarged), and a page wider than a narrowed inspector scrolls horizontally rather
+   than being cut. At 1280×800 the peak page of 53N-H shows the whole header,
+   "Review cluster ›", the fields and the Fitted table
+   ([capture](gui-audit-followup/body17-peak-53N-H-1280x800-light.webp)). The
+   clipping detector reports nothing in the inspector at either size.
+2. **Navigator.** Cluster names are still elided in the middle at 17 px ("15…-H");
+   the full names are in each row's tooltip. Accepted.
+3. **Focus lane caption.** It now drops whole phrases and ends in "…" ("Lanes ±8
+   σ_stat · 8 data samples clipped · …"); its tooltip lists every phrase
+   ([capture](gui-audit-followup/body17-focus-overlay-1280x800-light.webp)).
+4. **Profile plot.** The left axis takes the width its widest tick label and the
+   rotated "×10ⁿ" label need, and the plot height grows with the axis text (176 px at
+   13 px); "×10⁹" sits clear of the ticks.
+5. **Corner readout.** The wider inspector narrows the overview's column slice to
+   104 px; the readout is now shown only whole and hides when its corner is too
+   small (the status line keeps the values). In the 1280×800 overview at 17 px it
+   shows, wrapped.
+6. **Peak page.** The Fitted table bottoms are 742/780/780 at 1280×800 (the page
+   scrolls, as at 13 px); all visible at 1512×921.
+
+The run line in the toolbar is elided with an ellipsis by design (full text in its
+tooltip) and is the only label the detector reports. The spectral view gives the
+inspector its extra width: the overview plot is 392 px wide at 17 px against 472 px
+before. The dark row differs because the tool captures dark after light's focus and
+Profiles states, which leave the splitter's inspector width at 384 px; the page still
+fits. At body 13 px nothing changed.
 
 ## Spot checks (1280×800 logical @ DPR 2.0, light and dark)
 
@@ -195,11 +233,12 @@ detector reports nothing.
   on Fit it sits outside the accent fill; on lists and the canvas it follows the
   view's edge ([navigator](gui-audit-followup/focus-navigator-1280x800-light.webp)).
   On a joined mode segment the ring overlaps half of each neighbour's border but
-  stays whole and readable. A mouse click also shows the ring (Qt gives focus on
-  click; there is no keyboard-only "focus-visible" distinction). Pressing the link
-  with the mouse shows the ring, then the page changes; no transient 2 px flash was
-  seen. The keyboard walk Fit → Clusters tab → cluster list → 2D canvas →
-  inspector worked, but **Tab from the inspector crashed the application** (below).
+  stays whole and readable. The keyboard walk Fit → Clusters tab → cluster list →
+  2D canvas → inspector worked, but **Tab from the inspector crashed the
+  application** (fixed, below). After the review the ring marks keyboard focus only
+  (like CSS `:focus-visible`): natively, a click on the peak list focuses it with no
+  ring, Down then shows the ring, and a click on the 2D canvas still shows the
+  canvas frame, whose single-key shortcuts act after a click.
 - **#188 Not-in-model mark.** After placing a peak on a fitted analysis the run
   becomes outdated, the legend reads "☆ not in this model" and the new peak carries
   the ☆ marker; the glyph renders in both appearances
@@ -207,28 +246,29 @@ detector reports nothing.
   are counted in words in the slice caption.
 - **#186 Failure state.** A first-fit failure reads "▲ Failed · no result yet" in
   the error style in the run line and leads the Analysis page with Stage, Reason and
-  Copy details ([capture](gui-audit-followup/failure-1280x800-dark.webp)). The log
-  row is absent in these captures because the tool builds the window without
-  `launch`, which installs the log file; the log path itself was not checked here.
+  Copy details ([capture](gui-audit-followup/failure-1280x800-dark.webp)). The tool
+  now installs the log file as `launch` does: the rerun records the rows Status
+  "▲ Failed · no result yet", Stage "Fitting", Reason, and **Log
+  `<output>/peakfit.log`** in both appearances at 1280×800, with the path shown
+  in full (wrapped) above Copy details.
 - **Both appearances.** Every state was captured in light and dark at every native
   size; geometry is identical between them.
 
-## Issues found (to be filed as tickets, not fixed here)
+## Issues found and their status
 
-1. **Crash: Tab out of the inspector segfaults on macOS.** With keyboard focus on
-   the inspector scroll area, Tab crashes PeakFit (SIGSEGV in
-   `QWidget::raise_` called from `FocusRing._place`). Reproduced natively four
-   times, with and without a fit; not reproduced offscreen. The stack shows the
-   ring being re-placed by a Move/Resize event of a watched widget while
-   `FocusRing._follow` is still reparenting the ring (`ring.setParent(host)`);
-   suppressing placement during the reparent avoided the crash in a local
-   experiment (not committed). One run of the full native matrix also ended with a
-   segmentation fault after the 1160×720 focus captures, without a trace; a rerun
-   with fault handler enabled completed. Severity: high (data loss for unsaved work).
-2. **Larger system font: inspector content clipped at the default width** (finding 1
-   above), plus the navigator name column (2), the focus lane caption (3) and the
-   profile axis width (4).
-3. **Failure log row not covered by the acceptance tool**: the tool should install
-   the log file as `launch` does, so captures show the log path.
-4. **Focus ring after mouse clicks** (#183): the ring appears on mouse focus as
-   well as keyboard focus. Spec §12 does not say whether this is intended.
+1. **Crash: Tab out of the inspector segfaulted on macOS — fixed.**
+   `FocusRing._follow` installed its event filters and then reparented the ring; a
+   Move or Resize during the reparent placed and raised the ring mid-reparent
+   (SIGSEGV in `QWidget::raise_`). The ring is now reparented before anything is
+   watched. Evidence: `test_ring_is_not_placed_while_it_is_being_reparented`
+   (fails on the old order); natively the pre-fix code crashed (exit 139) in 2/2
+   runs of a 40-step focus walk starting at the inspector, the fixed code
+   survived 10/10 walks of 60–80 steps, 6/6 runs of the original Tab repro (with
+   and without a fit) and a real-key walk of 40 Tab and 40 Backtab presses.
+2. **Larger system font clipping — fixed** for the inspector, the focus lane
+   caption and the profile axis (section above); navigator name elision accepted
+   with full names in the tooltip.
+3. **Failure log row not covered by the acceptance tool — fixed**: the tool
+   installs the log file and records the failure rows (above).
+4. **Focus ring after mouse clicks — fixed**: the ring is a keyboard focus ring;
+   the 2D canvas keeps its frame on any focus (spec §12, `docs/gui.md`).

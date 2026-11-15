@@ -51,20 +51,20 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          472,
+          392,
           460
         ],
         "row_slice": [
-          472,
+          392,
           152
         ],
         "column_slice": [
-          122,
+          104,
           460
         ],
         "row_lane": null,
@@ -83,20 +83,20 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          472,
+          392,
           460
         ],
         "row_slice": [
-          472,
+          392,
           152
         ],
         "column_slice": [
-          122,
+          104,
           460
         ],
         "row_lane": null,
@@ -115,20 +115,20 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          662,
+          582,
           554
         ],
         "row_slice": [
-          662,
+          582,
           178
         ],
         "column_slice": [
-          164,
+          146,
           554
         ],
         "row_lane": null,
@@ -147,20 +147,20 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          662,
+          582,
           554
         ],
         "row_slice": [
-          662,
+          582,
           178
         ],
         "column_slice": [
-          164,
+          146,
           554
         ],
         "row_lane": null,
@@ -179,10 +179,13 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
-      "failure": "Failed · no result yet"
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
     },
     {
       "state": "failure",
@@ -196,10 +199,13 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
-      "failure": "Failed · no result yet"
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
     },
     {
       "state": "failure",
@@ -213,10 +219,13 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
-      "failure": "Failed · no result yet"
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
     },
     {
       "state": "failure",
@@ -230,10 +239,13 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
-      "failure": "Failed · no result yet"
+      "failure": "Failed \u00b7 no result yet",
+      "rows": [
+        "LAST FIT ATTEMPT"
+      ]
     },
     {
       "state": "overview",
@@ -247,39 +259,39 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
       ],
       "spectral": {
         "plot": [
-          472,
+          392,
           460
         ],
         "row_slice": [
-          472,
+          392,
           152
         ],
         "column_slice": [
-          122,
+          104,
           460
         ],
         "row_lane": null,
         "column_lane": null
       },
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -294,23 +306,23 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
       ],
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -325,17 +337,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -343,9 +355,9 @@
       "peak_page": {
         "viewport_height": 687,
         "peak_page_top": 96,
-        "fitted_top": 619,
-        "fitted_bottom": 751,
-        "fitted_notes_bottom": 842
+        "fitted_top": 610,
+        "fitted_bottom": 742,
+        "fitted_notes_bottom": 816
       }
     },
     {
@@ -360,17 +372,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -378,9 +390,9 @@
       "peak_page": {
         "viewport_height": 687,
         "peak_page_top": 96,
-        "fitted_top": 674,
-        "fitted_bottom": 806,
-        "fitted_notes_bottom": 897
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
       }
     },
     {
@@ -395,17 +407,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -413,9 +425,9 @@
       "peak_page": {
         "viewport_height": 687,
         "peak_page_top": 96,
-        "fitted_top": 694,
-        "fitted_bottom": 826,
-        "fitted_notes_bottom": 917
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
       }
     },
     {
@@ -430,17 +442,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -458,52 +470,41 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
-          ]
-        },
-        {
-          "text": "Lanes ±8 σ_stat · <span style=\"color:#b23a2a\">8 data samples clipped</span> · <span style=\"color:#c98512\">9 model samples clipped</span>",
-          "size": [
-            374,
-            22
-          ],
-          "needed": [
-            428,
-            17
           ]
         }
       ],
       "spectral": {
         "plot": [
-          374,
-          342
+          360,
+          362
         ],
         "row_slice": [
-          374,
+          360,
           198
         ],
         "column_slice": [
-          176,
-          342
+          112,
+          362
         ],
         "row_lane": [
-          374,
-          44
+          360,
+          24
         ],
         "column_lane": [
-          44,
-          342
+          24,
+          362
         ]
       }
     },
@@ -519,32 +520,32 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
       ],
       "spectral": {
         "plot": [
-          418,
+          360,
           386
         ],
         "row_slice": [
-          418,
+          360,
           198
         ],
         "column_slice": [
-          176,
+          136,
           386
         ],
         "row_lane": null,
@@ -563,17 +564,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          644,
+          634,
           649
         ],
         "columns": 3,
         "tile": [
-          214,
+          210,
           156
         ]
       }
@@ -590,17 +591,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          644,
+          634,
           649
         ],
         "columns": 3,
         "tile": [
-          214,
+          210,
           156
         ]
       }
@@ -617,39 +618,39 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
       ],
       "spectral": {
         "plot": [
-          472,
+          426,
           460
         ],
         "row_slice": [
-          472,
+          426,
           152
         ],
         "column_slice": [
-          122,
+          112,
           460
         ],
         "row_lane": null,
         "column_lane": null
       },
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -664,23 +665,23 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
       ],
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -695,17 +696,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -713,9 +714,9 @@
       "peak_page": {
         "viewport_height": 687,
         "peak_page_top": 96,
-        "fitted_top": 619,
-        "fitted_bottom": 751,
-        "fitted_notes_bottom": 842
+        "fitted_top": 627,
+        "fitted_bottom": 759,
+        "fitted_notes_bottom": 850
       }
     },
     {
@@ -730,17 +731,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -748,9 +749,9 @@
       "peak_page": {
         "viewport_height": 687,
         "peak_page_top": 96,
-        "fitted_top": 674,
-        "fitted_bottom": 806,
-        "fitted_notes_bottom": 897
+        "fitted_top": 665,
+        "fitted_bottom": 797,
+        "fitted_notes_bottom": 888
       }
     },
     {
@@ -765,17 +766,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -783,9 +784,9 @@
       "peak_page": {
         "viewport_height": 687,
         "peak_page_top": 96,
-        "fitted_top": 694,
-        "fitted_bottom": 826,
-        "fitted_notes_bottom": 917
+        "fitted_top": 665,
+        "fitted_bottom": 797,
+        "fitted_notes_bottom": 888
       }
     },
     {
@@ -800,17 +801,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
@@ -828,52 +829,41 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
-          ]
-        },
-        {
-          "text": "Lanes ±8 σ_stat · <span style=\"color:#f08a76\">8 data samples clipped</span> · <span style=\"color:#e9a83c\">9 model samples clipped</span>",
-          "size": [
-            374,
-            22
-          ],
-          "needed": [
-            428,
-            17
           ]
         }
       ],
       "spectral": {
         "plot": [
-          374,
-          342
+          360,
+          362
         ],
         "row_slice": [
-          374,
+          360,
           198
         ],
         "column_slice": [
-          176,
-          342
+          154,
+          362
         ],
         "row_lane": [
-          374,
-          44
+          360,
+          24
         ],
         "column_lane": [
-          44,
-          342
+          24,
+          362
         ]
       }
     },
@@ -889,32 +879,32 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [
         {
-          "text": "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "text": "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable",
           "size": [
             331,
             19
           ],
           "needed": [
-            484,
+            485,
             19
           ]
         }
       ],
       "spectral": {
         "plot": [
-          418,
+          376,
           386
         ],
         "row_slice": [
-          418,
+          376,
           198
         ],
         "column_slice": [
-          176,
+          162,
           386
         ],
         "row_lane": null,
@@ -933,17 +923,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          644,
+          634,
           649
         ],
         "columns": 3,
         "tile": [
-          214,
+          210,
           156
         ]
       }
@@ -960,17 +950,17 @@
           800
         ],
         "dpr": 2.0,
-        "label": "1280×800 logical @ DPR 2.0"
+        "label": "1280\u00d7800 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          644,
+          634,
           649
         ],
         "columns": 3,
         "tile": [
-          214,
+          210,
           156
         ]
       }
@@ -987,27 +977,27 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          662,
+          582,
           554
         ],
         "row_slice": [
-          662,
+          582,
           178
         ],
         "column_slice": [
-          164,
+          146,
           554
         ],
         "row_lane": null,
         "column_lane": null
       },
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -1022,11 +1012,11 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -1041,15 +1031,15 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "peak_page": {
         "viewport_height": 808,
         "peak_page_top": 96,
-        "fitted_top": 619,
-        "fitted_bottom": 751,
-        "fitted_notes_bottom": 842
+        "fitted_top": 610,
+        "fitted_bottom": 742,
+        "fitted_notes_bottom": 816
       }
     },
     {
@@ -1064,15 +1054,15 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "peak_page": {
         "viewport_height": 808,
         "peak_page_top": 96,
-        "fitted_top": 674,
-        "fitted_bottom": 806,
-        "fitted_notes_bottom": 897
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
       }
     },
     {
@@ -1087,15 +1077,15 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "peak_page": {
         "viewport_height": 808,
         "peak_page_top": 96,
-        "fitted_top": 694,
-        "fitted_bottom": 826,
-        "fitted_notes_bottom": 917
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
       }
     },
     {
@@ -1110,7 +1100,7 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": []
     },
@@ -1126,24 +1116,24 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          546,
+          474,
           426
         ],
         "row_slice": [
-          546,
+          474,
           236
         ],
         "column_slice": [
-          238,
+          212,
           426
         ],
         "row_lane": [
-          546,
+          474,
           44
         ],
         "column_lane": [
@@ -1164,20 +1154,20 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          590,
+          518,
           470
         ],
         "row_slice": [
-          590,
+          518,
           236
         ],
         "column_slice": [
-          238,
+          212,
           470
         ],
         "row_lane": null,
@@ -1196,18 +1186,18 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          876,
+          778,
           770
         ],
-        "columns": 4,
+        "columns": 3,
         "tile": [
-          218,
-          157
+          258,
+          186
         ]
       }
     },
@@ -1223,18 +1213,18 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          876,
+          778,
           770
         ],
-        "columns": 4,
+        "columns": 3,
         "tile": [
-          218,
-          157
+          258,
+          186
         ]
       }
     },
@@ -1250,27 +1240,27 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          662,
+          582,
           554
         ],
         "row_slice": [
-          662,
+          582,
           178
         ],
         "column_slice": [
-          164,
+          146,
           554
         ],
         "row_lane": null,
         "column_lane": null
       },
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -1285,11 +1275,11 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "noise_check": [
-        "Run 085c6780 · Current · ▲ Noise check (F2) · all 121 clusters usable"
+        "Run 96860992 \u00b7 Current \u00b7 \u25b2 Noise check (F2) \u00b7 all 121 clusters usable"
       ]
     },
     {
@@ -1304,15 +1294,15 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "peak_page": {
         "viewport_height": 808,
         "peak_page_top": 96,
-        "fitted_top": 619,
-        "fitted_bottom": 751,
-        "fitted_notes_bottom": 842
+        "fitted_top": 610,
+        "fitted_bottom": 742,
+        "fitted_notes_bottom": 816
       }
     },
     {
@@ -1327,15 +1317,15 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "peak_page": {
         "viewport_height": 808,
         "peak_page_top": 96,
-        "fitted_top": 674,
-        "fitted_bottom": 806,
-        "fitted_notes_bottom": 897
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
       }
     },
     {
@@ -1350,15 +1340,15 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "peak_page": {
         "viewport_height": 808,
         "peak_page_top": 96,
-        "fitted_top": 694,
-        "fitted_bottom": 826,
-        "fitted_notes_bottom": 917
+        "fitted_top": 648,
+        "fitted_bottom": 780,
+        "fitted_notes_bottom": 854
       }
     },
     {
@@ -1373,7 +1363,7 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": []
     },
@@ -1389,24 +1379,24 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          546,
+          474,
           426
         ],
         "row_slice": [
-          546,
+          474,
           236
         ],
         "column_slice": [
-          238,
+          212,
           426
         ],
         "row_lane": [
-          546,
+          474,
           44
         ],
         "column_lane": [
@@ -1427,20 +1417,20 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "spectral": {
         "plot": [
-          590,
+          518,
           470
         ],
         "row_slice": [
-          590,
+          518,
           236
         ],
         "column_slice": [
-          238,
+          212,
           470
         ],
         "row_lane": null,
@@ -1459,18 +1449,18 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          876,
+          778,
           770
         ],
-        "columns": 4,
+        "columns": 3,
         "tile": [
-          218,
-          157
+          258,
+          186
         ]
       }
     },
@@ -1486,18 +1476,18 @@
           921
         ],
         "dpr": 2.0,
-        "label": "1512×921 logical @ DPR 2.0"
+        "label": "1512\u00d7921 logical @ DPR 2.0"
       },
       "clipped": [],
       "profiles": {
         "viewport": [
-          876,
+          778,
           770
         ],
-        "columns": 4,
+        "columns": 3,
         "tile": [
-          218,
-          157
+          258,
+          186
         ]
       }
     }
