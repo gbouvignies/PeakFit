@@ -15,7 +15,7 @@ from uuid import uuid4
 import numpy as np
 import pytest
 from builders import two_cluster_dataset
-from gui_helpers import wait_until
+from gui_helpers import COMPLETION, wait_until
 from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.algorithms.covariance_factors import covariance_between_planes
@@ -638,7 +638,7 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     w.fitting.fit()  # The first Fit of a session reveals the setup instead of running.
     assert (w.fitting.setup_seen, w.fitting.busy, w.selected_id) == (True, False, None)
     w.fitting.fit()  # Fresh preparation and a real optimizer invocation after reopening.
-    wait_until(lambda: not w.fitting.busy, timeout=20)
+    wait_until(lambda: not w.fitting.busy, timeout=COMPLETION)
     assert w.fitting.current, w.fitting.failure
     assert all(isinstance(r, project.StoredRun) for r in w.fitting.history)
     recovery = w.fitting._recovery_path
@@ -648,8 +648,8 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     assert recoverable.completion.result.run_id == w.fitting.result.run_id
     del recoverable
     assert window.save_analysis_dialog()
-    wait_until(lambda: not window._saving, timeout=20)
-    wait_until(lambda: not recovery.exists(), timeout=10)
+    wait_until(lambda: not window._saving, timeout=COMPLETION)
+    wait_until(lambda: not recovery.exists(), timeout=COMPLETION)
     window.close()
     qapp.processEvents()
     reopened = open_analysis(path)
@@ -701,7 +701,7 @@ def test_open_and_history_list_materialize_only_active_then_selected_run(
     assert review._loaded_completion is None
     assert materialized == [runs[-1].result.run_id]
     review.run.setCurrentIndex(1)
-    wait_until(lambda: review._loaded_completion is not None, timeout=10)
+    wait_until(lambda: review._loaded_completion is not None, timeout=COMPLETION)
     assert review.selected_run().result.run_id == runs[-2].result.run_id
     review.run.setCurrentIndex(0)
     assert review._loaded_completion is None
@@ -739,7 +739,7 @@ def test_session_evidence_cleanup_and_explicit_recovery(qapp, analysis, tmp_path
         QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(destination), "")
     )
     assert window.save_analysis_dialog()
-    wait_until(lambda: not window._saving, timeout=15)
+    wait_until(lambda: not window._saving, timeout=COMPLETION)
     # Saving clears the one Modified state: title and toolbar together.
     assert not window.isWindowModified()
     assert w.modified.text() == ""
@@ -804,7 +804,7 @@ def test_a_run_whose_recovery_copy_fails_is_kept_until_saved(qapp, analysis, tmp
     monkeypatch.setattr(f._session, "preserve", disk_full)
     _discard_on_close(monkeypatch)
     result = _completed_fit(window, analysis)
-    wait_until(lambda: not f.busy, timeout=15)
+    wait_until(lambda: not f.busy, timeout=COMPLETION)
     # The validated run is published and recorded; only its crash copy is missing.
     assert f.result is result, f.failure
     assert f.current
@@ -819,7 +819,7 @@ def test_a_run_whose_recovery_copy_fails_is_kept_until_saved(qapp, analysis, tmp
         QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(destination), "")
     )
     assert window.save_analysis_dialog()
-    wait_until(lambda: not window._saving, timeout=20)
+    wait_until(lambda: not window._saving, timeout=COMPLETION)
     # Save holds the run, so the warning goes.
     assert not f.recovery_error
     assert "recovery copy" not in w.summary.text()
@@ -845,7 +845,7 @@ def test_a_fit_canceled_while_its_recovery_copy_is_written_is_not_published(
     monkeypatch.setattr(f._session, "preserve", canceled)
     _discard_on_close(monkeypatch)
     _completed_fit(window, analysis)
-    wait_until(lambda: not f.busy, timeout=15)
+    wait_until(lambda: not f.busy, timeout=COMPLETION)
     assert f.result is None
     assert not f.recovery_error
     assert f.attempt == "Failed · no result yet"
@@ -873,12 +873,15 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
         f.process.state = "completed"
         f._finished(0, result)
         del result, prepared
-        wait_until(lambda: not f.busy, timeout=15)
+        wait_until(lambda: not f.busy, timeout=COMPLETION)
         assert f.current, f.failure
         assert len(f.history) == min(index + 1, 10)
         assert all(isinstance(r, project.StoredRun) for r in f.history)
         assert all(not hasattr(r, "result") for r in f.history)
-        wait_until(lambda: len(list((f._session.path / "runs").iterdir())) == len(f.history))
+        wait_until(
+            lambda: len(list((f._session.path / "runs").iterdir())) == len(f.history),
+            timeout=COMPLETION,
+        )
     recovery = f._recovery_path
     assert recovery is not None
     root = recovery.parent
@@ -893,7 +896,7 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
         lambda dialog: next(b for b in dialog.buttons() if b.text() == "Discard changes"),
     )
     window.close()
-    wait_until(lambda: not root.exists())
+    wait_until(lambda: not root.exists(), timeout=COMPLETION)
     qapp.processEvents()
     reopened = open_analysis(snapshot, canceled=lambda: True)
     assert reopened.completion.result.run_id == last_id
@@ -964,11 +967,11 @@ def test_normal_close_waits_for_inflight_preservation_before_cleanup(qapp, analy
 
     def preserving():
         started.set()
-        assert release.wait(10)
+        assert release.wait(COMPLETION)
         owner.preserve(analysis)
 
     worker.submit("preserve", 0, preserving)
-    assert started.wait(5)
+    assert started.wait(COMPLETION)
     try:
         worker.cleanup_after_work(second.close)
         worker.close(finalize=owner.close)
@@ -976,7 +979,7 @@ def test_normal_close_waits_for_inflight_preservation_before_cleanup(qapp, analy
         assert root.exists()  # Cleanup must queue behind the writer, not race it.
     finally:
         release.set()
-    wait_until(lambda: not root.exists(), timeout=10)
+    wait_until(lambda: not root.exists(), timeout=COMPLETION)
     assert not second_root.exists()
     qapp.processEvents()
 
