@@ -1596,3 +1596,19 @@ Short records of non‑obvious design choices and trade‑offs.
   At SNR 8 the qualification misses 3.6 % of J = ½ LW fits: 2.6 % have σ(J) withheld,
   and 1.0 % land on a narrow resolved doublet with a confident, wrong σ(J)
   ([validation](validation/large-j.md)).
+
+## 2026-11-17: Large-J validation accepted with two documented limitations (#214)
+- **Accepted by the user** after reviewing the validation in PR #224. The two
+  pre-registered gates that fail stay failed in the record; neither is a large-J
+  region defect.
+- **SP1 ¹H linewidth gate.** The ¹H singlet linewidth of the SP1 ¹J case under-covers
+  (±1.96σ 0.905, bias +0.19 Hz). It is accepted as the upward bias of contour-selected
+  fitting regions, which singlets show too, tracked in [#226](https://github.com/gbouvignies/PeakFit/issues/226).
+- **Below-LW qualification at SNR 8.** It is raised in 96.4 % of J = ½ LW fits, against
+  a 99 % gate. It is accepted as the W2a low-SNR residual for unresolved couplings: 2.6 %
+  of fits have σ(J) withheld, and 1.0 % land on a narrow resolved doublet with a
+  confident, wrong σ(J). MCMC is the remedy there.
+- **The dilated first footprint is rejected.** It gave a more precise SP1 ¹J phase
+  (σ 0.73° against 1.13°). But it grew small-J regions, which raised the low-SNR
+  J = ½ LW misleading-σ(J) rate from 1.3 % to 6.7 % (7.8 % on confirmation). The
+  undilated footprint keeps small couplings bit-identical.

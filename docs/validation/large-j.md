@@ -9,7 +9,8 @@ Tests: `tests/test_large_j.py`, `tests/test_gui_couplings.py`, and
 - **The ¹H (singlet-axis) linewidth of the SP1 ¹J case under-covers.** ±1.96σ covers
   0.905, so "widths recovered within 2σ" holds for the ¹⁵N doublet axis but not for
   this ¹H width. The likely cause, a bias from contour-selected regions that singlets
-  show too, comes from an exploratory diagnosis outside the protocol (below).
+  show too ([#226](https://github.com/gbouvignies/PeakFit/issues/226)), comes from an exploratory diagnosis outside the protocol
+  (below).
 - **At SNR 8, "below LW" is raised in 96.4 % of J = ½ LW fits**, short of the 99 %
   gate. Of the 3.6 % not qualified, 2.6 % have σ(J) withheld. The other 1.0 % land on
   a narrow resolved doublet with a confident σ(J) that misses the truth.
@@ -204,7 +205,7 @@ One gate came within 0.5 SE of its limit; the confirmation run (realizations
 - The Lorentzian ¹J case shows it too (+0.11 Hz, ±1σ coverage 0.643, −2.7 SE). The
   confirmation passes it at 0.665 (−2.4 SE).
 - It needs its own change and validation: a region that does not depend on the noise
-  in the data it fits.
+  in the data it fits ([#226](https://github.com/gbouvignies/PeakFit/issues/226)).
 
 ### Not validated: spans of one to two points
 
