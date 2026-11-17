@@ -209,8 +209,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c, center=True))
         self.panel.unexplained_requested.connect(self.find_unexplained)
         self.panel.region_chosen.connect(self.frame_region)
-        self.navigator.next_warning.connect(
-            lambda backward: self.fitting.next_warning(backward=backward)
+        self.navigator.step_requested.connect(
+            lambda backward: self.fitting.next_marked(backward=backward)
         )
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
@@ -1038,8 +1038,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.warnings.setProperty("count", flagged)
         self.warnings.setToolTip(
             f"{formatting.count(flagged, 'cluster')} with a numerical warning (unusable, "
-            "not converged, uncertainty unreliable or at bound); N and Shift+N in the "
-            "cluster list move between them"
+            "not converged, uncertainty unreliable, at bound, or amplitudes the fitted "
+            "shapes do not determine); N and Shift+N in the cluster list move between them"
         )
         self.warnings.setVisible(bool(flagged))
         self.profiles_button.setEnabled(fitting.result is not None)

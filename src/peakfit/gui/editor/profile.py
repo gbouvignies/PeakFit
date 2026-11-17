@@ -32,6 +32,7 @@ from peakfit.engine.scientific.profiles import (
 )
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
+from peakfit.gui.editor.review import CORRELATED_MARK
 from peakfit.gui.theme import (
     LIGHT,
     REFERENCE_TYPE,
@@ -53,7 +54,6 @@ _MAX_ISOLATED = 2
 
 # The correlated-profile flag (profile-uncertainty §6): the same mark and words on the
 # profile, the tiles and the cluster page.
-CORRELATED_MARK = "↔"
 CORRELATED_SHORT = "errors correlated across planes"
 NOT_ASSESSED_SHORT = "correlation across planes not assessed"
 CORRELATED_LIMIT = (

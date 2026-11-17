@@ -272,8 +272,7 @@ def _header(painter, inner: QtCore.QRectF, tile: Tile, style: Style) -> float:
     height = style.sizes.small + 6
     row = QtCore.QRectF(inner.left(), inner.top(), inner.width(), height)
     x = row.left()
-    if review.warnings or review.highlights:
-        mark = "▲" if review.warnings else "◇"
+    if mark := review.mark:  # the cluster list's mark: ▲, ↔ or ◇
         _text(painter, row, mark, theme.warning if review.warnings else theme.secondary, small)
         x += QtGui.QFontMetrics(small).horizontalAdvance(mark) + 5
     count = len(review.names)

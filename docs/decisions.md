@@ -1573,3 +1573,25 @@ Short records of non‑obvious design choices and trade‑offs.
   `docs/outputs.md`). An archive or project written before the amendment lacks
   `excluded_planes` and is refused as written by a development build, to be refit.
   A refused archive of another version names the PeakFit version that wrote it.
+
+## 2026-11-17: W5 finds fit problems in the cluster list, not unexplained signal (#217)
+
+- **Scope changed by the user.** #217 asked for a Findings tab listing every
+  unexplained-signal region. A global unexplained-signal browser leans towards peak
+  picking, which is not on the roadmap; PeakFit fits peaks the researcher chose.
+  W5 instead makes the existing fit diagnostics findable. The per-plane unexplained
+  list on the Analysis page is unchanged.
+- **No new view.** The cluster list already sorted χ²ᵣ, |r|max and |ρ| and filtered
+  engine warnings and highlights. What it could not reach, on the bundled example,
+  was the correlated-profile flag (13 of 121 clusters, none with ▲ or ◇) and the
+  amplitude decomposition, both shown only inside a cluster's pages.
+- **Decomposition is a numerical warning.** It is an objective classification of
+  the recorded shapes, computed like At bound from recorded values, and the run
+  comparison already marked it ▲. The toolbar and run-comparison warning counts now
+  include it.
+- **↔ is not a warning.** It states a limit of independent per-plane error bars,
+  not of the data (GLOSSARY), so it has its own subdued mark and Show choice, ranked
+  after ▲ and before ◇.
+- **N follows Show.** Spec §5 already said N moves through the rows matching the
+  active filters; with all clusters shown it keeps visiting warned clusters only,
+  and says so when there are none.

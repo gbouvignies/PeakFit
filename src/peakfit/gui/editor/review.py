@@ -1,9 +1,11 @@
 """Cluster review read from a completed run: numerical warnings, measures, highlights.
 
-The three families stay separate (specification §8). Numerical warnings are the
-engine's recorded classifications. Measures are recorded numbers. Highlights are
-descriptive rules with adjustable display thresholds; they change no scientific
-data, run state or warning count. Nothing here refits or recomputes statistics.
+The families stay separate (specification §8). Numerical warnings are the engine's
+recorded classifications and its amplitude decomposition. The correlated-profile
+flag (↔) states a limit of independent per-plane error bars, not a warning.
+Measures are recorded numbers. Highlights are descriptive rules with adjustable
+display thresholds; they change no scientific data, run state or warning count.
+Nothing here refits or recomputes statistics.
 """
 
 import math
@@ -13,14 +15,19 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import profile_correlations
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.diagnostics.coincidence import collinear_pairs
+from peakfit.engine.diagnostics.identifiability import Cause, amplitude_identifiability
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import SpectralParameters
     from peakfit.gui.dataset_fit import DatasetFitResult
+
+
+CORRELATED_MARK = "↔"  # the correlated-profile flag, wherever it is shown
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,15 +95,41 @@ class ClusterReview:
     correlation: float  # largest |ρ|; NaN when unavailable or one peak
     highlights: tuple[Highlight, ...]
     collinear: tuple[CollinearShapes, ...] = ()
+    correlated: tuple[str, ...] = ()  # members carrying the correlated-profile flag
 
     @property
     def single(self) -> bool:
         """A one-peak cluster has no amplitude correlation."""
         return len(self.ids) == 1
 
+    @property
+    def mark(self) -> str:
+        """The one glyph a list row or tile shows: ▲, then ↔, then ◇, else nothing."""
+        if self.warnings:
+            return "▲"
+        if self.correlated:
+            return CORRELATED_MARK
+        return "◇" if self.highlights else ""
 
-WARNING_KINDS = ("Unusable", "Not converged", "Uncertainty unreliable", "At bound")
+
+WARNING_KINDS = (
+    "Unusable",
+    "Not converged",
+    "Uncertainty unreliable",
+    "At bound",
+    "Amplitudes not identifiable",
+    "Ill-conditioned shapes",
+    "Near-collinear shapes",
+)
 HIGHLIGHT_KINDS = ("Amplitude correlation", "Linewidth outlier")
+CORRELATED_TITLE = "Profile errors correlated across planes"
+
+# The amplitude decomposition's causes that make a member's split undetermined.
+DECOMPOSITION = {
+    Cause.NULL_SPACE: "Amplitudes not identifiable",
+    Cause.ILL_CONDITIONED: "Ill-conditioned shapes",
+    Cause.NEAR_COLLINEAR: "Near-collinear shapes",
+}
 
 
 def _parameters(cluster) -> dict[tuple[str, str, str], float]:
@@ -130,6 +163,37 @@ def _warnings(cluster) -> tuple[NumericalWarning, ...]:
     return tuple(warnings)
 
 
+def _decomposition(cluster, names: dict[str, str]) -> tuple[NumericalWarning, ...]:
+    """Members whose amplitude split the fitted shapes do not determine, by cause.
+
+    The same classification the amplitude profile uses to withhold a member;
+    ``names`` gives each engine peak name its assignment.
+    """
+    evaluation = cluster.analytical_evaluation
+    if not cluster.usable or evaluation is None:
+        return ()
+    members = amplitude_identifiability(evaluation.shapes, evaluation.amplitudes)
+    by_kind: dict[str, list[str]] = {}
+    for name, member in zip(cluster.peak_names, members, strict=True):
+        if member.cause in DECOMPOSITION:
+            by_kind.setdefault(DECOMPOSITION[member.cause], []).append(names.get(name, name))
+    kinds = [kind for kind in WARNING_KINDS if kind in by_kind]
+    return tuple(NumericalWarning(kind, ", ".join(by_kind[kind])) for kind in kinds)
+
+
+def _correlated(cluster, working: dict[str, str]) -> tuple[str, ...]:
+    """Working IDs of members whose profile errors are correlated across planes."""
+    evaluation = cluster.analytical_evaluation
+    if evaluation is None or evaluation.amplitudes.shape[1] < 2:  # noqa: PLR2004
+        return ()
+    flags = profile_correlations(evaluation.covariance_factors, evaluation.amplitudes)
+    return tuple(
+        working[name]
+        for name, flag in zip(cluster.peak_names, flags, strict=True)
+        if flag.flagged and name in working
+    )
+
+
 def correlation_matrix(cluster) -> np.ndarray | None:
     """Recorded amplitude correlations, or None when the covariance is unavailable."""
     evaluation = cluster.analytical_evaluation
@@ -155,6 +219,8 @@ def review_clusters(
     display names (for example "¹H"). Parameters name axes by the engine rule.
     """
     identities = result.index.by_engine
+    assignments = {name: identity.assignment for name, identity in identities.items()}
+    working_ids = {name: identity.working_id for name, identity in identities.items()}
     order = [get_dimension_label(index) for index in range(len(axes))]
     names_of = dict(zip(order, titles, strict=True))
     fitted = {c.cluster_id: _parameters(c) for c in result.outcome.clusters}
@@ -209,7 +275,7 @@ def review_clusters(
                 cluster.cluster_id,
                 tuple(identities[n].working_id for n in names),
                 tuple(identities[n].assignment for n in names),
-                _warnings(cluster),
+                _warnings(cluster) + _decomposition(cluster, assignments),
                 float(evaluation.statistics.reduced_chi_squared) if evaluation else math.nan,
                 evaluation.largest_recorded_residual if evaluation else math.nan,
                 int(evaluation.statistics.n_observations) if evaluation else 0,
@@ -228,6 +294,7 @@ def review_clusters(
                         else ()
                     )
                 ),
+                _correlated(cluster, working_ids),
             )
         )
     return reviews

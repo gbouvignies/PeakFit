@@ -1437,7 +1437,9 @@ def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace
         if not navigator.tree.topLevelItem(i).isHidden()
     ]
     assert len(visible) == highlighted
-    assert all(item.text(0) in {"◇", "▲"} for item in visible)
+    # One mark per row (▲, then ↔, then ◇); the tooltip names every highlight.
+    assert all(item.text(0) in {"◇", "▲", "↔"} for item in visible)
+    assert all("◇" in item.toolTip(0) for item in visible)
     total = len(reviews)
     # The Clusters tab gives the total; the footer counts only a filter.
     if highlighted < total:

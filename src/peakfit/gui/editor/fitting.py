@@ -560,6 +560,23 @@ class DatasetFitting(QtCore.QObject):
         elif any(r.warnings for r in w.reviews()):
             w.status.setText("No cluster with a numerical warning is shown by the current filter")
 
+    def next_marked(self, *, backward: bool = False) -> None:
+        """N in the cluster list: the next cluster the Show choice lists, or a warned one."""
+        w = self.workspace
+        navigator = w.navigator
+        if navigator.filter.currentData() is None:
+            if any(r.warnings for r in w.reviews()) or not w.reviews():
+                self.next_warning(backward=backward)
+            else:
+                w.status.setText(
+                    "No cluster has a numerical warning. For N to step through other marks, "
+                    "choose one in Show"
+                )
+            return
+        target = navigator.next_marked(w.selected_id, backward=backward)
+        if target is not None:
+            w.select_peak(target, cluster=True, center=True)
+
     def export(self) -> bool:
         """Export retained evidence with its currentness explicitly labeled."""
         if self.busy or self.result is None or not self.workspace.commit_fields():
