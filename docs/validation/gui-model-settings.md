@@ -63,6 +63,14 @@ numbered (“numbered 1–131”); the files and the CLI count from 0
 this plane” sits in the header strip above the plot, never over the contours; the
 plot and both slices keep their place (`test_gui_consistency.py`).
 
+**CI fonts (eb2f6a9).** On Linux, where DejaVu Sans renders the UI font, the
+Statistical noise row in Manual mode with 1.234 × 10⁻⁵ needed 293 px of 288. The
+source menu is now caption-sized, 2 px from its value: 285 px in DejaVu Sans, 271
+natively. The width tests run under both fonts and name the widest row. Rerun at
+1280×800 and at 17 px (1160, 1280), 60 captures: no sideways scrolling, clipped
+label or cut field; `model-as-loaded-…` and `settings-set-1280x800-light.webp` are
+from that run.
+
 ## Measurements
 
 From `measurements.json` (13 px, 60 captures) and `measurements-17px.json` (40):
