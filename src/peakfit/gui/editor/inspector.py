@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from peakfit.gui.peaks import WorkingPeak
 
 _KINDS = {"cs": "δ", "lw": "LW"}
+NBSP = "\u00a0"
 
 
 class PreciseInspector(PeakInspector):
@@ -945,7 +946,8 @@ class Inspector(QtWidgets.QScrollArea):
             dtype=int,
         )
         row = self.fitted.rowCount()
-        cells = (_label("", "muted"), _label(""), _label(""))
+        # The title may wrap before its power of ten rather than widen the page.
+        cells = (_label("", "muted", wrap=True), _label(""), _label(""))
         for column, cell in enumerate(cells):
             if column:
                 cell.setAlignment(_RIGHT)
@@ -978,7 +980,7 @@ class Inspector(QtWidgets.QScrollArea):
         marginal = float(row.marginal[columns[0]])
         shown = formatting.measured(float(row.amplitudes[columns[0]]), marginal)
         # The shared power of ten goes with the row's name, as a unit would.
-        scale = f" ({shown.factor})" if shown.factor else ""
+        scale = f" ({shown.factor.replace(' ', NBSP)})" if shown.factor else ""
         title.setText(f"Amplitude plane {plane + 1}{scale}")
         value.setText(shown.value)
         error.setText(shown.sigma if shown.assessed else formatting.NOT_ASSESSED)

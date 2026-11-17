@@ -489,7 +489,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.settings_button.setText(self._settings_text if wide else "Fit settings")
         count = self.warnings.property("count") or 0
         self.warnings.setText(
-            f"▲ {count} cluster{'s' if count != 1 else ''} with warnings" if wide else f"▲ {count}"
+            f"▲ {formatting.count(count, 'cluster')} with warnings" if wide else f"▲ {count}"
         )
 
     def resizeEvent(self, event) -> None:  # noqa: N802
@@ -1174,11 +1174,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + _noise_check(result.outcome.noise_model, self._axis_names())
                 + (fitting.attempt + " · " if fitting.attempt and not failed else "")
-                + (
-                    f"all {formatting.count(len(clusters), 'cluster')} usable"
-                    if complete
-                    else dataset_summary(result, warnings=False)
-                )
+                + ("all clusters usable" if complete else dataset_summary(result, warnings=False))
             )
         else:
             text = "" if failed else fitting.attempt or "Not fitted"

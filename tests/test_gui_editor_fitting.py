@@ -208,7 +208,7 @@ def test_fitting_state_is_rendered_on_transitions_without_polling(workspace):
     # Counts only when something is not usable or not converged; always in the tooltip.
     clusters = fitting.result.outcome.clusters
     if all(c.usable and c.optimizer_provenance.converged for c in clusters):
-        assert w.summary.text().endswith(f"all {len(clusters)} clusters usable")
+        assert w.summary.text().endswith("all clusters usable")
     assert f"{len(clusters)}/{len(clusters)} usable" in w.summary.toolTip()
     # The new run is the next continuation source; its preparation is the last transition.
     wait_until(lambda: fitting.prepared is not None)
@@ -1079,7 +1079,7 @@ def test_inspector_shows_the_marginal_sigma_of_the_absolute_amplitude(workspace,
         w.set_plane(plane)
         shown = formatting.measured(evaluation.amplitudes[1, plane - 1], marginal[1, plane - 1])
         # One power of ten for the value and its σ, named with the row as a unit is.
-        scale = f" ({shown.factor})" if shown.factor else ""
+        scale = f" ({shown.factor.replace(' ', chr(0xA0))})" if shown.factor else ""
         assert amplitude_row() == [f"Amplitude plane {plane}{scale}", shown.value, shown.sigma]
     # Labelled as the uncertainty of the absolute amplitude, not of a profile.
     captions = [
@@ -1875,8 +1875,9 @@ def test_the_cluster_page_lists_each_member_once(workspace, scientific):
     # Each axis named once over its columns, then each quantity with its unit.
     names = {formatting.axis_name(a) for a in w.dataset.spectra.spectral_params}
     assert grid.itemAtPosition(0, 2).widget().text() in names
-    assert grid.itemAtPosition(1, 2).widget().text() == "δ (ppm)"
-    assert grid.itemAtPosition(1, 3).widget().text() == "LW (Hz)"
+    assert grid.itemAtPosition(1, 2).widget().text() == "δ"
+    assert grid.itemAtPosition(1, 3).widget().text() == "LW"
+    assert page.members_note.text() == "δ (ppm) · LW (Hz)"
     # One line per member: its number, a link to its page, then its recorded values.
     for number, name in enumerate(review.names, 1):
         row = number + 1

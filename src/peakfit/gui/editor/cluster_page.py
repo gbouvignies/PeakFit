@@ -342,9 +342,7 @@ class ClusterPage(QtWidgets.QWidget):
                 name = text_label(title, "caption")
                 name.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
                 grid.addWidget(name, 0, column, 1, span)
-            unit = units.get((axis, kind), "")
-            quantity = _KINDS.get(kind, kind) + (f" ({unit})" if unit else "")
-            heading = text_label(quantity, "caption")
+            heading = text_label(_KINDS.get(kind, kind), "caption")
             heading.setAlignment(right)
             grid.addWidget(heading, 1, column)
         for number, engine in enumerate(engine_names, 1):
@@ -371,7 +369,16 @@ class ClusterPage(QtWidgets.QWidget):
                 if at_bound:
                     cell.setToolTip(cell.toolTip() + " · at a recorded bound")
                 grid.addWidget(cell, number + 1, column)
-        show_text(self.members_note, "amber: at a recorded bound" if bounded else "")
+        # Units once under the table: per-column units would widen it past the inspector.
+        quantities = dict.fromkeys(
+            f"{_KINDS.get(kind, kind)} ({units[axis, kind]})"
+            for axis, kind, _title in columns
+            if units.get((axis, kind))
+        )
+        show_text(
+            self.members_note,
+            " · ".join([*quantities, *(["amber: at a recorded bound"] if bounded else [])]),
+        )
         self.members_note.setToolTip("Recorded values; hover one for its ± σ")
         return columns
 

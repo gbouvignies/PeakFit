@@ -64,16 +64,30 @@ including repeated or unordered plane values. Missing values are labeled honestl
 imported values use the file's units, since a plain values file provides no unit
 metadata.
 
+**Names, numbers and controls** are the same everywhere. A spectral axis is named
+by its nucleus, as the file's header records it, and its F-dimension: ¹⁵N F2,
+¹H F3 (an unlabelled nucleus reads N F2), so two ¹H axes stay distinct; units
+follow in parentheses, ¹H F3 (ppm). The plane axis is “Plane value” when plane
+values are loaded and “Plane” otherwise. A value with a standard error shows the
+σ to two significant digits and the value to the same place, sharing one power of
+ten: (3.10 ± 0.13) × 10⁹; a table row or column of one magnitude carries the
+× 10ⁿ in its header instead. A missing σ reads “not assessed”. ppm values have
+three decimals, Hz one, χ²ᵣ two, residuals in σ one and correlations two; times are
+local with their zone. Controls have one look per kind: a bordered button runs a
+command, the filled **Fit** button is the main command, a checkbox is an on/off
+state, joined segments are one choice, a button ending in ▾ opens a menu, and
+accent text navigates.
+
 The workspace has three columns: the **navigator** on the left, the spectrum in
 the centre and the **inspector** on the right. Toolbar buttons at either end hide
 or show the side columns; their widths are adjustable. The toolbar starts with
 PeakFit; the window title names the dataset. PeakFit never enlarges the
 window: a side panel opens by taking room from the spectrum (residual lanes, then
 slices, down to their minimums) and then from the other side panel. When even the
-minimums do not fit, it stays closed and a message says what makes room. Returning
-from Residual to a mode with residual lanes, in a window narrowed meanwhile, hides
-the lanes with a message instead; your lane choice is kept and the lanes return once
-there is room. A new or
+minimums do not fit, it stays closed and a message says what makes room. When the
+window is too narrow for the residual lanes, they give way with a message in every
+comparison mode alike; your lane choice is kept and the lanes return once there is
+room. A new or
 reopened analysis keeps the spectrum, then the inspector, then the navigator.
 1160×720 holds both side panels with slices and residual lanes. The navigator's **Peaks**
 tab lists working peaks with search; after a fit its **Clusters** tab lists the
@@ -94,9 +108,8 @@ aliases into the display window. Only the inspection crosshair snaps to samples.
 Name and coordinates form one editing group. Enter or leaving the whole group
 commits; Tab within it retains the draft; Escape discards. Invalid text stays
 visible with an error, while spectrum and plane navigation remain available.
-Coordinates show one decimal place beyond the axis digital resolution when
-unfocused (four in ¹H and three in ¹⁵N for the bundled dataset) and round-trip
-precision when focused/copied. Untouched fields retain their original float64 value.
+Coordinates show three decimals in ppm when unfocused, as every ppm value in the
+GUI does, and round-trip precision when focused/copied. Untouched fields retain their original float64 value.
 Dot-decimal/scientific notation is accepted; a comma is also accepted when it is
 the local decimal separator. Thousands separators and mixed punctuation are not.
 
@@ -134,7 +147,8 @@ is selected. Before the first fit it leads the page; once a run exists, the run
 review leads (active run, changes from the previous run, warning navigation and
 unexplained signal) and the setup follows it. The active run reads as label rows:
 Run (short ID and Current or Outdated, the full ID in the tooltip), Model, Converged
-and Usable as counts of clusters, Fitted (date, time in UTC and duration), and
+and Usable as counts of clusters, Fitted (date and local time with its zone, and
+duration), and
 Warnings when any cluster has one, and Noise check when the run's noise-power check
 found a mismatch: the axes and that the errors may be miscalibrated, with what was
 found and what to do as its caption, the wording of the run line's tooltip. A
@@ -142,7 +156,7 @@ recovery problem adds a row in the warning style. The setup's values share that 
 or **Analysis ▸ Active run**, opens the page at the review. The summary names the
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
-only, with “Outdated” repeated where an outdated run's values are shown; the settings chip, or
+only, with “Outdated” repeated where an outdated run's values are shown; the settings button, or
 **Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape model (the
 resolved model per axis on one line, horizontal axis first, with a shared source
 such as “from apodization”; each axis's source is in the tooltip, and the
@@ -152,7 +166,8 @@ intensity, optimizer passes (default **two**, with the neighbor correction updat
 between passes; an imported step schedule replaces the field) and, under
 **Advanced**, iteration limit and tolerance. Statistical noise shows its value;
 an explicit value says so, and the estimate's method is in the tooltip. Values
-use ×10ⁿ, never e+ notation. Before the first fit the toolbar says **Not
+use × 10ⁿ, never e notation; the tolerance reads 1 × 10⁻⁸ and accepts plain or
+scientific entry. Before the first fit the toolbar says **Not
 fitted** and the page has no run section. A committed setting change marks an existing run
 Outdated; settings are not part of peak Undo.
 
@@ -287,14 +302,18 @@ no intensity axis. Overlay draws the total model at the
 same native samples (dashed). Optional **residual lanes** under each slice show
 `(D − M) / σ_stat` on one shared ±N σ_stat scale (±8 by default), set separately
 from the intensity scale. In **Residual** the slices themselves show the residual
-on that scale and the lanes hide; your lane choice returns with Overlay. The wheel
+on that scale, in the residual's colour. Once a run exists the lanes keep their
+place in every comparison mode (empty in Experimental, which draws no fitted
+contribution), so switching Experimental, Overlay and Residual never moves or
+resizes the 2D plot; before the first fit no mode shows lanes. The wheel
 over a slice magnifies both slices (a **gain**, shown as “Slices ×1.25”), which
 persists through hover, planes and zoom until a double-click on the slice,
 **Default slice intensities**, a new dataset or focusing another cluster; the wheel
 over a lane sets the lane scale. A caption above the row slice appears only when
 there is something to say: the residual or lane scale, the gain, and counts of
-clipped samples in words (“3 data samples clipped · 1 model sample clipped”). The corner readout gives the exact
-values at the sample, intensity and model in one power of ten (the status bar
+clipped samples in words (“3 data samples clipped · 1 model sample clipped”). The corner readout gives the
+values at the sample, intensity and model in one power of ten with four significant
+digits for the larger (the status bar
 repeats them only when a collapsed column slice leaves no room for the readout).
 Slices take a share of the spectral view (by default 22 % of its height for the row
 slice and 18 % of its width for the column slice; 30 % and 26 % in cluster focus),
@@ -345,8 +364,8 @@ is the unit of review while a peak stays the unit of editing. Under its header, 
 compact amber line names the cluster's numerical warnings (“▲ Uncertainty
 unreliable · see Review”); their explanations stay in Review. The cluster page
 lists the members one line each: its number, a link to its peak page and its
-recorded values at display precision (± σ on hover, recorded bounds in amber,
-units under the table), ↔ after a member whose profile is flagged; then the amplitude profile of all members; the recorded
+recorded values at display precision under each axis's name and each quantity's
+unit (± σ on hover, recorded bounds in amber), ↔ after a member whose profile is flagged; then the amplitude profile of all members; the recorded
 amplitude correlation, “conditional on lineshapes” (a single ρ row for two
 members, a matrix in member numbers shaded by |ρ| for more, why it is
 unavailable when the covariance was not recorded, and no section for a single
@@ -607,7 +626,7 @@ MCMC and full cluster refinement remain out of scope.
 The **Display** tool holds contours (signed first contour, level factor, levels per
 sign, stroke weight), peak labels, residual levels (first residual contour and the
 unexplained-signal threshold) and the review highlights. Every field uses a decimal
-point whatever the system locale; the first contour reads in the shared ×10ⁿ form
+point whatever the system locale; the first contour reads in the shared × 10ⁿ form
 and accepts plain or scientific entry (2500, 1.5e5). Contours are graded from light low levels to strong high levels;
 measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
@@ -619,11 +638,17 @@ frequency ranges. Appearance follows System or explicit Light/Dark under View.
 
 Keyboard access includes Cmd/Ctrl+O, Cmd/Ctrl+F, Cmd/Ctrl+Z/Shift+Z,
 Cmd/Ctrl+0, Ctrl+Page Up/Down, native list arrows/Enter and canvas arrows/Space/A.
+On the spectrum, E, O and R choose Experimental, Overlay and Residual, and [ and ]
+change plane; in the cluster list N and Shift+N move to the next and previous
+cluster with a numerical warning. Cmd/Ctrl+Return fits.
 Cmd/Ctrl+Shift+F focuses the selected peak's cluster and Escape returns; under
 **View → Slices**, Cmd/Ctrl+Alt+arrows resize the slices, Cmd/Ctrl+Alt+=/− scale
 their intensities and Cmd/Ctrl+Shift+L shows or hides the residual lanes.
-View also provides exact sample coordinates and frequency ranges. Help lists the
-shortcuts. Delete and Space in text fields retain their ordinary text behavior.
+View also provides exact sample coordinates and frequency ranges. **Help ▸ Keyboard
+shortcuts** lists every key: each menu command with its key, in the platform's
+notation, then the single keys of the spectrum, lists, slices and fields.
+Single-letter keys, Delete and Space in text fields retain their ordinary text
+behavior.
 
 The control that has keyboard focus carries a blue ring, separate from the
 selected-row and checked-button fills; a list or tree shows it on the view's
