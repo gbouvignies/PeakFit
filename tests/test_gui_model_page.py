@@ -361,10 +361,7 @@ def test_each_new_setting_is_marked_when_it_differs_from_the_run(tmp_path, previ
 def test_excluded_planes_read_as_plane_numbers(tmp_path):
     page, _emitted = _page(_toml(tmp_path, "exclude_planes = [0, 1]"))
     assert page.excluded.text() == "1–2"
-    assert (
-        page.planes.text().replace("\u00a0", " ").replace("\u2060", "")
-        == "1 of 3 fitted · numbered 1–3"
-    )
+    assert _plain(page.planes.text()) == "1 of 3 fitted · numbered 1–3"
 
 
 def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, preview):
