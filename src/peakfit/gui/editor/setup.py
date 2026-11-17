@@ -50,6 +50,24 @@ def common_family(fitting: FitConfig) -> str | None:
     return None if any(m.family for m in fitting.axes.values()) else fitting.family
 
 
+class ScaledValidator(QtGui.QValidator):
+    """A number typed plain, in scientific notation or as the formatter shows it (1 × 10⁻⁸)."""
+
+    def __init__(self, low: float, high: float, parent: QtCore.QObject) -> None:
+        super().__init__(parent)
+        self.low, self.high = low, high
+
+    def validate(self, text: str, pos: int) -> object:
+        """Acceptable once the text reads as a number within range."""
+        try:
+            value = formatting.parse_scaled(text)
+        except ValueError:
+            return QtGui.QValidator.State.Intermediate, text, pos
+        inside = self.low <= value <= self.high
+        state = QtGui.QValidator.State.Acceptable if inside else QtGui.QValidator.State.Intermediate
+        return state, text, pos
+
+
 class FitSetup(QtWidgets.QWidget):
     """Edit the working settings; show what their preparation resolves to."""
 
@@ -128,9 +146,7 @@ class FitSetup(QtWidgets.QWidget):
         self.max_iterations.valueChanged.connect(self._edited)
         self.tolerance = QtWidgets.QLineEdit()
         self.tolerance.setAccessibleName("Optimizer tolerance")
-        validator = QtGui.QDoubleValidator(1e-12, 0.1, 15, self.tolerance)
-        validator.setNotation(QtGui.QDoubleValidator.Notation.ScientificNotation)
-        self.tolerance.setValidator(validator)
+        self.tolerance.setValidator(ScaledValidator(1e-12, 0.1, self.tolerance))
         self.tolerance.editingFinished.connect(self._edited)
         for row, (name, widget) in enumerate(
             (
@@ -151,7 +167,6 @@ class FitSetup(QtWidgets.QWidget):
         for control in (self.lineshape, self.threshold, self.passes, self.max_iterations):
             control.setMinimumWidth(72)
             control.setLocale(QtCore.QLocale.c())
-        validator.setLocale(QtCore.QLocale.c())
         self.preparation = text_label("", "", wrap=True)
         self.blocked = text_label("", "warning", wrap=True)
         layout.addSpacing(themes.SPACE_XS)
@@ -195,7 +210,7 @@ class FitSetup(QtWidgets.QWidget):
             with QtCore.QSignalBlocker(self.threshold):
                 self.threshold.setValue(configuration.clustering.contour_factor)
         if not self.tolerance.hasFocus():
-            self.tolerance.setText(f"{fitting.tolerance:g}")
+            self.tolerance.setText(formatting.setting(fitting.tolerance))
         # One line, horizontal axis first; each axis's source is in the tooltip.
         sources = {source for _axis, _shape, source in shapes}
         common = next(iter(sources)) if len(sources) == 1 else ""
@@ -229,9 +244,8 @@ class FitSetup(QtWidgets.QWidget):
             )
             samples = sum(len(cluster.grid_indices[0]) for cluster in preview.clusters)
             self.preparation.setText(
-                f"{len(preview.clusters)} clusters · {samples:,} samples per plane".replace(
-                    ",", " "
-                )
+                f"{formatting.count(len(preview.clusters), 'cluster')} · "
+                f"{formatting.count(samples, 'sample')} per plane"
             )
         else:
             self.noise.setText("–")
@@ -264,7 +278,7 @@ class FitSetup(QtWidgets.QWidget):
         fitting.refine_iterations = self.passes.value()
         fitting.max_iterations = self.max_iterations.value()
         try:
-            tolerance = float(self.tolerance.text())
+            tolerance = formatting.parse_scaled(self.tolerance.text())
         except ValueError:
             tolerance = fitting.tolerance
         if math.isfinite(tolerance) and 0 < tolerance <= 0.1:  # noqa: PLR2004

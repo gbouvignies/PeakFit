@@ -48,12 +48,11 @@ if TYPE_CHECKING:
     from peakfit.gui.peaks import WorkingPeak
 
 _KINDS = {"cs": "δ", "lw": "LW"}
+NBSP = "\u00a0"
 
 
 class PreciseInspector(PeakInspector):
     """Display-precision labels with exact unchanged values and round-trip focus/copy."""
-
-    decimals: tuple[int, int] = (4, 3)  # (horizontal, vertical) display decimals
 
     def show_peak(self, peak, displayed=None) -> None:
         """Populate a new committed group without feeding formatted values into science."""
@@ -61,9 +60,8 @@ class PreciseInspector(PeakInspector):
         self._baseline = {}
         for field in (self.name, self.x_field, self.y_field):
             field.setEnabled(peak is not None)
-        dx, dy = self.decimals
         values = (
-            (peak.name, f"{peak.positions[1]:.{dx}f}", f"{peak.positions[0]:.{dy}f}")
+            (peak.name, formatting.ppm(peak.positions[1]), formatting.ppm(peak.positions[0]))
             if peak
             else ("", "", "")
         )
@@ -72,12 +70,13 @@ class PreciseInspector(PeakInspector):
         ):
             text = initial_text
             if peak and field.hasFocus() and field in (self.x_field, self.y_field):
-                text = repr(peak.positions[1 if field is self.x_field else 0])
+                text = formatting.exact(peak.positions[1 if field is self.x_field else 0])
             with QtCore.QSignalBlocker(field):
                 field.setText(text)
             self._baseline[field] = text
         alias = (
-            f"Unfolded ppm · displayed alias {displayed[0]:.{dx}f}, {displayed[1]:.{dy}f} ppm"
+            f"Unfolded ppm · displayed alias {formatting.ppm(displayed[0])}, "
+            f"{formatting.ppm(displayed[1])} ppm"
             if peak
             and displayed
             and any(
@@ -155,11 +154,10 @@ class PreciseInspector(PeakInspector):
         ):
             index = 1 if watched is self.x_field else 0
             value = peak.positions[index]
-            decimals = self.decimals[0 if index == 1 else 1]
             text = (
-                repr(value)
+                formatting.exact(value)
                 if event.type() == QtCore.QEvent.Type.FocusIn
-                else f"{value:.{decimals}f}"
+                else formatting.ppm(value)
             )
             with QtCore.QSignalBlocker(watched):
                 watched.setText(text)
@@ -199,7 +197,8 @@ def _provenance(cluster: FinalClusterOutcome, result: DatasetFitResult) -> str:
             f"Statistical noise: {formatting.intensity(result.outcome.noise)} a.u.",
             result.outcome.noise_model.description,
             f"Run {result.run_id}",
-            f"Completed {result.completed_at} · PeakFit {result.software_version}",
+            f"Completed {formatting.local_time(result.completed_at)} · "
+            f"PeakFit {result.software_version}",
         ]
     )
 
@@ -230,7 +229,7 @@ def parameter_table(
         grid.addWidget(title, 0, column)
         grid.setColumnStretch(column, 1 if column == 1 else 0)
     for row, (name, unit, cells, bounded) in enumerate(rows, start=1):
-        title = _label(f"{name} {unit}", "warning" if bounded else "muted")
+        title = _label(f"{name} ({unit})" if unit else name, "warning" if bounded else "muted")
         if bounded:
             title.setToolTip("At a recorded bound")
         grid.addWidget(title, row, 0)
@@ -266,6 +265,7 @@ class _AmplitudeRow:
     """The peak's amplitude row: its labels and what they show, plane by plane."""
 
     cells: tuple[QtWidgets.QLabel, QtWidgets.QLabel, QtWidgets.QLabel]  # title, value, σ
+    caption: QtWidgets.QLabel  # the plane and what its σ means
     planes: np.ndarray  # source plane of each amplitude column
     amplitudes: np.ndarray
     marginal: np.ndarray  # marginal σ of each amplitude
@@ -283,7 +283,7 @@ class Inspector(QtWidgets.QScrollArea):
     unexplained_requested = QtCore.Signal()
     region_chosen = QtCore.Signal(int)  # index in the unexplained-signal list
 
-    def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
+    def __init__(self, x_axis, y_axis) -> None:  # noqa: PLR0915
         super().__init__()
         self.setObjectName("inspector")
         # Focusable so arrows scroll it; a screen reader names the stop.
@@ -294,9 +294,7 @@ class Inspector(QtWidgets.QScrollArea):
         # than a narrowed inspector scrolls rather than being cut at its edge.
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setMinimumWidth(300)
-        self._axes = {
-            axis.label: formatting.nucleus(axis.nucleus, axis.label) for axis in (x_axis, y_axis)
-        }
+        self._axes = formatting.axis_names((x_axis, y_axis))
         self._axis_order = [x_axis.label, y_axis.label]
         body = QtWidgets.QWidget()
         body.setObjectName("inspectorBody")
@@ -309,10 +307,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.status = _label("", "muted", wrap=True)
         # The peak page's header: identity and size above, Review cluster beside the
         # identity, so the link takes no row of its own.
-        self.cluster_link = QtWidgets.QPushButton()
-        self.cluster_link.setObjectName("link")
-        self.cluster_link.setFlat(True)
-        self.cluster_link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.cluster_link = themes.link("")
         self.cluster_link.clicked.connect(self.cluster_requested)
         self.cluster_link.hide()
         heading = QtWidgets.QHBoxLayout()
@@ -327,10 +322,7 @@ class Inspector(QtWidgets.QScrollArea):
         peak = QtWidgets.QVBoxLayout(self.peak_page)
         peak.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         peak.setSpacing(themes.SPACE_S)
-        x_title = f"{self._axes[x_axis.label]} · {x_axis.label} ppm"
-        y_title = f"{self._axes[y_axis.label]} · {y_axis.label} ppm"
-        self.editor = PreciseInspector(x_title, y_title)
-        self.editor.decimals = decimals
+        self.editor = PreciseInspector(formatting.axis_title(x_axis), formatting.axis_title(y_axis))
         self.editor.details.setObjectName("caption")
         grid = self.editor.layout()
         assert isinstance(grid, QtWidgets.QGridLayout)
@@ -368,6 +360,7 @@ class Inspector(QtWidgets.QScrollArea):
         block.setSpacing(themes.SPACE_S)
         self.profile_title = section(block, "Amplitude profile")
         self.profile = ProfilePlot()
+        self.profile.axis_names = dict(self._axes)
         self.profile.plane_requested.connect(self.plane_requested)
         block.addWidget(self.profile)
         self.profile_reason = _label("", "muted", wrap=True)
@@ -397,11 +390,10 @@ class Inspector(QtWidgets.QScrollArea):
         peak.addWidget(self.provenance)
         layout.addWidget(self.peak_page)
         # Cluster page: parameters keyed by the engine's axis names, horizontal first.
-        decimals_x, decimals_y = decimals
         self.cluster_page = ClusterPage(
             [
-                (get_dimension_label(1), self._axes[x_axis.label], decimals_x),
-                (get_dimension_label(0), self._axes[y_axis.label], decimals_y),
+                (get_dimension_label(1), self._axes[x_axis.label]),
+                (get_dimension_label(0), self._axes[y_axis.label]),
             ]
         )
         for one, other in (
@@ -428,7 +420,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.failure_rows.setHorizontalSpacing(themes.SPACE_S)
         self.failure_rows.setVerticalSpacing(3)
         failure.addLayout(self.failure_rows)
-        self.copy_details = QtWidgets.QPushButton("Copy details")
+        self.copy_details = themes.command("Copy details")
         self.copy_details.setToolTip("Copy the stage, message and diagnostic context")
         self.copy_details.clicked.connect(self._copy_failure_details)
         failure.addWidget(self.copy_details, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
@@ -460,11 +452,11 @@ class Inspector(QtWidgets.QScrollArea):
         self.changes.setSpacing(2)
         analysis.addLayout(self.changes)
         self._changes_key = None
-        self.next_button = QtWidgets.QPushButton("Select next cluster with a warning")
+        self.next_button = themes.command("Select next cluster with a warning")
         self.next_button.clicked.connect(self.next_warning)
         analysis.addWidget(self.next_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.unexplained_section = section(analysis, "Signal not explained on this plane")
-        self.unexplained_button = QtWidgets.QPushButton()
+        self.unexplained_button = themes.command("")
         self.unexplained_button.clicked.connect(self.unexplained_requested)
         analysis.addWidget(self.unexplained_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.unexplained_title = _label("", "muted", wrap=True)
@@ -703,11 +695,10 @@ class Inspector(QtWidgets.QScrollArea):
         start = next((p for p in result.inputs.snapshot.peaks if p.id == peak.id), None)
         if start is not None:
             # The run's submitted position, for inspection; movement is not a diagnostic.
-            dx, dy = self.editor.decimals
             x_title, y_title = (self._axes[label] for label in self._axis_order)
             started = _label(
-                f"Started from {x_title} {start.positions[1]:.{dx}f}, "
-                f"{y_title} {start.positions[0]:.{dy}f} ppm",
+                f"Started from {x_title} {formatting.ppm(start.positions[1])}, "
+                f"{y_title} {formatting.ppm(start.positions[0])} ppm",
                 "caption",
                 wrap=True,
             )
@@ -759,10 +750,7 @@ class Inspector(QtWidgets.QScrollArea):
                 _kind, text, detail, identity, cluster, *flag = entry
                 row = QtWidgets.QHBoxLayout()
                 row.setSpacing(themes.SPACE_S)
-                link = QtWidgets.QPushButton(text)
-                link.setObjectName("link")
-                link.setFlat(True)
-                link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+                link = themes.link(text)
                 link.clicked.connect(
                     lambda _checked=False, i=identity, c=cluster: self.change_chosen.emit(i, c)
                 )
@@ -801,10 +789,7 @@ class Inspector(QtWidgets.QScrollArea):
                 continue
             row = QtWidgets.QHBoxLayout()
             row.setSpacing(themes.SPACE_S)
-            link = QtWidgets.QPushButton(text)
-            link.setObjectName("link")
-            link.setFlat(True)
-            link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+            link = themes.link(text)
             link.setToolTip("Frame this region in the spectrum")
             link.clicked.connect(lambda _checked=False, i=index: self.region_chosen.emit(i))
             row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
@@ -927,18 +912,20 @@ class Inspector(QtWidgets.QScrollArea):
         rows = []
         for parameter in sorted(parameters, key=lambda p: order(*_dimension_and_kind(p.name))):
             dim, kind = _dimension_and_kind(parameter.name)
-            value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
+            shown = formatting.fitted(
+                parameter.value, parameter.standard_error, parameter.unit, varied=parameter.vary
+            )
             if not parameter.vary:
                 error: Cell = ("fixed", "caption", 1)
-            elif not formatting.sigma_available(parameter.standard_error):
-                error = ("unavailable", "caption", 1)
+            elif not shown.assessed:
+                error = (formatting.NOT_ASSESSED, "caption", 1)
             else:
-                error = (sigma, "", 1)
+                error = (shown.sigma_text, "", 1)
             rows.append(
                 (
                     f"{_KINDS.get(kind, kind)} {self._axes.get(dim, dim)}",
                     parameter.unit,
-                    [(value, "", 1), error],
+                    [(shown.value_text, "", 1), error],
                     at_bound(parameter),
                 )
             )
@@ -963,17 +950,10 @@ class Inspector(QtWidgets.QScrollArea):
             if column:
                 cell.setAlignment(_RIGHT)
             self.fitted.addWidget(cell, row, column)
-        meaning = (
-            "± σ of the absolute amplitude on this plane (marginal σ), including the "
-            "lineshape uncertainty. Planes share that part: do not treat these σ as "
-            "independent errors of a profile."
-        )
-        caption = _label(meaning, "caption", wrap=True)
+        caption = _label("", "caption", wrap=True)
         self.fitted.addWidget(caption, row + 1, 0, 1, -1)
-        for cell in cells:
-            cell.setToolTip(meaning)
         self._amplitude = _AmplitudeRow(
-            cells, planes, evaluation.amplitudes[index], marginal[index]
+            cells, caption, planes, evaluation.amplitudes[index], marginal[index]
         )
         self._show_amplitude(plane)
 
@@ -982,16 +962,28 @@ class Inspector(QtWidgets.QScrollArea):
             return
         row = self._amplitude
         title, value, error = row.cells
-        title.setText(f"Amplitude plane {plane + 1}")
+        # The plane leads the caption, so the row's name keeps one line.
+        meaning = (
+            f"Plane {plane + 1} · ± σ is the marginal σ of the absolute amplitude, "
+            "lineshape uncertainty included. Planes share that part: do not treat these "
+            "σ as independent errors of a profile."
+        )
+        row.caption.setText(meaning)
+        for cell in row.cells:
+            cell.setToolTip(meaning)
         columns = np.flatnonzero(row.planes == plane)
         if not columns.size:
+            title.setText("Amplitude")
             value.setText("plane not fitted")
             error.setText("")
             return
         marginal = float(row.marginal[columns[0]])
-        shown, sigma = formatting.with_sigma(float(row.amplitudes[columns[0]]), marginal)
-        value.setText(shown)
-        error.setText(sigma if formatting.sigma_available(marginal) else "unavailable")
+        shown = formatting.measured(float(row.amplitudes[columns[0]]), marginal)
+        # The shared power of ten goes with the row's name, as a unit would.
+        scale = f" ({shown.factor.replace(' ', NBSP)})" if shown.factor else ""
+        title.setText(f"Amplitude{scale}")
+        value.setText(shown.value)
+        error.setText(shown.sigma)
 
     def _fill_review(
         self,
@@ -1032,7 +1024,7 @@ class Inspector(QtWidgets.QScrollArea):
             other = by_engine[name].assignment if name in by_engine else name
             correlation = Row(
                 f"ρ {other}",
-                formatting.number(float(row[partner]), 2),
+                formatting.correlation(float(row[partner])),
                 detail=CORRELATION_QUALIFIER,
                 tip="Strongest amplitude correlation with another member, conditional on "
                 "the fitted lineshapes",

@@ -20,6 +20,7 @@ import numpy as np
 
 from peakfit.engine.diagnostics.identifiability import Cause, amplitude_identifiability
 from peakfit.engine.domain.spectrum import get_dimension_label
+from peakfit.gui import formatting
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import SpectralParameters
@@ -150,7 +151,8 @@ def _comparison(
     checks = (
         (
             points[0].shape != points[1].shape or not np.array_equal(points[0], points[1]),
-            f"fitting samples changed ({len(points[0]):,} → {len(points[1]):,} per plane)",
+            f"fitting samples changed ({formatting.grouped(len(points[0]))} → "
+            f"{formatting.grouped(len(points[1]))} per plane)",
         ),
         (parent.outcome.noise != active.outcome.noise, "σ_stat changed"),
         (parent.outcome.noise_model != active.outcome.noise_model, "noise model changed"),

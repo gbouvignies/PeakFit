@@ -182,6 +182,10 @@ bundled dataset and offers `fit()`, `capture()` and `each()`. Create the
 script, so without the guard the first fit fails with "Dataset fit worker exited
 with code 1".
 
+`tools/capture_gui_review.py` is such a script: it regenerates the figures and
+`measurements.json` of the [GUI product review](validation/gui-product-review.md),
+whose test checks that the note quotes the record.
+
 ### Native input checks
 
 Qt test events bypass the native event path, so keyboard and context-menu behavior

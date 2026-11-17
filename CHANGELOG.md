@@ -44,6 +44,19 @@ Notable user-facing and architecture changes are recorded here.
 
 ### Changed
 
+- **GUI consistency (#211).** One number formatter is the only route from a number
+  to text in the GUI: a value and its σ share one power of ten with the σ to two
+  significant digits, (3.10 ± 0.13) × 10⁹ instead of 3103917717 ± 132348379; ppm has
+  three decimals everywhere (unfocused coordinates included), Hz one, χ²ᵣ two; times
+  are local with their zone; the tolerance reads 1 × 10⁻⁸. Each spectral axis has one
+  name, nucleus and F-dimension (¹⁵N F2), in every place. Controls have one look per
+  kind (command, Fit, checkbox toggle, segmented choice, ▾ menu button, link). Once a
+  run exists the residual lanes keep their place in every comparison mode, so the
+  2D plot no longer moves between Overlay and Residual. E/O/R and [ ] act on the
+  spectrum and Shift+N moves to the previous warned cluster, as the specification
+  said; Help ▸ Keyboard shortcuts lists every key. Counts are pluralised and legend
+  names never wrap inside an assignment. Display only: no stored or exported value
+  changes. Evidence: `docs/validation/gui-consistency.md`.
 - Simplified the public Python package surface; import concrete modules instead of package
   facades.
 - Simplified fit output generation around the canonical files documented in

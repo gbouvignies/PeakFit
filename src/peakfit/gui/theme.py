@@ -291,8 +291,6 @@ QLabel#value {{ font-weight: 600; }}
 QLabel#error {{ color: {t.error}; }}
 QLabel#muted[tone="error"] {{ color: {t.error}; }}
 QLabel#warning {{ color: {t.warning}; font-size: {s.small}px; }}
-QLabel#runChip {{ background: {t.selection}; color: {t.text}; border-radius: 11px;
-    padding: 2px 10px; font-size: {s.small}px; }}
 
 QPushButton {{ min-height: {CONTROL_HEIGHT - 2}px; padding: 0 10px; border: 1px solid {t.border};
     border-radius: 5px; background: {t.panel}; color: {t.text}; }}
@@ -305,16 +303,14 @@ QPushButton#primary {{ background: {t.accent}; border-color: {t.accent}; color: 
 QPushButton#primary:hover:enabled {{ background: {t.accent}; }}
 QPushButton#primary:disabled {{ background: {t.divider}; border-color: {t.divider};
     color: {t.disabled}; }}
-QPushButton#chip {{ border-radius: 11px; min-height: 20px; padding: 0 10px;
-    color: {t.secondary}; font-size: {s.small}px; background: transparent; }}
-QPushButton#chip:hover:enabled {{ color: {t.text}; background: {t.hover}; }}
+QPushButton#menu {{ padding: 0 8px 0 10px; }}
 QPushButton#segment {{ border-radius: 0; border-right-width: 0; padding: 0 9px;
     color: {t.secondary}; background: {t.panel}; }}
 QPushButton#segment[edge="first"] {{ border-top-left-radius: 5px;
     border-bottom-left-radius: 5px; }}
 QPushButton#segment[edge="last"] {{ border-top-right-radius: 5px;
     border-bottom-right-radius: 5px; border-right-width: 1px; }}
-QPushButton#segment:checked {{ background: {t.selection}; color: {t.text}; font-weight: 600;
+QPushButton#segment:checked {{ background: {t.selection}; color: {t.text};
     border-color: {t.border}; }}
 QPushButton#segment:disabled {{ color: {t.disabled}; }}
 
@@ -372,6 +368,68 @@ QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
 QCheckBox {{ spacing: 6px; }}
 """
+
+
+# ------------------------------------------------------------------ controls
+# One look per kind of control (specification §12), each named by its object name:
+# the stylesheet above draws it, and nothing else styles a button. Icon tools on the
+# canvas toolbar, navigator tabs and disclosures keep their own roles.
+COMMAND, PRIMARY, SEGMENT, MENU, LINK = "command", "primary", "segment", "menu", "link"
+CONTROL_KINDS = (COMMAND, PRIMARY, SEGMENT, MENU, LINK)
+MENU_ARROW = "▾"
+
+
+def command(text: str, tip: str = "") -> QtWidgets.QPushButton:
+    """A bordered button that does something: Focus cluster, Copy details, Export PDF…."""
+    return _button(text, COMMAND, tip)
+
+
+def primary(text: str, tip: str = "") -> QtWidgets.QPushButton:
+    """The one filled accent command of the window: Fit."""
+    return _button(text, PRIMARY, tip)
+
+
+def toggle(text: str, tip: str = "") -> QtWidgets.QCheckBox:
+    """An on/off state: a checkbox, never a button that stays pressed."""
+    box = QtWidgets.QCheckBox(text)
+    box.setToolTip(tip)
+    return box
+
+
+def segment(text: str, edge: str = "") -> QtWidgets.QPushButton:
+    """One choice of a joined segmented group; ``edge`` is "first", "last" or ""."""
+    button = _button(text, SEGMENT, "")
+    button.setCheckable(True)
+    button.setProperty("edge", edge)
+    return button
+
+
+def menu_button(text: str, tip: str = "") -> QtWidgets.QPushButton:
+    """A button that opens a menu of choices; its label ends with ▾."""
+    button = _button("", MENU, tip)
+    set_menu_text(button, text)
+    return button
+
+
+def set_menu_text(button: QtWidgets.QPushButton, text: str) -> None:
+    """Relabel a menu button, keeping its ▾."""
+    button.setText(f"{text} {MENU_ARROW}")
+
+
+def link(text: str, tip: str = "") -> QtWidgets.QPushButton:
+    """Accent text that navigates to another object (Review cluster ›, a member name)."""
+    button = _button(text, LINK, tip)
+    button.setFlat(True)
+    button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+    return button
+
+
+def _button(text: str, kind: str, tip: str) -> QtWidgets.QPushButton:
+    button = QtWidgets.QPushButton(text)
+    button.setObjectName(kind)
+    if tip:
+        button.setToolTip(tip)
+    return button
 
 
 class ControlStyle(QtWidgets.QProxyStyle):

@@ -96,7 +96,7 @@ def test_peak_page_reports_the_fitted_table_in_page_coordinates(tool, fitted):
     amplitude = next(
         label
         for label in inspector.peak_page.findChildren(QtWidgets.QLabel)
-        if label.text().startswith("Amplitude plane")
+        if label.text().split(" (")[0] == "Amplitude"
     )
     body = inspector.widget()
     bottom = amplitude.mapTo(body, QtCore.QPoint(0, 0)).y() + amplitude.height()
