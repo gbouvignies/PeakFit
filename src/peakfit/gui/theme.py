@@ -619,6 +619,10 @@ class FocusRing(QtCore.QObject):
             ):
                 break
             host = parent
+        # A splitter adopts every child widget as a new pane, which would take width
+        # from the others: the ring sits over the splitter instead, from its parent.
+        while isinstance(host, QtWidgets.QSplitter) and (outer := host.parentWidget()):
+            host = outer
         return host
 
     def _place(self) -> None:
