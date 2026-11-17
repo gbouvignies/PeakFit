@@ -1728,3 +1728,14 @@ Short records of non‑obvious design choices and trade‑offs.
   (exactly 0.0031); it multiplied by a power of ten (0.0031000000000000003).
 - **Same config as TOML.** W3's parametrised test moved to the Model page and
   covers every Model control.
+- **Review pass at 1280×800.** Each value now reads on one line with its source
+  after it as a ▾ menu (the app's menu-button look), “1.192 × 10⁴ estimated ▾”,
+  “5.00 × noise ▾”. Measured natively, a combo then the value on one line did not
+  fit the 166 px cell of a scrolling inspector for a manual value, a level or the
+  factor with its unit (176–197 px); value then menu fits every state (148–165 px),
+  so the stacked choice line went. Value fields size to their text, so no number is
+  shown cut. An entry that is not applied says “Not applied:” and hides what the
+  setting in effect derives (estimate, factor or level, planes fitted). The planes
+  caption states the numbering. On an excluded plane, “No model on this plane”
+  sits in the plot's header strip, never over the contours. The analysis header
+  drops its “ANALYSIS” overline: the Run | Model switch says what the page is.

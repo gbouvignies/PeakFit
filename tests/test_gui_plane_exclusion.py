@@ -87,7 +87,7 @@ def test_excluding_the_current_plane_is_one_undoable_edit_kept_in_navigation(wor
     assert action.text() == "Include plane 2 in the fit"
     model = w.panel.model_page
     assert model.excluded.text() == "2"
-    assert model.planes.text() == "2 of 3 fitted"
+    assert model.planes.text().replace("\u00a0", " ") == "2 of 3 fitted · numbered 1–3"
     w.set_plane(1)
     assert not w.plane_excluded.isVisible()
     w.history(False)
@@ -156,9 +156,10 @@ def test_a_run_that_excluded_a_plane_shows_it_measured_not_fitted(workspace, sci
     w.set_plane(EXCLUDED + 1)
     w.set_mode(1)
     wait_until(lambda: not w.canvas.contour_pending)
-    label = w.canvas.pending_label
-    assert label.isVisible()
-    assert label.toPlainText() == "Plane 2 not fitted · experimental only"
+    # Said in the header strip, never over the contours; the plane strip says "not fitted".
+    assert not w.canvas.pending_label.isVisible()
+    assert w.canvas.caption.text().startswith("No model on this plane")
+    assert "no model" in w.canvas.readout.text()
     with pytest.raises(ValueError, match="Plane 2 is measured but not fitted"):
         dataset_model_plane(result, spectra.spectral_params, EXCLUDED, cancel=Event())
     # Fitted planes map to their own columns.

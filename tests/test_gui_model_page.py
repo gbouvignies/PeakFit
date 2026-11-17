@@ -356,7 +356,7 @@ def test_each_new_setting_is_marked_when_it_differs_from_the_run(tmp_path, previ
 def test_excluded_planes_read_as_plane_numbers(tmp_path):
     page, _emitted = _page(_toml(tmp_path, "exclude_planes = [0, 1]"))
     assert page.excluded.text() == "1–2"
-    assert page.planes.text() == "1 of 3 fitted"
+    assert page.planes.text().replace("\u00a0", " ") == "1 of 3 fitted · numbered 1–3"
 
 
 def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, preview):
@@ -367,6 +367,8 @@ def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, prev
     _exclude(page, "1, 41–42")  # invalid here: three planes; its message wraps
     _rule(page, "F3", "eta", "0.5", "0.25", "0.75", hold=True)
     page.constraints.add_rule.click()
+    # Offscreen fonts run wider than macOS's: the scrolling inspector (10 px less) is
+    # checked natively, by tools/capture_model_settings.py.
     assert page.minimumSizeHint().width() <= INSPECTOR_CONTENT
 
 
@@ -395,3 +397,61 @@ def test_a_run_records_each_rule_as_submitted():
     rule = ParameterConstraint(value=20.0, min=5.0, max=80.25, vary=False)
     assert rule_text("*.F2.lw", rule) == "*.F2.lw: start 20 · range 5–80.25 · held"
     assert rule_text("*.*.eta", ParameterConstraint(max=0.5)) == "*.*.eta: range −∞–0.5"
+
+
+@pytest.mark.parametrize(
+    ("edit", "text", "derived"),
+    [
+        (_manual_noise, "0", "noise_estimate"),
+        (_level, "-5", "level"),
+        (_exclude, "1-3", "planes"),
+    ],
+)
+def test_an_entry_not_applied_hides_what_the_setting_in_effect_derives(
+    tmp_path, preview, edit, text, derived
+):
+    page, _emitted = _page(_toml(tmp_path), preview)
+    edit(page, text)
+    # The reason says the entry is not applied; nothing beside it describes the old value.
+    assert any(m.text().startswith("▲ Not applied: ") for m in page.errors.values())
+    assert not getattr(page, derived).isVisible()
+
+
+def test_each_value_and_its_source_share_one_line(tmp_path, preview):
+    page, _emitted = _page(_toml(tmp_path), preview)
+
+    def top(widget):
+        return widget.mapTo(page, widget.rect().center()).y()
+
+    assert top(page.noise) == top(page.noise_mode)
+    assert top(page.threshold) == top(page.threshold_mode)
+    _manual_noise(page, "0.0031")
+    _level(page, "0.35")
+    assert top(page.noise_value) == top(page.noise_mode)
+    assert top(page.level_value) == top(page.threshold_mode)
+    # The source reads as a choice to assistive technology, with its current value.
+    assert page.noise_mode.accessibleName() == "Statistical noise source: manual"
+    assert page.threshold_mode.accessibleName() == "Clustering threshold kind: level"
+    # A typed value is never cut: the field is as wide as its text.
+    width = page.noise_value.fontMetrics().horizontalAdvance(page.noise_value.text())
+    assert page.noise_value.width() >= width + 12
+
+
+@pytest.fixture
+def large_font():
+    """Sizes as derived from a 17 px system font; the look is restored after each test."""
+    themes.use_type_scale(themes.TypeScale.for_body(17))
+    yield
+    themes.use_type_scale(None)
+
+
+@pytest.mark.usefixtures("large_font")
+def test_every_new_setting_fits_the_widened_inspector_at_a_large_system_font(tmp_path, preview):
+    config = _toml(tmp_path, '[parameters.defaults]\n"2N-H.*.*" = { vary = false }')
+    page, _emitted = _page(config, preview)
+    _manual_noise(page, "1.234 × 10⁻⁵")
+    _level(page, "1.234 × 10⁵")
+    _exclude(page, "1, 41–42")
+    _rule(page, "F3", "eta", "0.5", "0.25", "0.75", hold=True)
+    content = themes.text_room(320) - 2 * themes.SPACE_L
+    assert page.minimumSizeHint().width() <= content

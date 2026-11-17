@@ -161,26 +161,30 @@ def _form() -> QtWidgets.QGridLayout:
     return grid
 
 
-def _choice(name: str, items: tuple[tuple[str, str], ...]) -> QtWidgets.QComboBox:
-    combo = QtWidgets.QComboBox()
-    combo.setAccessibleName(name)
-    for text, data in items:
-        combo.addItem(text, data)
-    return combo
-
-
 def _value_edit(name: str) -> QtWidgets.QLineEdit:
+    """A typed number, as wide as its text: a value is never shown cut."""
     edit = QtWidgets.QLineEdit()
     edit.setAccessibleName(name)
     edit.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-    # Room for any value the formatter writes, such as 1.234 × 10⁻¹⁵.
-    edit.setFixedWidth(edit.fontMetrics().horizontalAdvance("−0.000 × 10⁻⁰⁰") + 16)
+    metrics = edit.fontMetrics()
+    least = metrics.horizontalAdvance("0.000 × 10⁰")
+
+    def fit(text: str) -> None:
+        edit.setFixedWidth(max(least, metrics.horizontalAdvance(text)) + 12)
+
+    edit.textChanged.connect(fit)
+    fit("")
     return edit
 
 
-ENTER_NOISE = "Enter the statistical noise as a positive number."
-ENTER_LEVEL = "Enter the clustering level as a positive intensity."
-NO_PLANE_LEFT = "Every plane is excluded. Keep at least one plane to fit."
+THRESHOLD_TIP = (
+    "Selects the fitting regions: the points above it, in regions around the peaks, "
+    "are the points fitted, and peaks that share a region are fitted together"
+)
+NOT_APPLIED = "Not applied: "  # an invalid entry keeps the setting in effect
+ENTER_NOISE = "enter the statistical noise as a positive number."
+ENTER_LEVEL = "enter the clustering level as a positive intensity."
+NO_PLANE_LEFT = "every plane would be excluded. Keep at least one plane to fit."
 _UNSET = object()
 
 
@@ -217,47 +221,51 @@ class ModelPage(QtWidgets.QWidget):
         self._axes_slot.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(self._axes_slot)
         section(layout, "Clustering")
-        # Statistical noise: the estimate, or a value entered instead of it.
-        self.noise_mode = _choice(
-            "Statistical noise source",
-            (("Estimated", NoiseSource.ESTIMATED), ("Manual", NoiseSource.MANUAL)),
-        )
-        self.noise_mode.setToolTip("Estimate the noise from the fitted planes, or enter it")
-        self.noise_mode.currentIndexChanged.connect(self._noise_mode_chosen)
+        # Each value, then where it comes from: one line per setting. Statistical
+        # noise is the estimate, or a value entered instead of it.
         self.noise = text_label("", "")
         self.noise_value = _value_edit("Statistical noise")
         self.noise_value.editingFinished.connect(self._edited)
+        self.noise_mode = themes.MenuChoice(
+            "Statistical noise source",
+            "Estimate the noise from the fitted planes, or enter it",
+            (
+                ("estimated", "Estimated from the fitted planes", NoiseSource.ESTIMATED),
+                ("manual", "Manual value", NoiseSource.MANUAL),
+            ),
+        )
+        self.noise_mode.currentIndexChanged.connect(self._noise_mode_chosen)
         self.noise_estimate = text_label("", "caption")
-        # The clustering threshold: a factor of the noise, or an absolute level.
-        self.threshold_mode = _choice(
-            "Clustering threshold kind",
-            (("Factor", ThresholdKind.FACTOR), ("Level", ThresholdKind.LEVEL)),
-        )
-        self.threshold_mode.setToolTip(
-            "A multiple of the statistical noise, or an absolute intensity level"
-        )
-        self.threshold_mode.currentIndexChanged.connect(self._threshold_mode_chosen)
+        # The threshold selects the fitting regions: the points above it are fitted,
+        # and peaks whose regions touch share a cluster.
         self.threshold = QtWidgets.QDoubleSpinBox()
         self.threshold.setRange(0.1, 1000)
         self.threshold.setDecimals(2)
-        self.threshold.setSuffix(" × noise")
         self.threshold.setAccessibleName("Clustering threshold, in multiples of the noise")
         self.threshold.setKeyboardTracking(False)
         self.threshold.valueChanged.connect(self._edited)
+        self.threshold.setFixedWidth(self.threshold.fontMetrics().horizontalAdvance("1000.00") + 30)
         self.level_value = _value_edit("Clustering level")
         self.level_value.editingFinished.connect(self._edited)
+        self.threshold_mode = themes.MenuChoice(
+            "Clustering threshold kind",
+            THRESHOLD_TIP,
+            (
+                ("× noise", "A factor of the statistical noise", ThresholdKind.FACTOR),
+                ("level", "An absolute intensity level", ThresholdKind.LEVEL),
+            ),
+        )
+        self.threshold_mode.currentIndexChanged.connect(self._threshold_mode_chosen)
         self.level = text_label("", "caption", wrap=True)
+        self.titles[Setting.THRESHOLD].setToolTip(THRESHOLD_TIP)
         clustering = _form()
         _rows(
             clustering,
             (
                 (
                     self.titles[Setting.NOISE],
-                    # The choice, then its value: both on one line need more than
-                    # the inspector has once it scrolls.
                     _cell(
-                        _line(self.noise_mode),
-                        _line(self.noise, self.noise_value),
+                        _line(self.noise, self.noise_value, self.noise_mode),
                         self.noise_estimate,
                         self.errors[Setting.NOISE],
                     ),
@@ -265,8 +273,7 @@ class ModelPage(QtWidgets.QWidget):
                 (
                     self.titles[Setting.THRESHOLD],
                     _cell(
-                        _line(self.threshold_mode),
-                        _line(self.threshold, self.level_value),
+                        _line(self.threshold, self.level_value, self.threshold_mode),
                         self.level,
                         self.errors[Setting.THRESHOLD],
                     ),
@@ -285,7 +292,7 @@ class ModelPage(QtWidgets.QWidget):
         # Planes left out of the fit, by the plane numbers navigation shows.
         self.excluded = QtWidgets.QLineEdit()
         self.excluded.setAccessibleName("Planes excluded from the fit, by plane number")
-        self.excluded.setPlaceholderText("none")
+        self.excluded.setPlaceholderText("none")  # the caption says how planes are numbered
         self.excluded.setToolTip(
             "Plane numbers as in plane navigation, such as 1, 41–42. An excluded plane "
             "stays measured and shown, with no fitted amplitude."
@@ -296,7 +303,7 @@ class ModelPage(QtWidgets.QWidget):
         _rows(
             fit,
             (
-                (self.titles[Setting.PASSES], _cell(self.passes, self.schedule)),
+                (self.titles[Setting.PASSES], _cell(_line(self.passes), self.schedule)),
                 (
                     self.titles[Setting.PLANES],
                     _cell(
@@ -439,13 +446,13 @@ class ModelPage(QtWidgets.QWidget):
             self.constraints.show_parameters(
                 configuration.parameters, tuple(preview.parameters) if preview else None
             )
-        self.constraints_summary.setText(constraints_text(configuration.parameters, self._names()))
         self.blocked.setText(f"Fit unavailable: {error}" if error else "")
         self.blocked.setVisible(bool(error))
         for setting, title in self.titles.items():
             used = differs.get(setting)
             title.setText(f"{setting.value} {DIFFERS}" if used else setting.value)
-            title.setToolTip(f"Run {run.run} used {used}" if run and used else "")
+            about = THRESHOLD_TIP if setting is Setting.THRESHOLD else ""
+            title.setToolTip(f"Run {run.run} used {used}" if run and used else about)
         used = differs.get(Setting.CONSTRAINTS)
         self.constraints_differs.setVisible(bool(used))
         self.constraints_differs.setToolTip(f"Run {run.run} used {used}" if run and used else "")
@@ -525,9 +532,9 @@ class ModelPage(QtWidgets.QWidget):
             self._exact[edit] = (text, value)
 
     @staticmethod
-    def _set_mode(combo: QtWidgets.QComboBox, mode: StrEnum) -> None:
-        with QtCore.QSignalBlocker(combo):
-            combo.setCurrentIndex(combo.findData(mode))
+    def _set_mode(choice: themes.MenuChoice, mode: StrEnum) -> None:
+        with QtCore.QSignalBlocker(choice):
+            choice.setCurrentIndex(choice.findData(mode))
 
     @property
     def _noise_source(self) -> NoiseSource:
@@ -541,7 +548,6 @@ class ModelPage(QtWidgets.QWidget):
         manual = self._noise_source is NoiseSource.MANUAL
         self.noise.setVisible(not manual)
         self.noise_value.setVisible(manual)
-        self.noise_estimate.setVisible(manual and bool(self.noise_estimate.text()))
         level = self._threshold_kind is ThresholdKind.LEVEL
         self.threshold.setVisible(not level)
         self.level_value.setVisible(level)
@@ -550,7 +556,10 @@ class ModelPage(QtWidgets.QWidget):
         return {row.axis.label: row.axis.name for row in self.axes.rows} if self.axes else {}
 
     def _show_planes(self, excluded: list[int]) -> None:
-        self.planes.setText(planes_fitted(self._planes, excluded))
+        # The convention, said once: navigation's numbers, never the TOML's indices.
+        numbering = f"numbered\u00a01–{self._planes}"
+        fitted = planes_fitted(self._planes, excluded).replace(" ", "\u00a0")
+        self.planes.setText(f"{fitted} · {numbering}")
 
     # ------------------------------------------------------------- drafts
     def _number(self, edit: QtWidgets.QLineEdit) -> float | None:
@@ -601,8 +610,16 @@ class ModelPage(QtWidgets.QWidget):
         }
         for setting, message in self.errors.items():
             text = errors.get(setting, "")
-            show_message(message, text, hint=False)
+            show_message(message, NOT_APPLIED + text if text else "", hint=False)
             mark_invalid(fields[setting], bool(text))
+        # A value derived from the setting in effect never sits beside an entry that
+        # is not applied: it would describe a value the field does not show.
+        manual = self._noise_source is NoiseSource.MANUAL
+        self.noise_estimate.setVisible(
+            manual and bool(self.noise_estimate.text()) and Setting.NOISE not in errors
+        )
+        self.level.setVisible(bool(self.level.text()) and Setting.THRESHOLD not in errors)
+        self.planes.setVisible(Setting.PLANES not in errors)
         self._update_invalid()
 
     def _update_invalid(self, *_args) -> None:
@@ -613,6 +630,11 @@ class ModelPage(QtWidgets.QWidget):
             self.constraints.invalid if self.constraints is not None else "",
         ]
         first = next((reason for reason in reasons if reason), "")
+        if self.constraints is not None and self.constraints.invalid:
+            self.constraints_summary.setText("▲ An entry is not applied")
+        elif self._configuration is not None:
+            parameters = self._configuration.parameters
+            self.constraints_summary.setText(constraints_text(parameters, self._names()))
         if first != self.invalid:
             self.invalid = first
             self.invalid_changed.emit(first)

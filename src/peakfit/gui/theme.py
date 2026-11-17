@@ -5,9 +5,13 @@ reserved for scientific layers, selection and state (specification §12).
 """
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import shiboken6
 from PySide6 import QtCore, QtGui, QtWidgets
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # Logical-pixel rhythm shared by layouts.
 SPACE_XS, SPACE_S, SPACE_M, SPACE_L = 4, 8, 12, 16
@@ -418,6 +422,61 @@ def menu_button(text: str, tip: str = "") -> QtWidgets.QPushButton:
 def set_menu_text(button: QtWidgets.QPushButton, text: str) -> None:
     """Relabel a menu button, keeping its ▾."""
     button.setText(f"{text} {MENU_ARROW}")
+
+
+class MenuChoice(QtWidgets.QPushButton):
+    """A menu button holding one of a few choices, read and set as a combo box is.
+
+    It shows the current choice's short label with ▾; its menu lists every choice
+    in full, the current one checked. Space or a click opens it.
+    """
+
+    currentIndexChanged = QtCore.Signal(int)  # noqa: N815  # as QComboBox names it
+
+    def __init__(self, name: str, tip: str, choices: Sequence[tuple[str, str, object]]) -> None:
+        """``choices`` are (short label, menu text, data)."""
+        super().__init__()
+        self.setObjectName(MENU)
+        self.setToolTip(tip)
+        self._name = name
+        self._choices = list(choices)
+        self._index = 0
+        self.clicked.connect(self._open)
+        self._show()
+
+    def currentData(self) -> object:  # noqa: N802
+        """The current choice's data."""
+        return self._choices[self._index][2]
+
+    def currentIndex(self) -> int:  # noqa: N802
+        """The current choice's position."""
+        return self._index
+
+    def findData(self, data: object) -> int:  # noqa: N802
+        """The position of the choice holding ``data``, or -1."""
+        return next((i for i, choice in enumerate(self._choices) if choice[2] == data), -1)
+
+    def setCurrentIndex(self, index: int) -> None:  # noqa: N802
+        """Choose the choice at ``index``; emits ``currentIndexChanged`` on a change."""
+        if index == self._index or not 0 <= index < len(self._choices):
+            return
+        self._index = index
+        self._show()
+        self.currentIndexChanged.emit(index)
+
+    def _show(self) -> None:
+        label = self._choices[self._index][0]
+        set_menu_text(self, label)
+        self.setAccessibleName(f"{self._name}: {label}")
+
+    def _open(self) -> None:
+        menu = QtWidgets.QMenu(self)
+        for index, (_label, text, _data) in enumerate(self._choices):
+            action = menu.addAction(text)
+            action.setCheckable(True)
+            action.setChecked(index == self._index)
+            action.triggered.connect(lambda _checked=False, i=index: self.setCurrentIndex(i))
+        menu.popup(self.mapToGlobal(QtCore.QPoint(0, self.height())))
 
 
 def link(text: str, tip: str = "") -> QtWidgets.QPushButton:

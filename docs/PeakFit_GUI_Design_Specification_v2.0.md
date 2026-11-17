@@ -559,7 +559,11 @@ once its J is entered. Invalid entries are explained under their axis and block
 Fit until corrected. Then statistical noise, Estimated (from the fitted planes) or
 Manual, the estimate staying visible under a manual value; clustering threshold,
 one setting chosen as a Factor of the noise (with the level it gives) or an
-absolute Level (with the factor it amounts to); optimizer passes (default two,
+absolute Level (with the factor it amounts to). The threshold selects the fitting
+regions: the points above it, around the peaks, are the points fitted, and peaks
+sharing a region form one cluster. Each value reads on one line with its source
+after it as a ▾ menu; an entry that is not applied hides what the setting in
+effect derives. Then optimizer passes (default two,
 cross-talk updates only between passes, as in the current GUI; CLI defaults are
 unaffected); the planes excluded, by one-based plane number, with the count fitted;
 Constraints, disclosed: a position window per axis and ordered rules on a
@@ -580,7 +584,8 @@ setting, keeps the committed value and blocks Fit.
 Analysis ▸ Exclude plane N from the fit (and the plane strip's menu) excludes a
 plane, undoably, and the run becomes Outdated. An excluded plane stays in plane
 navigation, marked not fitted, and in the profiles as a dotted line, never a
-point; Overlay and Residual show it as measured only. The run snapshot records
+point; Overlay and Residual show it as measured only, saying so in the plot's
+header strip, never over the contours. The run snapshot records
 the whole spectrum and its fitted planes; a reopened project is checked against
 the recorded exclusion.
 

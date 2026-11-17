@@ -189,10 +189,15 @@ the settings. Below the table: **Clustering**, with the statistical noise,
 estimate as shown, and the estimate stays under the value), and the threshold, a
 **Factor** of the noise with the absolute level it gives, or an absolute **Level**
 with the factor it amounts to (choosing Level starts from the level the factor
-gave); **Fit**, with optimizer passes (default **two**, with the neighbor
+gave). The threshold selects the fitting regions, not only how peaks are grouped:
+the points above it, in regions around the peaks, are the points fitted, and peaks
+that share a region form one cluster. Each value reads on one line with its
+source after it as a ▾ menu (“1.192 × 10⁴ estimated ▾”, “5.00 × noise ▾”), and
+the derived value on the line under it. **Fit**, with optimizer passes (default **two**, with the neighbor
 correction update between passes; an imported step schedule replaces the field)
 and the planes **excluded**, by the plane numbers navigation shows (“1, 41–42”;
-the configuration's `exclude_planes` counts from 0), with how many are fitted;
+the configuration's `exclude_planes` counts from 0), with how many are fitted and
+the numbering (“128 of 131 fitted · numbered 1–131”);
 **Constraints** (collapsed, with a one-line summary): a position window per axis,
 how far a peak may move from its start in ppm, and rules on a parameter kind
 (linewidth or η) on one axis or all, each setting a start, a range or **Hold**,
@@ -209,7 +214,9 @@ positive, an exclusion that leaves no plane or names a plane that does not exist
 a rule whose start lies outside its range or whose range is empty, a rule that
 matches no parameter of the current model) is explained under its setting,
 outlines the field, keeps the committed value and disables **Fit** with the same
-reason, until it is corrected. Once a run exists, every setting whose working value differs from
+reason, until it is corrected. The reason starts “Not applied:”, and nothing derived
+from the setting in effect (the estimate under a manual noise, the factor or level
+a threshold amounts to, the planes fitted) shows beside an entry that is not applied. Once a run exists, every setting whose working value differs from
 the one the run used is marked • (an axis on its name, a setting on its label, with
 what the run used in the tooltip), and the page says “• differs from run 5d7b4768”.
 
@@ -221,7 +228,9 @@ the setting but never makes the run Current again.
 menu) excludes the plane shown, or includes it again, as one such edit; the last
 fitted plane cannot be excluded. An excluded plane stays in plane navigation,
 which marks it **not fitted**, and stays measured: Overlay and Residual show its
-experimental contours with “plane N is measured but not fitted”, and the peak
+experimental contours, with “No model on this plane” (or “No residual”) in the
+header strip above the plot, never over the contours, and the spectrum and slices
+keep their place; the peak
 profiles and the Profiles view draw it as a faint dotted line with “plane N
 measured, not fitted”, never as a point. The Run page lists the settings each run
 was submitted with: its noise (a manual value as entered, an estimate as

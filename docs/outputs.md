@@ -216,6 +216,12 @@ outcome. Only this explicit state differs when re-exporting Current versus Outda
 
 ## Excluded planes
 
+**Plane numbering.** Every plane index in configuration, CLI options and files is
+zero-based: `exclude_planes`, `--exclude`, `source_plane_index`, `plane_index`,
+`excluded_planes` and `source_plane_indices`. The desktop GUI shows one-based plane
+numbers, as its plane navigation does, and says so beside the Planes setting:
+plane 1 there is index 0 here.
+
 Only an explicit setting excludes a plane: `exclude_planes` in the configuration,
 or `peakfit fit --exclude`, by zero-based plane index, or the desktop Model page's
 **Planes** setting, by the one-based plane numbers navigation shows (plane 2 there
@@ -238,7 +244,7 @@ keep every plane, and every output says which planes were excluded:
 - **Detailed evidence and continuation** hold and verify the fitted planes only.
 - **`intensities.csv`** has one row per peak and plane of the spectrum.
   `source_plane_index` is the zero-based plane and `z_value` its value, which may
-  repeat. `plane_index` is the amplitude column in the archive. An excluded plane's
+  repeat. `plane_index` is the zero-based amplitude column in the archive. An excluded plane's
   row has `plane_excluded = yes` and leaves the intensity, its three errors and
   `plane_index` empty: the fit has no amplitude there. Peak- and cluster-level
   columns are filled as on the other rows.
