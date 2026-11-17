@@ -1,0 +1,1092 @@
+{
+ "protocol": {
+  "seed": 20261117,
+  "realizations": 1000,
+  "blocks": 5,
+  "gate_se": 3.0,
+  "near_se": 0.5,
+  "nominal_coverage": {
+   "1sigma": 0.6827,
+   "1.96sigma": 0.95
+  },
+  "misleading_limit": 0.05,
+  "noise": 2.0,
+  "profile": [
+   1.0,
+   0.6,
+   0.3
+  ]
+ },
+ "cases": [
+  {
+   "lineshape": "lorentzian_doublet",
+   "regime": "resolved (J = 5 lw)",
+   "true_j_hz": 40.0,
+   "linewidth_hz": 8.0,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": 0.0018072236532866057,
+   "scatter_hz": 0.08950114022785995,
+   "rms_reported_sigma_hz": 0.08866685473902317,
+   "withheld": 0.0,
+   "cluster_warned": 0.0,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.057,
+     "se": 0.006892024376045111,
+     "deviation_se": 1.0156667501540162,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 1000,
+     "rate": 0.67,
+     "se": 0.014718040290745233,
+     "deviation_se": -0.8628866173158765,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 1000,
+     "rate": 0.943,
+     "se": 0.006892024376045114,
+     "deviation_se": -1.0156667501540166,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.04,
+       0.06,
+       0.08,
+       0.045,
+       0.06
+      ],
+      "chi2": 4.126315789473685,
+      "p_value": 0.38918069985766685
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.625,
+       0.645,
+       0.63,
+       0.725,
+       0.725
+      ],
+      "chi2": 9.509709390205572,
+      "p_value": 0.04954812290796858
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.96,
+       0.94,
+       0.92,
+       0.955,
+       0.94
+      ],
+      "chi2": 4.126315789473666,
+      "p_value": 0.3891806998576693
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.06125,
+      "se": 0.007705517503711221,
+      "deviation_se": 1.4599927901768623,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 800,
+      "rate": 0.68125,
+      "se": 0.016455269292843556,
+      "deviation_se": -0.08811767064976327,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 800,
+      "rate": 0.93875,
+      "se": 0.007705517503711224,
+      "deviation_se": -1.45999279017686,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "lorentzian_doublet",
+   "regime": "partly resolved (J = 1.2 lw)",
+   "true_j_hz": 12.0,
+   "linewidth_hz": 10.0,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": -0.0011952474723257698,
+   "scatter_hz": 0.1936728705648342,
+   "rms_reported_sigma_hz": 0.19629240559553313,
+   "withheld": 0.0,
+   "cluster_warned": 0.0,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.05,
+     "se": 0.006892024376045111,
+     "deviation_se": 0.0,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 1000,
+     "rate": 0.688,
+     "se": 0.014718040290745233,
+     "deviation_se": 0.3601022891160744,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 1000,
+     "rate": 0.95,
+     "se": 0.006892024376045114,
+     "deviation_se": 0.0,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.05,
+       0.045,
+       0.065,
+       0.05,
+       0.04
+      ],
+      "chi2": 1.473684210526316,
+      "p_value": 0.8312925312037188
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.73,
+       0.66,
+       0.64,
+       0.72,
+       0.69
+      ],
+      "chi2": 5.428843807224149,
+      "p_value": 0.24605533016731818
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.95,
+       0.955,
+       0.935,
+       0.95,
+       0.96
+      ],
+      "chi2": 1.473684210526303,
+      "p_value": 0.8312925312037212
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.05,
+      "se": 0.007705517503711221,
+      "deviation_se": 0.0,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 800,
+      "rate": 0.6775,
+      "se": 0.016455269292843556,
+      "deviation_se": -0.316008198192264,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 800,
+      "rate": 0.95,
+      "se": 0.007705517503711224,
+      "deviation_se": 0.0,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "lorentzian_doublet",
+   "regime": "unresolved (J = 0.25 lw)",
+   "true_j_hz": 5.0,
+   "linewidth_hz": 20.0,
+   "snr": 50.0,
+   "calibration_gated": false,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": -0.2914462413633936,
+   "scatter_hz": 1.5132929049465345,
+   "rms_reported_sigma_hz": 0.6773485747176099,
+   "withheld": 0.984,
+   "cluster_warned": 0.984,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.016,
+     "se": 0.006892024376045111,
+     "deviation_se": -4.93323850074808,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.025,
+       0.005,
+       0.02,
+       0.015,
+       0.015
+      ],
+      "chi2": 0.9263157894736843,
+      "p_value": 0.9207554052329527
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.01375,
+      "se": 0.007705517503711221,
+      "deviation_se": -4.704421212792115,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "lorentzian_doublet",
+   "regime": "one-bond coupling (J = 92 Hz)",
+   "true_j_hz": 92.0,
+   "linewidth_hz": 15.0,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": -0.0051138465459384,
+   "scatter_hz": 0.1859675983447528,
+   "rms_reported_sigma_hz": 0.18096383755702114,
+   "withheld": 0.0,
+   "cluster_warned": 0.0,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.059,
+     "se": 0.006892024376045111,
+     "deviation_se": 1.3058572501980201,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 1000,
+     "rate": 0.685,
+     "se": 0.014718040290745233,
+     "deviation_se": 0.15627080471075552,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 1000,
+     "rate": 0.941,
+     "se": 0.006892024376045114,
+     "deviation_se": -1.3058572501980215,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.06,
+       0.08,
+       0.055,
+       0.05,
+       0.05
+      ],
+      "chi2": 2.610526315789474,
+      "p_value": 0.6249595697870874
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.665,
+       0.67,
+       0.68,
+       0.705,
+       0.705
+      ],
+      "chi2": 1.3387454966794203,
+      "p_value": 0.8547683415930911
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.94,
+       0.92,
+       0.945,
+       0.95,
+       0.95
+      ],
+      "chi2": 2.6105263157894565,
+      "p_value": 0.6249595697870904
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.05875,
+      "se": 0.007705517503711221,
+      "deviation_se": 1.135549947915337,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 800,
+      "rate": 0.69,
+      "se": 0.016455269292843556,
+      "deviation_se": 0.4436268936160628,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 800,
+      "rate": 0.94125,
+      "se": 0.007705517503711224,
+      "deviation_se": -1.1355499479153275,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "lorentzian_doublet",
+   "regime": "partly resolved, low SNR",
+   "true_j_hz": 12.0,
+   "linewidth_hz": 10.0,
+   "snr": 8.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": 0.07295755456079407,
+   "scatter_hz": 1.219435417267667,
+   "rms_reported_sigma_hz": 1.0178155448164603,
+   "withheld": 0.297,
+   "cluster_warned": 0.3,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.051,
+     "se": 0.006892024376045111,
+     "deviation_se": 0.14509525002200147,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 703,
+     "rate": 0.6230440967283073,
+     "se": 0.017553847657068453,
+     "deviation_se": -3.3984516920238215,
+     "passes": false,
+     "near_limit": true
+    },
+    "coverage_1.96sigma": {
+     "n": 703,
+     "rate": 0.9274537695590327,
+     "se": 0.008219949365267867,
+     "deviation_se": -2.7428673145156948,
+     "passes": true,
+     "near_limit": true
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.05,
+       0.04,
+       0.05,
+       0.055,
+       0.06
+      ],
+      "chi2": 0.9263157894736839,
+      "p_value": 0.9207554052329529
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.6111111111111112,
+       0.6621621621621622,
+       0.6258503401360545,
+       0.5882352941176471,
+       0.6232876712328768
+      ],
+      "chi2": 1.8943986683887335,
+      "p_value": 0.7551738941522081
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.9206349206349206,
+       0.9459459459459459,
+       0.9319727891156463,
+       0.9191176470588235,
+       0.9178082191780822
+      ],
+      "chi2": 1.736943887439728,
+      "p_value": 0.7839962911711227
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.05125,
+      "se": 0.007705517503711221,
+      "deviation_se": 0.1622214211307618,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 577,
+      "rate": 0.6256499133448874,
+      "se": 0.01937590876719316,
+      "deviation_se": -2.9443824979042255,
+      "passes": true,
+      "near_limit": true
+     },
+     "coverage_1.96sigma": {
+      "n": 577,
+      "rate": 0.92894280762565,
+      "se": 0.009073166868247502,
+      "deviation_se": -2.3208205778780338,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": false,
+   "near_limit": true
+  },
+  {
+   "lineshape": "lorentzian_doublet",
+   "regime": "unresolved, low SNR",
+   "true_j_hz": 5.0,
+   "linewidth_hz": 20.0,
+   "snr": 8.0,
+   "calibration_gated": false,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": 0.045808836670771055,
+   "scatter_hz": 4.104930523296609,
+   "rms_reported_sigma_hz": 1.1086112253665694,
+   "withheld": 0.995,
+   "cluster_warned": 0.995,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.005,
+     "se": 0.006892024376045111,
+     "deviation_se": -6.529286250990106,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.005,
+       0.01,
+       0.005,
+       0.0,
+       0.005
+      ],
+      "chi2": 0.2105263157894737,
+      "p_value": 0.9948336921735497
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.005,
+      "se": 0.007705517503711221,
+      "deviation_se": -5.839971160707452,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "sp1_doublet",
+   "regime": "resolved (J = 5 lw)",
+   "true_j_hz": 40.0,
+   "linewidth_hz": 8.0,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": 0.00302125287926922,
+   "scatter_hz": 0.09094480662823226,
+   "rms_reported_sigma_hz": 0.09231582488330282,
+   "withheld": 0.0,
+   "cluster_warned": 0.0,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.047,
+     "se": 0.006892024376045111,
+     "deviation_se": -0.4352857500660074,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 1000,
+     "rate": 0.678,
+     "se": 0.014718040290745233,
+     "deviation_se": -0.3193359922350061,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 1000,
+     "rate": 0.953,
+     "se": 0.006892024376045114,
+     "deviation_se": 0.43528575006600717,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.05,
+       0.04,
+       0.04,
+       0.04,
+       0.065
+      ],
+      "chi2": 2.0210526315789474,
+      "p_value": 0.7318865383102073
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.71,
+       0.68,
+       0.71,
+       0.615,
+       0.675
+      ],
+      "chi2": 5.567334720673748,
+      "p_value": 0.23387380127416027
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.95,
+       0.96,
+       0.96,
+       0.96,
+       0.935
+      ],
+      "chi2": 2.0210526315789323,
+      "p_value": 0.7318865383102102
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.04625,
+      "se": 0.007705517503711221,
+      "deviation_se": -0.486664263392288,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 800,
+      "rate": 0.67,
+      "se": 0.016455269292843556,
+      "deviation_se": -0.7717892532772587,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 800,
+      "rate": 0.95375,
+      "se": 0.007705517503711224,
+      "deviation_se": 0.4866642633922914,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "sp1_doublet",
+   "regime": "partly resolved (J = 1.2 lw)",
+   "true_j_hz": 12.0,
+   "linewidth_hz": 10.0,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": 0.004803651332554132,
+   "scatter_hz": 0.17234895578016018,
+   "rms_reported_sigma_hz": 0.17022980499225535,
+   "withheld": 0.0,
+   "cluster_warned": 0.0,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.047,
+     "se": 0.006892024376045111,
+     "deviation_se": -0.4352857500660074,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 1000,
+     "rate": 0.682,
+     "se": 0.014718040290745233,
+     "deviation_se": -0.04756067969457088,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 1000,
+     "rate": 0.953,
+     "se": 0.006892024376045114,
+     "deviation_se": 0.43528575006600717,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.045,
+       0.04,
+       0.06,
+       0.04,
+       0.05
+      ],
+      "chi2": 1.1789473684210525,
+      "p_value": 0.8815524844399207
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.67,
+       0.72,
+       0.71,
+       0.665,
+       0.645
+      ],
+      "chi2": 3.7207892080124663,
+      "p_value": 0.445109475254855
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.955,
+       0.96,
+       0.94,
+       0.96,
+       0.95
+      ],
+      "chi2": 1.1789473684210536,
+      "p_value": 0.8815524844399206
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.0475,
+      "se": 0.007705517503711221,
+      "deviation_se": -0.32444284226152537,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 800,
+      "rate": 0.685,
+      "se": 0.016455269292843556,
+      "deviation_se": 0.13977285689273747,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 800,
+      "rate": 0.9525,
+      "se": 0.007705517503711224,
+      "deviation_se": 0.3244428422615324,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "sp1_doublet",
+   "regime": "unresolved (J = 0.25 lw)",
+   "true_j_hz": 5.0,
+   "linewidth_hz": 20.0,
+   "snr": 50.0,
+   "calibration_gated": false,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": -0.2766983401258875,
+   "scatter_hz": 1.5132000794518095,
+   "rms_reported_sigma_hz": 0.6534181631532282,
+   "withheld": 0.99,
+   "cluster_warned": 0.99,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.01,
+     "se": 0.006892024376045111,
+     "deviation_se": -5.803810000880094,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.005,
+       0.015,
+       0.015,
+       0.0,
+       0.015
+      ],
+      "chi2": 0.8421052631578947,
+      "p_value": 0.9327157893532992
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.01125,
+      "se": 0.007705517503711221,
+      "deviation_se": -5.028864055053639,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "sp1_doublet",
+   "regime": "one-bond coupling (J = 92 Hz)",
+   "true_j_hz": 92.0,
+   "linewidth_hz": 15.0,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": -0.0011803689626978127,
+   "scatter_hz": 0.1688861072004127,
+   "rms_reported_sigma_hz": 0.17501737352745209,
+   "withheld": 0.0,
+   "cluster_warned": 0.0,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.049,
+     "se": 0.006892024376045111,
+     "deviation_se": -0.14509525002200246,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 1000,
+     "rate": 0.713,
+     "se": 0.014718040290745233,
+     "deviation_se": 2.0586979924937943,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 1000,
+     "rate": 0.951,
+     "se": 0.006892024376045114,
+     "deviation_se": 0.14509525002200238,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.03,
+       0.04,
+       0.06,
+       0.05,
+       0.065
+      ],
+      "chi2": 3.4526315789473694,
+      "p_value": 0.4851172719807081
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.695,
+       0.71,
+       0.745,
+       0.725,
+       0.69
+      ],
+      "chi2": 1.8742436953511996,
+      "p_value": 0.7588747310994223
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.97,
+       0.96,
+       0.94,
+       0.95,
+       0.935
+      ],
+      "chi2": 3.452631578947356,
+      "p_value": 0.4851172719807101
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.05375,
+      "se": 0.007705517503711221,
+      "deviation_se": 0.48666426339228713,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 800,
+      "rate": 0.7175,
+      "se": 0.016455269292843556,
+      "deviation_se": 2.1148240955943924,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 800,
+      "rate": 0.94625,
+      "se": 0.007705517503711224,
+      "deviation_se": -0.48666426339227703,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  },
+  {
+   "lineshape": "sp1_doublet",
+   "regime": "partly resolved, low SNR",
+   "true_j_hz": 12.0,
+   "linewidth_hz": 10.0,
+   "snr": 8.0,
+   "calibration_gated": true,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": 0.008746722971380648,
+   "scatter_hz": 1.0617513594934356,
+   "rms_reported_sigma_hz": 0.9492638628731231,
+   "withheld": 0.108,
+   "cluster_warned": 0.236,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.057,
+     "se": 0.006892024376045111,
+     "deviation_se": 1.0156667501540162,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma": {
+     "n": 892,
+     "rate": 0.6221973094170403,
+     "se": 0.015583591678313847,
+     "deviation_se": -3.882461234347875,
+     "passes": false,
+     "near_limit": false
+    },
+    "coverage_1.96sigma": {
+     "n": 892,
+     "rate": 0.9360986547085202,
+     "se": 0.007297336574136706,
+     "deviation_se": -1.904988916195682,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.05,
+       0.055,
+       0.08,
+       0.045,
+       0.055
+      ],
+      "chi2": 3.073684210526316,
+      "p_value": 0.5455711434770921
+     },
+     "coverage_1sigma": {
+      "rates": [
+       0.6384180790960452,
+       0.6358381502890174,
+       0.6098901098901099,
+       0.6043956043956044,
+       0.6235955056179775
+      ],
+      "chi2": 0.7587111504795768,
+      "p_value": 0.9438961215701682
+     },
+     "coverage_1.96sigma": {
+      "rates": [
+       0.943502824858757,
+       0.9364161849710982,
+       0.9120879120879121,
+       0.9505494505494505,
+       0.9382022471910112
+      ],
+      "chi2": 3.2303298455416085,
+      "p_value": 0.520046130281556
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.05875,
+      "se": 0.007705517503711221,
+      "deviation_se": 1.135549947915337,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma": {
+      "n": 715,
+      "rate": 0.6181818181818182,
+      "se": 0.017405919337168837,
+      "deviation_se": -3.7066805015239157,
+      "passes": false,
+      "near_limit": false
+     },
+     "coverage_1.96sigma": {
+      "n": 715,
+      "rate": 0.9342657342657342,
+      "se": 0.008150678894028797,
+      "deviation_se": -1.9304239485857653,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": false,
+   "near_limit": false
+  },
+  {
+   "lineshape": "sp1_doublet",
+   "regime": "unresolved, low SNR",
+   "true_j_hz": 5.0,
+   "linewidth_hz": 20.0,
+   "snr": 8.0,
+   "calibration_gated": false,
+   "realizations": 1000,
+   "moved_from_start": 1.0,
+   "bias_hz": -0.01543804552854877,
+   "scatter_hz": 4.117181181017974,
+   "rms_reported_sigma_hz": 1.0295723986412268,
+   "withheld": 0.98,
+   "cluster_warned": 0.99,
+   "gates": {
+    "misleading": {
+     "n": 1000,
+     "rate": 0.02,
+     "se": 0.006892024376045111,
+     "deviation_se": -4.35285750066007,
+     "passes": true,
+     "near_limit": false
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "misleading": {
+      "rates": [
+       0.015,
+       0.03,
+       0.025,
+       0.02,
+       0.01
+      ],
+      "chi2": 1.0526315789473684,
+      "p_value": 0.9017130475334588
+     }
+    },
+    "replication": {
+     "misleading": {
+      "n": 800,
+      "rate": 0.02125,
+      "se": 0.007705517503711221,
+      "deviation_se": -3.7310926860075386,
+      "passes": true,
+      "near_limit": false
+     }
+    }
+   },
+   "passes": true,
+   "near_limit": false
+  }
+ ],
+ "passes": false,
+ "confirmation_needed": true
+}

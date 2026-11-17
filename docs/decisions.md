@@ -1481,3 +1481,29 @@ Short records of non‑obvious design choices and trade‑offs.
   screens, Linux, compositor fractional scaling, a real large system font):
   [validation note](validation/gui-audit-followup.md). The acceptance tool gained
   `--body-px` (simulated system font) and a per-capture list of clipped labels.
+
+## 2026-11-17: Doublets fit J by its derivative; unresolved couplings withhold σ(J)
+- **J derivative.** No doublet lineshape returned ∂/∂J, so its Jacobian column was
+  zero. J stayed at its start or moved by round-off in the trust-region solve. Every
+  nonlinear and profile σ of a doublet cluster was withheld. Each doublet now returns
+  ½(s₋ ∂k/∂Δω₋ − s₊ ∂k/∂Δω₊). Previously fitted J values and uncertainties are not
+  reliable and should be refitted.
+- **Fail fast.** `Cluster.evaluate` raises when a varied parameter has no derivative,
+  rather than leaving its Jacobian column zero.
+- **σ(J)/Ĵ > 0.1 withholds σ(J).** The doublet is even in J, so near J = 0 the
+  first-order σ misleads. For unresolved doublets (J = ¼ lw) at low SNR, reported
+  intervals covered the truth 25–27 % (±1σ) instead of 68 %.
+    - The 0.1 limit is the existing first-order limit for profile ratios. It
+      withholds 97.5–99.5 % of unresolved fits and keeps resolved, partly resolved
+      and ¹J doublets calibrated.
+    - A varied J without σ, unresolved or at a bound, also withholds its cluster's
+      lineshape covariance factors (profile σ).
+    - The pre-registered confirmation run passes everywhere except partly resolved
+      doublets at SNR 8. There, ±1σ coverage is 0.62 (−3.4 to −3.9 SE), while
+      ±1.96σ and the misleading-confidence gate pass. That failure is recorded,
+      not tuned away. Decided: document it as a first-order limitation and keep the
+      0.1 limit; changing the limit would need a new protocol and run.
+    - A likelihood-ratio alternative was rejected: it costs a refit and keeps biased
+      fits.
+- **Singlets are bit-identical.** Evidence:
+  [validation note](validation/doublet-j.md).

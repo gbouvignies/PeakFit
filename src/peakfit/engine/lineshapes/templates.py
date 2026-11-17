@@ -215,6 +215,7 @@ class SimpleDoubletBase(ShapeBase):
                 derivs["cs"] = raw_derivs["dw"] * (-self._grid.spec_params.ppm2hz(1.0))
             if "lw" in raw_derivs:
                 derivs["lw"] = raw_derivs["lw"]
+            derivs["j"] = raw_derivs["j"]
 
             derivs = self._process_extra_derivs(derivs, raw_derivs)
             return LineshapeResult(values=values, derivatives=derivs)

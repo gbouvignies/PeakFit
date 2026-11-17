@@ -235,7 +235,18 @@ def _calculate_errors(
     # Symmetric local errors are not meaningful at a constrained optimum.
     active = at_active_bound(x, lower, upper)
     stderrs[active | (stderrs > np.minimum(x - lower, upper - x))] = np.nan
+    couplings = np.array([optimizer.params_template[name].is_coupling for name in optimizer.names])
+    if couplings.any():
+        resolved = stderrs <= RELIABILITY_LIMIT * np.abs(x)
+        stderrs[couplings & ~resolved] = np.nan
     return stderrs
+
+
+# The largest relative σ for which a first-order result is used: σ_R/|R| of a profile
+# ratio (profiles.normalize) and σ(J)/Ĵ of a doublet's J. A doublet's shape is even in
+# J, so near J = 0 it depends on J² and the first-order σ(J) holds only while
+# σ(J) ≪ J (docs/validation/doublet-j.md).
+RELIABILITY_LIMIT = 0.1
 
 
 def at_active_bound(values: FloatArray, lower: FloatArray, upper: FloatArray) -> np.ndarray:

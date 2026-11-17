@@ -47,7 +47,9 @@ The analytical Jacobian differentiates this residual at constant rank. When
 rank changes, the reduced objective need not be differentiable; an analytical
 Jacobian there does not certify an identifiable optimum. Shared nonlinear
 parameters sum each peak's derivative weighted by that peak's own signed
-amplitude.
+amplitude. Every varied parameter must have an analytical derivative: one whose
+lineshape returns none stops the fit with an error, since a zero Jacobian column
+would leave it unfitted while the optimizer reports success.
 
 Close peaks can approach each other with large opposite signed amplitudes.
 This can reduce the **actual** residual without yielding trustworthy individual
@@ -55,6 +57,17 @@ positions. Neither the optimizer success flag nor a smaller χ² proves the peak
 decomposition is meaningful. PeakFit withholds unreliable covariance estimates
 and reports an uncertainty warning; it imposes no minimum separation or
 repulsion. See [the measured experimental comparison](validation/overlapping-peaks.md).
+
+A doublet's shape is even in J: near J = 0 it depends on J², and a
+first-order σ(J) holds only while σ(J) ≪ J.
+- σ(J) is withheld when σ(J)/Ĵ > 0.1, which flags an unresolved coupling.
+- Whenever a varied J has no σ, unresolved or at a bound, the cluster's profile σ is
+  withheld with it.
+- The cluster carries the uncertainty warning.
+- Use MCMC for an unresolved coupling ([validation](validation/doublet-j.md)).
+- Known limitation: for a partly resolved doublet at low SNR (J ≈ lw, peak 8σ), a
+  reported σ(J) is 10–16 % too small. Its ±1σ interval covers about 62 % instead of
+  68 %, while ±1.96σ stays near 93–94 %.
 
 The current bare CLI defaults to **two passes** (`--refine 2`), while
 `PeakFitConfig()` and the bundled example TOML specify one. State pass counts

@@ -4,6 +4,23 @@ Notable user-facing and architecture changes are recorded here.
 
 ## Unreleased
 
+### Fixed
+
+- Doublet lineshapes now fit J by its derivative. Before, every doublet lineshape
+  left J's derivative out of the fit, so J stayed at its start or moved by
+  numerical accident. Every nonlinear and profile uncertainty of a doublet cluster
+  was also withheld.
+    - **Impact:** J values and their uncertainties from earlier doublet fits are not
+      reliable, and positions, linewidths and amplitudes fitted with them may be
+      biased. Refit such data.
+    - **Unresolved doublets:** σ(J) is now withheld when it exceeds 10 % of J. Below
+      that, a first-order σ for an unresolved doublet misleads. Singlet results are
+      unchanged. See `docs/validation/doublet-j.md`.
+    - **Known limitation:** for a partly resolved doublet at low SNR, the reported
+      σ(J) is 10–16 % too small (±1σ covers about 62 %).
+- A varied parameter whose lineshape returns no derivative now stops the fit with
+  an error, instead of being left unfitted.
+
 ### Changed
 
 - Simplified the public Python package surface; import concrete modules instead of package
