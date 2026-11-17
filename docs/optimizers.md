@@ -61,7 +61,8 @@ repulsion. See [the measured experimental comparison](validation/overlapping-pea
 A doublet's shape is even in J: near J = 0 it depends on J², and a
 first-order σ(J) holds only while σ(J) ≪ J.
 - σ(J) is withheld when σ(J)/Ĵ > 0.1, which flags an unresolved coupling.
-- Then, and whenever a free J has no σ, the cluster's profile σ is withheld with it.
+- Whenever a varied J has no σ, unresolved or at a bound, the cluster's profile σ is
+  withheld with it.
 - The cluster carries the uncertainty warning.
 - Use MCMC for an unresolved coupling ([validation](validation/doublet-j.md)).
 
