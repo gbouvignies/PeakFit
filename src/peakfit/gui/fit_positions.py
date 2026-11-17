@@ -157,7 +157,6 @@ def continuation_source(completion: DatasetCompletion) -> ContinuationSource:
         result.run_id,
         {p.id: p.positions for p in completion.working_peaks},
         {identity: MappingProxyType(v) for identity, v in values.items()},
-        result.inputs.shape_names,
         snapshot.configuration,
         snapshot.spectral_parameters,
         MappingProxyType(dict(completion.retained)),

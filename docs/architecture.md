@@ -383,7 +383,7 @@ historical budget excludes active/protected evidence. New writes use project
 schema 15.0.0, always referencing external sources; earlier project formats are
 explicitly rejected.
 The scientific archive is at 12.0.0; its recorded configuration changes as
-configuration keys are removed (see [outputs](outputs.md)). Explicit JSON remains a derived
+configuration keys are removed or replaced (see [outputs](outputs.md)). Explicit JSON remains a derived
 optional scientific export, shared by both interfaces. See
 [external-project validation](validation/external-projects.md) for measured sizes,
 timings, publication memory and limitations.

@@ -19,7 +19,7 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise_power import check_noise_power
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.engine.domain.spectrum import axis_lineshapes
 from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED
 from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
@@ -59,11 +59,11 @@ def load_data(
     # 1. Load Spectra
     spectra = read_spectra(spectrum_path, z_values_path, config.exclude_planes)
 
-    # 2. Detect Lineshapes
-    shape_names = get_shape_names(config.fitting, spectra)
+    # 2. Resolve each axis's lineshape model
+    lineshapes = axis_lineshapes(config.fitting, spectra)
 
     # 3. Load Peaks
-    peaks = read_list(peaklist_path, spectra, shape_names, config.fitting)
+    peaks = read_list(peaklist_path, spectra, lineshapes)
 
     # 4. Noise, clustering threshold and clusters, shared with the GUI
     noise_val, contour, clusters = prepare_clusters(spectra, peaks, config)
@@ -77,7 +77,7 @@ def load_data(
         noise_model=check_noise_power(
             read_noise_model(spectra.dic, spectra.data.shape), spectra.data
         ),
-        shape_names=shape_names,
+        lineshapes=lineshapes,
         contour_level=contour,
         clusters=clusters,
     )

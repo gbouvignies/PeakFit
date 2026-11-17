@@ -489,7 +489,11 @@ by development builds of that version can then become unreadable, and are refit.
 - Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
-  version". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
+  version". Per-axis lineshape models ([ADR 0004](adr/0004-per-axis-lineshape-models.md))
+  amended these unreleased formats in place: archives and projects that development
+  builds wrote before them record `[fitting] lineshape` and `fit_phase`, and are
+  refused with "written by a PeakFit development build before per-axis lineshape
+  models … refit". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
   only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
   `fit_j_coupling`, `[parameters].from_file`, `[fitting].optimizer_seed`) or run metadata (`git_commit`,
   `completion_warnings`) that no longer exist. To

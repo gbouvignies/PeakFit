@@ -53,6 +53,15 @@ The signal threshold used to segment the spectral axes into peak clusters.
 **Lineshape**:
 A mathematical model of a peak's shape across the spectral axes.
 
+**Lineshape family**:
+The functional form of a lineshape on one spectral axis: Gaussian, Lorentzian,
+pseudo-Voigt or an apodized form (sp1, sp2, no_apod), independent of any splitting
+or phase. `auto` reads it from the axis's apodization.
+
+**Axis model**:
+The lineshape settings of one spectral axis: its lineshape family, an optional
+doublet (J start, bounds, fitted or fixed) and whether its phase is fitted.
+
 **Chemical shift**:
 A peak position along a spectral axis, expressed in parts per million (ppm).
 

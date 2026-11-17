@@ -12,7 +12,7 @@ from peakfit.engine.algorithms.varpro import VarProOptimizer, fit_cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.spectrum import Spectra, get_shape_names
+from peakfit.engine.domain.spectrum import Spectra, axis_lineshapes
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_noise_model, read_spectra
 
@@ -42,8 +42,8 @@ def load() -> Example:
     """Read the example and cluster it with the default configuration."""
     spectra = read_spectra(SPECTRUM, OFFSETS)
     config = PeakFitConfig()
-    shapes = get_shape_names(config.fitting, spectra)  # sp2 on both axes, from the header
-    peaks = read_list(DATA / "pseudo3d.list", spectra, shapes, config.fitting)
+    shapes = axis_lineshapes(config.fitting, spectra)  # sp2 on both axes, from the header
+    peaks = read_list(DATA / "pseudo3d.list", spectra, shapes)
     noise, _, clusters = prepare_clusters(spectra, peaks, config)
     model = read_noise_model(spectra.dic, spectra.data.shape)
     return Example(spectra, config, noise, clusters, model, np.genfromtxt(OFFSETS))

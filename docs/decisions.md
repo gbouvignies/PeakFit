@@ -1523,3 +1523,22 @@ Short records of non‑obvious design choices and trade‑offs.
   "Plane": the axis carries values, not indices.
 - **Nucleus as recorded.** The bundled dataset's headers say "H" and "N", so it reads
   "H F3" and "N F2"; the mass number is raised only when the header gives it.
+
+## 2026-11-17: Per-axis lineshape models
+- **Decision.** Each spectral axis has its own family, optional doublet (J start,
+  bounds, fitted or fixed) and phase; the `*_doublet` names, `lineshape` and
+  `fit_phase` are gone. Record: [ADR 0004](adr/0004-per-axis-lineshape-models.md).
+- **Surface (user's choice).** A default `family` plus `[fitting.axes.<axis>]`
+  overrides, over per-axis tables only; CLI `--family`, `--doublet`, `--fix-j`,
+  `--phase`.
+- **J bounds (user's choice).** Without explicit bounds, [J/2, 2J] around the
+  required start, over a tight ±20 %.
+- **Phase on a real family is refused**, where it was silently dropped.
+- **Formats amended in place.** Archive 12.0.0, fit JSON 9.0.0 and project 15.0.0
+  are unreleased, so they change without a bump (`docs/outputs.md`). Earlier
+  development-build archives and projects are refused through one reader of stored
+  settings (`io.config.stored_config`) with a refit message, never a raw validation
+  error.
+- **No numerical change.** Singlet fits of the bundled example (auto, each family,
+  phase on one or both axes) and the old all-axes doublets reproduce the base
+  commit's scientific digests exactly; the doublet-J record reruns byte for byte.

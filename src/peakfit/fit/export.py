@@ -30,7 +30,8 @@ def model_records(snapshot):
                     "positions": p.positions,
                     "shapes": [
                         {
-                            "name": s.shape_name,
+                            "family": s.shape_name,
+                            "doublet": s.doublet,
                             "center": s.center,
                             "axis": s.axis,
                             "param_names": s.param_names,

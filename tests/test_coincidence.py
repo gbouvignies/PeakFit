@@ -26,6 +26,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
+from peakfit.engine.domain.spectrum import axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
@@ -259,9 +260,10 @@ def _inject(dataset, settings, fraction):
         fitted["F3.cs"] + fraction * fitted["F3.lw"] / x_axis.obs,
     )
     spectra = dataset.spectra.model_copy(update={"data": dataset.spectra.data.copy()})
-    shapes = list(first.result.inputs.shape_names)
     peak = Peak(
-        "neg", np.array(position), create_shapes(spectra, settings.fitting, "neg", position, shapes)
+        "neg",
+        np.array(position),
+        create_shapes(spectra, axis_lineshapes(settings.fitting, spectra), "neg", position),
     )
     params = Parameters.from_peaks([peak])
     params["neg.F2.lw"].value, params["neg.F3.lw"].value = fitted["F2.lw"], fitted["F3.lw"]

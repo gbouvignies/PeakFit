@@ -1,7 +1,7 @@
 # Scenario 3: Multi-step fitting
 
 [fitting]
-lineshape = "auto"
+family = "auto"
 
 [[fitting.steps]]
 name = "linewidths_only"

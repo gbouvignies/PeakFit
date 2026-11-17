@@ -17,24 +17,29 @@ from peakfit.engine.algorithms.evaluation import (
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.algorithms.varpro import VarProOptimizer, _calculate_errors, fit_cluster
 from peakfit.engine.domain.cluster import Cluster, MissingDerivativeError
-from peakfit.engine.domain.config import FitConfig
+from peakfit.engine.domain.config import PHASED_FAMILIES, AxisModel, Doublet, FitConfig
 from peakfit.engine.domain.param_map import ParameterMap
 from peakfit.engine.domain.params_scalar import Parameter, Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import (
+    AxisLineshape,
+    Spectra,
+    SpectralParameters,
+    axis_lineshapes,
+)
 from peakfit.engine.lineshapes import models
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.types import ClusterParameters
 
 DOUBLETS = {
-    "gaussian_doublet": models.GaussianDoublet,
-    "lorentzian_doublet": models.LorentzianDoublet,
-    "pvoigt_doublet": models.PseudoVoigtDoublet,
-    "no_apod_doublet": models.NoApodDoublet,
-    "sp1_doublet": models.SP1Doublet,
-    "sp2_doublet": models.SP2Doublet,
+    "gaussian": models.GaussianDoublet,
+    "lorentzian": models.LorentzianDoublet,
+    "pvoigt": models.PseudoVoigtDoublet,
+    "no_apod": models.NoApodDoublet,
+    "sp1": models.SP1Doublet,
+    "sp2": models.SP2Doublet,
 }
-PHASED = {"no_apod_doublet", "sp1_doublet", "sp2_doublet"}
+PHASED = PHASED_FAMILIES
 
 
 def _axis(size, *, direct, obs, sw, p180=False, label="F2"):
@@ -106,8 +111,8 @@ SHAPE_PHASES = [
 def test_j_derivative_matches_finite_differences(lineshape, phase, j_hz, axis_name) -> None:
     axis = AXES[axis_name]
     spectra = _spectra(axis)
-    fit_phase = [axis.label] if phase is not None else []
-    shape = DOUBLETS[lineshape]("P", 0.0, spectra, 1, FitConfig(fit_phase=fit_phase))
+    model = AxisLineshape(axis.label, lineshape, Doublet(j=5.0), phase=phase is not None)
+    shape = DOUBLETS[lineshape]("P", 0.0, spectra, 1, model)
     # Two peaks at once: the derivative is evaluated per peak, vectorised.
     centre = axis.pts2ppm(np.array([0.30, 0.62]) * axis.size)
     extras = {
@@ -137,8 +142,13 @@ def _doublet_cluster(lineshape, *, j_hz, lw_hz, noise, seed=7, fit_phase=False):
     axis = AXES["direct"]
     spectra = _spectra(axis, n_planes=3)
     centre = float(axis.pts2ppm(axis.size / 2))
-    config = FitConfig(lineshape=lineshape, fit_phase=[axis.label] if fit_phase else [])
-    peak = Peak("A", np.array([centre]), create_shapes(spectra, config, "A", [centre], [lineshape]))
+    model = AxisModel(doublet=Doublet(j=5.0), phase=fit_phase)
+    config = FitConfig(family=lineshape, axes={axis.label: model})
+    peak = Peak(
+        "A",
+        np.array([centre]),
+        create_shapes(spectra, axis_lineshapes(config, spectra), "A", [centre]),
+    )
     peak.set_cluster_id(1)
     truth = Parameters.from_peaks([peak])
     for name, parameter in truth.items():
@@ -186,7 +196,7 @@ def _drop_j_derivative(monkeypatch):
 
 
 def test_a_varied_parameter_without_a_derivative_fails_fast(monkeypatch) -> None:
-    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=35.0, lw_hz=8.0, noise=0.0)
+    cluster, params = _doublet_cluster("lorentzian", j_hz=35.0, lw_hz=8.0, noise=0.0)
     _drop_j_derivative(monkeypatch)
     names = params.get_vary_names()
     d_matrix = np.zeros((len(names), cluster.n_points))
@@ -200,7 +210,7 @@ def test_a_varied_parameter_without_a_derivative_fails_fast(monkeypatch) -> None
 
 
 def test_a_fixed_parameter_needs_no_derivative(monkeypatch) -> None:
-    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=35.0, lw_hz=8.0, noise=0.0)
+    cluster, params = _doublet_cluster("lorentzian", j_hz=35.0, lw_hz=8.0, noise=0.0)
     _drop_j_derivative(monkeypatch)
     for name, parameter in params.items():
         if name.endswith(".j"):
@@ -236,7 +246,7 @@ def test_fit_recovers_j(lineshape, j_hz, lw_hz) -> None:
 
 
 def _errors_at_truth(j_hz, lw_hz, noise):
-    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=j_hz, lw_hz=lw_hz, noise=noise)
+    cluster, params = _doublet_cluster("lorentzian", j_hz=j_hz, lw_hz=lw_hz, noise=noise)
     names = params.get_vary_names()
     optimizer = VarProOptimizer(cluster, names, params, noise)
     return dict(
@@ -264,7 +274,7 @@ def test_a_determined_coupling_keeps_its_uncertainty(j_hz, lw_hz, noise) -> None
 
 
 def _evaluated(j_hz, lw_hz, noise) -> AnalyticalModelEvaluation:
-    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=j_hz, lw_hz=lw_hz, noise=noise)
+    cluster, params = _doublet_cluster("lorentzian", j_hz=j_hz, lw_hz=lw_hz, noise=noise)
     fit_cluster(params, cluster, noise, correlation=None)
     evaluation = evaluate_analytical_model(cluster, params, noise, not_modelled("synthetic"))
     assert isinstance(evaluation, AnalyticalModelEvaluation)
@@ -293,7 +303,7 @@ def test_a_determined_coupling_keeps_the_profile_uncertainty() -> None:
 
 def test_a_missing_derivative_is_not_absorbed_by_the_evaluation(monkeypatch) -> None:
     # The profile-σ path withholds on lineshape errors; a missing derivative is not one.
-    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=35.0, lw_hz=8.0, noise=0.5)
+    cluster, params = _doublet_cluster("lorentzian", j_hz=35.0, lw_hz=8.0, noise=0.5)
     _drop_j_derivative(monkeypatch)
     with pytest.raises(MissingDerivativeError):
         evaluate_analytical_model(cluster, params, 0.5, not_modelled("synthetic"))
@@ -302,7 +312,7 @@ def test_a_missing_derivative_is_not_absorbed_by_the_evaluation(monkeypatch) -> 
 def test_a_coupling_collapsed_onto_its_bound_withholds_the_profile_uncertainty() -> None:
     # The low-SNR failure of an unresolved doublet: J at its lower bound has no σ, and
     # the profile σ would be conditional on that arbitrary bound.
-    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=5.0, lw_hz=20.0, noise=5.0)
+    cluster, params = _doublet_cluster("lorentzian", j_hz=5.0, lw_hz=20.0, noise=5.0)
     j_name = next(name for name in params if name.endswith(".j"))
     params[j_name].value = params[j_name].min
     params[j_name].stderr = np.nan

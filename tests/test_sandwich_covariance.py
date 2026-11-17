@@ -80,7 +80,7 @@ def test_the_amplitude_sandwich_is_withheld_exactly_where_todays_is(second):
 def fitted(tool):
     """An overlapping 2D pair with processed noise, fitted by PeakFit's pipeline."""
     spectra, cluster, truth, _ = tool.build("overlapping pair", np.random.default_rng(7))
-    config = PeakFitConfig(fitting=FitConfig(lineshape="sp2"))
+    config = PeakFitConfig(fitting=FitConfig(family="sp2"))
     completed = run_pipeline(
         config, [cluster], tool.SIGMA, truth.copy(), noise_model=not_modelled("synthetic spectrum")
     ).completed_fit

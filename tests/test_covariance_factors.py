@@ -94,7 +94,7 @@ def _relative(actual: np.ndarray, expected: np.ndarray) -> float:
 def _cases():
     overlapping = peak_pair(3.0)
     isolated = peak_pair(30.0)
-    shared = peak_pair(3.0, lineshape="no_apod", fit_phase=("F2",))
+    shared = peak_pair(3.0, family="no_apod", phase=True)
     shared[1]["cluster_1.F2.phase"].value = 4.0
     fixed = peak_pair(3.0)
     fixed[1][_varied(*fixed)[0]].vary = False
@@ -270,7 +270,7 @@ def test_unidentifiable_amplitudes_stay_withheld() -> None:
 @pytest.mark.parametrize("lineshape", ["gaussian", "no_apod", "sp2"])
 @pytest.mark.parametrize("separation", [0.0, 1e-9, 1e-6, 1e-3, 0.05, 0.3, 1.0])
 def test_poorly_conditioned_clusters_stay_usable(lineshape, separation) -> None:
-    cluster, params = peak_pair(separation, noise=0.01, lineshape=lineshape)
+    cluster, params = peak_pair(separation, noise=0.01, family=lineshape)
     evaluation = _fitted_evaluation(cluster, params)
     factors = evaluation.covariance_factors
     assert factors is not None

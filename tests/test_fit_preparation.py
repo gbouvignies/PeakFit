@@ -10,11 +10,11 @@ import pytest
 from peakfit.engine.algorithms.clustering import create_clusters, prepare_clusters
 from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
 from peakfit.engine.algorithms.noise_correlation import not_modelled
-from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.config import AxisModel, Doublet, FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.spectrum import Spectra, get_shape_names
+from peakfit.engine.domain.spectrum import Spectra, axis_lineshapes
 from peakfit.engine.results import FitResult
 from peakfit.fit.fitting import load_data
 from peakfit.fit.pipeline import ClusterFitTask, run_pipeline_iter
@@ -38,9 +38,13 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
     contour_level = 5 * prepare_noise_level(None, spectra)
     peak = WorkingPeak.new("same.assignment", (120.0, 8.5))
     # Test multiple existing model families, including model-specific parameters.
-    for model in ("auto", "pvoigt", "lorentzian_doublet"):
-        config = PeakFitConfig()
-        config.fitting.lineshape = model
+    doublet = AxisModel(doublet=Doublet(j=5.0))
+    for model in (
+        FitConfig(),
+        FitConfig(family="pvoigt"),
+        FitConfig(family="lorentzian", axes={"F2": doublet, "F3": doublet}),
+    ):
+        config = PeakFitConfig(fitting=model)
         config.parameters.defaults.patterns["*.*.lw"] = ParameterConstraint(
             value=35, min=10, max=80, vary=False
         )
@@ -77,16 +81,18 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
         assert task.params.model_dump() == prepared.parameters.model_dump()
         assert task.correction_revision == 0
         assert not np.any(task.cluster.corrections)
-        if model == "pvoigt":
+        if model.family == "pvoigt":
             assert any(
                 p.param_id is not None and p.param_id.label == "eta"
                 for p in prepared.parameters.values()
             )
-        if model.endswith("doublet"):
-            assert any(
-                p.param_id is not None and p.param_id.label == "j"
+        if model.axes:
+            couplings = [
+                p
                 for p in prepared.parameters.values()
-            )
+                if p.param_id is not None and p.param_id.label == "j"
+            ]
+            assert {(p.value, p.min, p.max) for p in couplings} == {(5.0, 2.5, 10.0)}
 
     # Engine-safe renaming must never silently omit assignment-based settings,
     # including rules that would accidentally match generated names or files.
@@ -108,7 +114,8 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
 
     # A configured start must be used once; explicit later release continues from
     # the preceding fit rather than resetting to 35 Hz. No optimizer is executed.
-    config.fitting.lineshape = "gaussian"
+    config.fitting.family = "gaussian"
+    config.fitting.axes = {}
     prepared = _prepare(spectra, peak, config, contour_level)
     (cluster,) = prepared.clusters
     config.fitting.steps = [FitStep(name="start"), FitStep(name="release", vary=["*.*.lw"])]
@@ -162,7 +169,7 @@ def test_dataset_cluster_identity_aliasing_and_direct_axis_guard() -> None:
     # Use the existing reader + engine clustering as the reference, independently
     # of the GUI's identity conversion. Select a real overlapping group.
     reference_peaks = read_list(
-        DATA / "pseudo3d.list", spectra, get_shape_names(config.fitting, spectra), config.fitting
+        DATA / "pseudo3d.list", spectra, axis_lineshapes(config.fitting, spectra)
     )
     noise = prepare_noise_level(None, spectra)
     contour_level = 5 * estimate_noise(spectra.data[0])

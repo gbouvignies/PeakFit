@@ -49,10 +49,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 import validate_mcmc_coverage as coverage
 
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, LineshapeFamily, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra
+from peakfit.engine.domain.spectrum import Spectra, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.sampler import SamplerSettings, sample_posterior
 from peakfit.engine.scientific.sampling import sampling_problem
@@ -60,7 +60,7 @@ from peakfit.fit.pipeline import run_pipeline
 
 SIGMA = 0.05
 # name: (separation in points or None, true lineshape, supplied σ / true σ, noise kernel)
-CASES: dict[str, tuple[float | None, LineshapeName, float, tuple | None]] = {
+CASES: dict[str, tuple[float | None, LineshapeFamily, float, tuple | None]] = {
     "single peak, well-behaved": (None, "gaussian", 1.0, None),
     "resolved pair (10 points), well-behaved": (10.0, "gaussian", 1.0, None),
     "single peak, σ supplied at half its value": (None, "gaussian", 0.5, None),
@@ -81,12 +81,12 @@ def _cluster(case: str, rng: np.random.Generator | None):
     )
     points = [50.0] if separation is None else [50 - separation / 2, 50 + separation / 2]
 
-    def peaks(lineshape: LineshapeName) -> list[Peak]:
+    def peaks(lineshape: LineshapeFamily) -> list[Peak]:
         made = []
         for name, point in zip("AB", points, strict=False):
             center = float(spectra.spectral_params[0].pts2ppm(point))
-            config = FitConfig(lineshape=lineshape)
-            shapes = create_shapes(spectra, config, name, [center], [lineshape])
+            config = FitConfig(family=lineshape)
+            shapes = create_shapes(spectra, axis_lineshapes(config, spectra), name, [center])
             peak = Peak(name, np.array([center]), shapes)
             peak.set_cluster_id(1)
             made.append(peak)
@@ -107,7 +107,7 @@ def _cluster(case: str, rng: np.random.Generator | None):
 
 
 def _fit(cluster, params, case):
-    config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
+    config = PeakFitConfig(fitting=FitConfig(family="gaussian"))
     return run_pipeline(
         config,
         [cluster],

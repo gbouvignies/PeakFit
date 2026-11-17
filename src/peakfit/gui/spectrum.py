@@ -13,6 +13,7 @@ import numpy as np
 
 from peakfit.engine.algorithms.noise import estimate_noise
 from peakfit.engine.domain.config import FitConfig
+from peakfit.engine.domain.spectrum import axis_lineshapes
 from peakfit.gui import formatting
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.readers.peaks import read_list
@@ -117,7 +118,7 @@ def validate_plane_values(values: np.ndarray, n_planes: int) -> None:
 
 def load_peaks(path: Path, spectra: Spectra) -> list[WorkingPeak]:
     """Reuse peak readers, discarding visualization shapes at the working-state handoff."""
-    peaks = read_list(path, spectra, ["gaussian"] * spectra.n_spectral_dims, FitConfig())
+    peaks = read_list(path, spectra, axis_lineshapes(FitConfig(family="gaussian"), spectra))
     if any(not np.all(np.isfinite(peak.positions)) for peak in peaks):
         raise ValueError("Peak positions must be finite ppm coordinates.")
     return [

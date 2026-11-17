@@ -12,17 +12,17 @@ from peakfit.engine.types import ClusterParameters, ParamSpec
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from peakfit.engine.domain.config import FitConfig
     from peakfit.engine.domain.param_map import ParameterMap
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
     from peakfit.shared.typing import FloatArray
 
 
 class ShapeBase:
     """Shared helpers for lineshape implementations."""
 
-    shape_name: ClassVar[str]
-    param_specs: ClassVar[Callable[[float, SpectralGrid | None], tuple[ParamSpec, ...]]]
+    shape_name: ClassVar[str]  # the lineshape family
+    doublet: ClassVar[bool] = False
+    param_specs: ClassVar[Callable[..., tuple[ParamSpec, ...]]]
     phase_param_name: ClassVar[str] = "phase"
 
     def __init__(
@@ -31,15 +31,21 @@ class ShapeBase:
         center: float,
         spectra: Spectra,
         dim: int,
-        config: FitConfig,
+        lineshape: AxisLineshape,
     ) -> None:
         self.name = name
         self.center = center
         self._grid = SpectralGrid(spectra, dim)
         self.axis = self._grid.axis_label
+        if lineshape.axis != self.axis or lineshape.family != self.shape_name:
+            msg = f"{type(self).__name__} on {self.axis} cannot take the {lineshape} model."
+            raise ValueError(msg)
+        if (lineshape.doublet is not None) != self.doublet:
+            msg = f"{type(self).__name__} disagrees with the doublet of {lineshape}."
+            raise ValueError(msg)
+        self.lineshape = lineshape
         self.cluster_id = 0
         self.param_names: list[str] = []
-        self._fit_phase_axes = set(config.fit_phase)
 
     @property
     def dim_ctx(self) -> Any:
@@ -57,18 +63,23 @@ class ShapeBase:
             f"{type(self).__name__}(name={self.name!r}, center={self.center!r}, axis={self.axis!r})"
         )
 
+    @property
+    def description(self) -> str:
+        """The family, and ``doublet`` for a doublet: ``lorentzian doublet``."""
+        return f"{self.shape_name} doublet" if self.doublet else self.shape_name
+
     def print(self, params: Parameters) -> str:
         """Return textual representation."""
         del params
-        return f"# Shape: {self.name} ({self.shape_name})"
+        return f"# Shape: {self.name} ({self.description})"
 
     def get_parameter_spec(self) -> list[ParamSpec]:
-        """Get parameter specs for this shape."""
-        return list(self.param_specs(self.center, self._grid))
+        """Get parameter specs for this shape; a doublet's J follows its axis model."""
+        return list(self.param_specs(self.center, self._grid, self.lineshape.doublet))
 
     def _parameter_id(self, label: str) -> ParameterId | None:
         if label == self.phase_param_name:
-            if self.axis not in self._fit_phase_axes:
+            if not self.lineshape.phase:
                 return None
             return ParameterId(cluster_id=self.cluster_id, axis=self.axis, label=label)
         return ParameterId(peak_name=self.name, axis=self.axis, label=label)
@@ -94,6 +105,7 @@ class ShapeBase:
                 value=spec.default,
                 min_value=spec.min_val,
                 max_value=spec.max_val,
+                vary=spec.vary,
                 unit=spec.unit,
             )
 

@@ -15,7 +15,7 @@ from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 
@@ -54,11 +54,11 @@ def _axis_reproduction() -> tuple[Cluster, Spectra, Parameters]:
             _spectral_parameters(size=N_POINTS, direct=True),
         ],
     )
-    config = FitConfig(lineshape="gaussian")
+    config = FitConfig(family="gaussian")
     peak = Peak(
         name="P1",
         positions=np.array([0.0], dtype=np.float64),
-        shapes=create_shapes(spectra, config, "P1", [0.0], ["gaussian"]),
+        shapes=create_shapes(spectra, axis_lineshapes(config, spectra), "P1", [0.0]),
     )
     params = peak.create_params()
     grid_indices = [np.arange(N_POINTS, dtype=np.intp)]
@@ -206,18 +206,12 @@ def test_multidimensional_grid_indices_are_paired_flattened_point_coordinates() 
             _spectral_parameters(size=axis_extents[1], direct=True),
         ],
     )
-    config = FitConfig(lineshape="gaussian")
+    config = FitConfig(family="gaussian")
     positions = [spectral_params.pts2ppm(0) for spectral_params in spectra.spectral_params]
     peak = Peak(
         name="P1",
         positions=np.asarray(positions, dtype=np.float64),
-        shapes=create_shapes(
-            spectra,
-            config,
-            "P1",
-            positions,
-            ["gaussian", "gaussian"],
-        ),
+        shapes=create_shapes(spectra, axis_lineshapes(config, spectra), "P1", positions),
     )
 
     [cluster] = create_clusters(spectra, [peak], contour_level=0.5)

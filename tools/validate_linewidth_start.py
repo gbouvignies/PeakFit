@@ -27,6 +27,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
+from peakfit.engine.domain.spectrum import axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fitting import prepare_dataset_fit
@@ -89,7 +90,7 @@ def real() -> None:
 
 
 def _values(spectra, settings, name, position, linewidth):
-    shapes = create_shapes(spectra, settings.fitting, name, position, ["sp2", "sp2"])
+    shapes = create_shapes(spectra, axis_lineshapes(settings.fitting, spectra), name, position)
     peak = Peak(name, np.array(position), shapes)
     params = Parameters.from_peaks([peak])
     for axis in ("F2", "F3"):

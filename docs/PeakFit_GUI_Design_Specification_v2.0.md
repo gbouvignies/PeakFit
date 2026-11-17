@@ -537,7 +537,9 @@ explicit; a modal confirmation dialog does not gate fitting.
 
 **Fit setup.** Before the first fit the inspector's Analysis page is the fit setup
 and is shown by default: resolved lineshape per axis on one line with its source
-(for example “H SP2 · N SP2 · from apodization”; per-axis sources in the tooltip);
+(for example “H SP2 · N SP2 · from apodization”; per-axis sources in the tooltip),
+under a family control that applies to every axis and reads **Per axis** when an
+imported configuration gives an axis its own family (per-axis controls: W4);
 statistical noise with its value (its method in the tooltip unless explicit);
 clustering threshold as a noise factor and as absolute intensity; optimizer
 passes (default two, cross-talk updates only between passes, as in the current GUI;

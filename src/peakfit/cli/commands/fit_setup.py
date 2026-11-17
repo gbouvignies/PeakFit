@@ -2,14 +2,15 @@
 
 import datetime
 from pathlib import Path
-from typing import cast, get_args
+from typing import Any, cast, get_args
 
 import typer
+from pydantic import ValidationError
 
 from peakfit.engine.domain.config import (
     ClusterConfig,
     FitConfig,
-    LineshapeName,
+    LineshapeFamily,
     OutputConfig,
     OutputFormat,
     PeakFitConfig,
@@ -17,6 +18,8 @@ from peakfit.engine.domain.config import (
 from peakfit.io.config import load_config
 
 VALID_OUTPUT_FORMATS = get_args(OutputFormat)
+FAMILIES = get_args(LineshapeFamily)
+_DOUBLET_NUMBERS = (1, 3)  # J start, or J start, minimum and maximum
 
 
 def build_fit_config(
@@ -26,10 +29,8 @@ def build_fit_config(
     headless: bool | None,
     noise: float | None,
     contour_level: float | None,
-    lineshape: LineshapeName,
+    lineshapes: FitConfig,
     refine: int,
-    phx: bool,
-    phy: bool,
     exclude: list[int] | None,
 ) -> PeakFitConfig:
     """Build fit config from CLI options or a TOML config file."""
@@ -49,12 +50,6 @@ def build_fit_config(
             cfg.clustering.contour_level = contour_level
         return cfg
 
-    fit_phase = []
-    if phx:
-        fit_phase.append("F3")
-    if phy:
-        fit_phase.append("F2")
-
     default_formats: list[OutputFormat] = ["csv", "txt"]
     output_config = OutputConfig(
         formats=normalized_formats if normalized_formats is not None else default_formats,
@@ -64,16 +59,70 @@ def build_fit_config(
         output_config.directory = output
 
     return PeakFitConfig(
-        fitting=FitConfig(
-            lineshape=lineshape,
-            refine_iterations=refine,
-            fit_phase=fit_phase,
-        ),
+        fitting=lineshapes.model_copy(update={"refine_iterations": refine}),
         clustering=ClusterConfig(contour_level=contour_level),
         output=output_config,
         noise_level=noise,
         exclude_planes=exclude or [],
     )
+
+
+def lineshape_options(
+    families: list[str] | None,
+    doublets: list[str] | None,
+    fixed_j: list[str] | None,
+    phases: list[str] | None,
+) -> FitConfig:
+    """The lineshape model (``family`` and ``axes``) from the per-axis options.
+
+    ``--family NAME`` sets every axis and ``--family F2=NAME`` one axis;
+    ``--doublet F2=J`` or ``F2=J,MIN,MAX`` adds a doublet with its J start (Hz);
+    ``--fix-j F2`` holds that doublet's J; ``--phase F2`` fits F2's phase.
+    """
+    family = "auto"
+    axes: dict[str, dict[str, Any]] = {}
+
+    def axis_value(option: str, value: str) -> tuple[str, str]:
+        axis, sep, rest = value.partition("=")
+        if not sep or not axis.strip() or not rest.strip():
+            msg = f"{option} takes AXIS=VALUE, for example {option} F2=..., not {value!r}."
+            raise typer.BadParameter(msg)
+        return axis.strip().upper(), rest.strip()
+
+    for value in families or []:
+        axis, name = axis_value("--family", value) if "=" in value else ("", value.strip())
+        if name not in FAMILIES:
+            msg = f"Unknown lineshape family {name!r}. Choose from: {', '.join(FAMILIES)}."
+            raise typer.BadParameter(msg)
+        if axis:
+            axes.setdefault(axis, {})["family"] = name
+        else:
+            family = name
+    for value in doublets or []:
+        axis, numbers = axis_value("--doublet", value)
+        try:
+            parts = [float(part) for part in numbers.split(",")]
+        except ValueError:
+            parts = []
+        if len(parts) not in _DOUBLET_NUMBERS:
+            msg = f"--doublet takes AXIS=J or AXIS=J,MIN,MAX in Hz, not {value!r}."
+            raise typer.BadParameter(msg)
+        bounds = dict(zip(("min", "max"), parts[1:], strict=True)) if len(parts) > 1 else {}
+        axes.setdefault(axis, {})["doublet"] = {"j": parts[0], **bounds}
+    for value in fixed_j or []:
+        axis = value.strip().upper()
+        doublet = axes.get(axis, {}).get("doublet")
+        if doublet is None:
+            msg = f"--fix-j {axis} needs a doublet on {axis}: add --doublet {axis}=J."
+            raise typer.BadParameter(msg)
+        doublet["vary"] = False
+    for value in phases or []:
+        axes.setdefault(value.strip().upper(), {})["phase"] = True
+    try:
+        return FitConfig.model_validate({"family": family, "axes": axes})
+    except ValidationError as exc:
+        messages = "; ".join(error["msg"].removeprefix("Value error, ") for error in exc.errors())
+        raise typer.BadParameter(messages) from exc
 
 
 def normalize_output_formats(formats: list[str] | None) -> list[OutputFormat] | None:

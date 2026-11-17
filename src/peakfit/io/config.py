@@ -1,7 +1,9 @@
 """Configuration file loading and the default template."""
 
 import tomllib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from pydantic import ValidationError
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.shared.paths import format_path
@@ -35,6 +37,32 @@ def load_config(path: Path) -> PeakFitConfig:
     return PeakFitConfig.model_validate(data)
 
 
+def stored_config(value: str | dict[str, Any]) -> PeakFitConfig:
+    """The fit settings recorded in a results archive or analysis project.
+
+    Settings written before per-axis lineshape models (``lineshape``, ``fit_phase``)
+    are refused with one message, never reinterpreted (ADR 0004).
+    """
+    try:
+        if isinstance(value, str):
+            return PeakFitConfig.model_validate_json(value)
+        return PeakFitConfig.model_validate(value)
+    except ValidationError as exc:
+        replaced = [
+            str(e["msg"]).removeprefix("Value error, ")
+            for e in exc.errors()
+            if "was replaced by" in str(e["msg"])
+        ]
+        if not replaced:
+            raise
+        msg = (
+            "These results were written by a PeakFit development build before per-axis "
+            "lineshape models, so this version cannot read their fit settings. Open the "
+            f"spectrum and peak list and refit. ({' '.join(replaced)})"
+        )
+        raise ValueError(msg) from exc
+
+
 def generate_default_config() -> str:
     """Generate a default configuration file as a string.
 
@@ -46,11 +74,17 @@ def generate_default_config() -> str:
 # Generated automatically - edit as needed
 
 [fitting]
-lineshape = "auto"  # auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod
+family = "auto"  # every axis: auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod
 refine_iterations = 1
-fit_phase = []  # List of dimensions to fit phase for, e.g. ["F2"]
 max_iterations = 1000
 tolerance = 1e-8
+
+# Per-axis lineshape model; unset fields keep the defaults above.
+# [fitting.axes.F2]
+# family = "sp1"
+# phase = true                # fit this axis's phase (sp1, sp2, no_apod)
+# doublet = { j = 92.0 }      # J start in Hz; bounds default to [j/2, 2j]
+# doublet = { j = 92.0, min = 80.0, max = 100.0, vary = false }
 
 [clustering]
 contour_factor = 5.0
