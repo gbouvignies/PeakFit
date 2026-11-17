@@ -82,6 +82,11 @@ def comparison_mismatch(recorded: FitInputSnapshot, working: FitInputSnapshot) -
     return ""
 
 
+def default_settings() -> PeakFitConfig:
+    """The GUI's fit settings for a new analysis: two optimizer passes (spec §7)."""
+    return PeakFitConfig(fitting=FitConfig(refine_iterations=2))
+
+
 class DatasetFitting(QtCore.QObject):
     """One active immutable result, one fit and fresh whole-dataset preparation.
 
@@ -94,8 +99,7 @@ class DatasetFitting(QtCore.QObject):
     def __init__(self, workspace: EditorWorkspace) -> None:
         super().__init__(workspace)
         self.workspace = workspace
-        self.configuration = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
-        # The first Fit of a session reveals the setup unless it was already displayed.
+        # The first Fit of a session reveals the Model page unless it was already shown.
         self.setup_seen = False
         # Preparation of the working inputs, refreshed after every committed change.
         self.preview: PreparedDatasetFit | None = None
@@ -137,9 +141,13 @@ class DatasetFitting(QtCore.QObject):
     def _recovery_path(self):
         return self._session.path
 
-    def restore(self, configuration, completion, runs, journal, protected) -> None:
-        """Adopt an opened analysis's settings, active run and retained evidence."""
-        self.configuration = configuration
+    @property
+    def configuration(self) -> PeakFitConfig:
+        """The committed working settings: the edit history's, so Undo restores them."""
+        return self.workspace.edits.settings
+
+    def restore(self, completion, runs, journal, protected) -> None:
+        """Adopt an opened analysis's active run and retained evidence."""
         self.completion = completion
         self.history = list(runs)
         self.journal = list(journal)
@@ -273,14 +281,6 @@ class DatasetFitting(QtCore.QObject):
         """The active run's fitted state, which unchanged peaks continue from."""
         return continuation_source(self.completion) if self.completion else None
 
-    def configure(self, configuration: PeakFitConfig) -> None:
-        """Adopt edited working settings; an existing run becomes Outdated."""
-        if self.busy or configuration == self.configuration:
-            return
-        self.configuration = configuration
-        self.request_preview()
-        self.state_changed.emit()
-
     def request_preview(self) -> None:
         """Hide an obsolete preparation and prepare the committed inputs afresh."""
         inputs = self._inputs()
@@ -327,12 +327,12 @@ class DatasetFitting(QtCore.QObject):
         return self.preview_error if self._preview_inputs == self._inputs() else ""
 
     def fit(self) -> None:
-        """Submit the prepared working inputs; the first Fit may reveal the setup."""
+        """Submit the prepared working inputs; the first Fit may reveal the Model page."""
         w = self.workspace
         if self.busy or w.inputs_loading or not w.peaks or not w.commit_fields():
             return
-        if not self.setup_seen or self.blocked:
-            w.show_fit_setup()
+        if not self.setup_seen or self.blocked or w.panel.model_page.invalid:
+            w.show_model_page()
             return
         w.cancel_gesture()
         prepared = self.prepared

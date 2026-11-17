@@ -1,6 +1,7 @@
-"""Right inspector: the selected peak's results and review, or the fit setup.
+"""Right inspector: the selected peak's results and review, or the analysis.
 
-With nothing selected the inspector shows the fit setup and the active run.
+With nothing selected the inspector shows the analysis: the Run page (the active
+run as recorded) or the Model page (the working fit settings), behind a switch.
 
 Every value shown comes from the completed outcome as recorded; the inspector
 never refits, re-solves amplitudes or recomputes statistics.
@@ -36,10 +37,10 @@ from peakfit.gui.editor.labels import (
 )
 from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import text_label as _label
+from peakfit.gui.editor.model_page import ModelPage
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import correlation_matrix
-from peakfit.gui.editor.setup import FitSetup
-from peakfit.gui.failures import log_path
+from peakfit.gui.editor.run_page import RunPage
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
@@ -282,6 +283,7 @@ class Inspector(QtWidgets.QScrollArea):
     focus_requested = QtCore.Signal()
     unexplained_requested = QtCore.Signal()
     region_chosen = QtCore.Signal(int)  # index in the unexplained-signal list
+    page_chosen = QtCore.Signal(str)  # "run" or "model", from the switch
 
     def __init__(self, x_axis, y_axis) -> None:  # noqa: PLR0915
         super().__init__()
@@ -404,69 +406,34 @@ class Inspector(QtWidgets.QScrollArea):
         self.cluster_page.member_chosen.connect(self.member_chosen)
         self.cluster_page.focus_requested.connect(self.focus_requested)
         layout.addWidget(self.cluster_page)
-        # Analysis page
+        # Analysis page (no selection): the Run and Model pages behind a two-way switch.
         self.analysis_page = QtWidgets.QWidget()
         analysis = QtWidgets.QVBoxLayout(self.analysis_page)
         analysis.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
-        self._analysis_layout = analysis
-        # A failed attempt leads the page, above the two blocks that follow.
-        self.failure_block = QtWidgets.QWidget()
-        failure = QtWidgets.QVBoxLayout(self.failure_block)
-        failure.setContentsMargins(0, 0, 0, 0)
-        failure.setSpacing(themes.SPACE_S)
-        section(failure, "Last fit attempt")
-        self.failure_rows = QtWidgets.QGridLayout()
-        self.failure_rows.setHorizontalSpacing(themes.SPACE_S)
-        self.failure_rows.setVerticalSpacing(3)
-        failure.addLayout(self.failure_rows)
-        self.copy_details = themes.command("Copy details")
-        self.copy_details.setToolTip("Copy the stage, message and diagnostic context")
-        self.copy_details.clicked.connect(self._copy_failure_details)
-        failure.addWidget(self.copy_details, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self._failure_details = ""
-        self.failure_block.hide()
-        analysis.addWidget(self.failure_block)
-        # Two blocks: the fit setup leads before the first fit, the run review after.
-        self.setup_block = QtWidgets.QWidget()
-        setup = QtWidgets.QVBoxLayout(self.setup_block)
-        setup.setContentsMargins(0, 0, 0, 0)
-        setup.setSpacing(themes.SPACE_S)
-        self.setup_section = section(setup, "Fit setup")
-        self.setup = FitSetup()
-        setup.addWidget(self.setup)
-        self.review_block = QtWidgets.QWidget()
-        analysis.addWidget(self.setup_block)
-        analysis.addWidget(self.review_block)
-        analysis = QtWidgets.QVBoxLayout(self.review_block)
-        analysis.setContentsMargins(0, 0, 0, 0)
-        analysis.setSpacing(themes.SPACE_S)
-        section(analysis, "Active run")
-        self.run_rows = QtWidgets.QGridLayout()
-        self.run_rows.setHorizontalSpacing(themes.SPACE_S)
-        self.run_rows.setVerticalSpacing(3)
-        analysis.addLayout(self.run_rows)
-        self.changes_title = section(analysis, "Changes from parent run")
-        self.changes_title.hide()
-        self.changes = QtWidgets.QVBoxLayout()
-        self.changes.setSpacing(2)
-        analysis.addLayout(self.changes)
-        self._changes_key = None
-        self.next_button = themes.command("Select next cluster with a warning")
-        self.next_button.clicked.connect(self.next_warning)
-        analysis.addWidget(self.next_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.unexplained_section = section(analysis, "Signal not explained on this plane")
-        self.unexplained_button = themes.command("")
-        self.unexplained_button.clicked.connect(self.unexplained_requested)
-        analysis.addWidget(self.unexplained_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.unexplained_title = _label("", "muted", wrap=True)
-        analysis.addWidget(self.unexplained_title)
-        self.unexplained = QtWidgets.QVBoxLayout()
-        self.unexplained.setSpacing(2)
-        analysis.addLayout(self.unexplained)
-        self.unexplained_note = _label("", "caption", wrap=True)
-        analysis.addWidget(self.unexplained_note)
-        self._unexplained_key = None
+        switch = QtWidgets.QHBoxLayout()
+        switch.setSpacing(0)
+        self.run_tab = themes.segment("Run", "first")
+        self.model_tab = themes.segment("Model", "last")
+        self.model_tab.setToolTip("The working fit settings (Analysis ▸ Model settings)")
+        self._pages = QtWidgets.QButtonGroup(self)
+        for page, button in (("run", self.run_tab), ("model", self.model_tab)):
+            button.setCheckable(True)
+            button.setAccessibleName(f"{page.capitalize()} page")
+            self._pages.addButton(button)
+            switch.addWidget(button)
+            button.clicked.connect(lambda _checked=False, p=page: self.page_chosen.emit(p))
+        switch.addStretch(1)
+        analysis.addLayout(switch)
+        self.run_page = RunPage()
+        self.run_page.next_warning.connect(self.next_warning)
+        self.run_page.change_chosen.connect(self.change_chosen)
+        self.run_page.unexplained_requested.connect(self.unexplained_requested)
+        self.run_page.region_chosen.connect(self.region_chosen)
+        self.model_page = ModelPage()
+        analysis.addWidget(self.run_page)
+        analysis.addWidget(self.model_page)
+        self.page = "model"
         self._reveal = False
         self.verticalScrollBar().rangeChanged.connect(self._scroll_to_unexplained)
         self.verticalScrollBar().actionTriggered.connect(self._stop_reveal)
@@ -566,61 +533,33 @@ class Inspector(QtWidgets.QScrollArea):
         self.profile.set_plane(plane)
         self._show_amplitude(plane)
 
-    def show_analysis(
-        self,
-        title: str,
-        summary: str,
-        run: list[Row],
-        *,
-        fitted: bool = False,
-        warned: bool = False,
-    ) -> None:
-        """No selection: the fit setup and what the active run recorded.
+    def show_analysis(self, title: str, summary: str, *, run_available: bool) -> None:
+        """No selection: the analysis header over the page in use.
 
-        Before the first fit the setup leads; afterwards the run review does,
-        with the setup below it. With no run and nothing to report, the run section
-        is hidden: the toolbar already says Not fitted.
+        Run is unavailable until there is a run, a failed attempt or a fit in progress.
         """
         if self._peak is not None:
             return
-        layout = self._analysis_layout
-        first = self.review_block if fitted else self.setup_block
-        after_failure = layout.indexOf(self.failure_block) + 1
-        if layout.indexOf(first) != after_failure:
-            layout.insertWidget(after_failure, first)
-        for widget in (self.unexplained_section, self.unexplained_button, self.unexplained_note):
-            widget.setVisible(fitted)
         self.kind.setText("ANALYSIS")
         self.title.setText(title)
         self.status.setText(summary)
-        self.review_block.setVisible(fitted or bool(run))
-        key = ("analysis", tuple(run), warned)
-        if key == self._key:
-            return
-        self._key = key
-        _clear(self.run_rows)
-        label_rows(self.run_rows, run)
-        self.next_button.setVisible(warned)
+        self.run_tab.setEnabled(run_available)
+        self.run_tab.setToolTip(
+            "The active run as recorded (Analysis ▸ Active run)"
+            if run_available
+            else "Available after the first fit"
+        )
 
-    def show_failure(self, rows: list[Row], details: str) -> None:
-        """Lead the analysis page with a failed attempt, or hide it with no rows.
-
-        ``details`` is the plain text **Copy details** puts on the clipboard.
-        """
-        self._failure_details = details
-        self.failure_block.setVisible(bool(rows))
-        path = log_path()
-        if rows and path is not None:
-            rows = [
-                *rows,
-                Row("Log", str(path), style="caption", tip="The traceback is in this file"),
-            ]
-        _clear(self.failure_rows)
-        label_rows(self.failure_rows, rows)
-
-    def _copy_failure_details(self) -> None:
-        clipboard = QtGui.QGuiApplication.clipboard()
-        clipboard.setText(self._failure_details)
+    def show_page(self, page: str) -> None:
+        """Show the Run or the Model page; a different page opens at its top."""
+        changed = page != self.page or self.run_page.isHidden() == self.model_page.isHidden()
+        self.page = page
+        (self.run_tab if page == "run" else self.model_tab).setChecked(True)
+        self.run_page.setVisible(page == "run")
+        self.model_page.setVisible(page == "model")
+        if changed and self._peak is None:
+            self._reveal = False
+            QtCore.QTimer.singleShot(0, self, lambda: self.verticalScrollBar().setValue(0))
 
     def show_result(
         self,
@@ -715,105 +654,9 @@ class Inspector(QtWidgets.QScrollArea):
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
 
-    def show_changes(self, parent: str, entries: list[tuple]) -> None:
-        """Show run-to-run changes; ``parent`` is the parent run's short ID, or "".
-
-        Entries are ("row", label, value, tooltip), ("heading", text[, tooltip]),
-        ("note", text) or ("link", text, detail, working ID, opens a cluster
-        page[, warning]). Consecutive rows share one label grid.
-        """
-        key = (parent, tuple(entries))
-        if key == self._changes_key:
-            return
-        self._changes_key = key
-        self.changes_title.setVisible(bool(parent))
-        _clear(self.changes)
-        rows: list[Row] = [Row("Parent run", parent)] if parent else []
-
-        def flush() -> None:
-            if rows:
-                grid = QtWidgets.QGridLayout()
-                grid.setHorizontalSpacing(themes.SPACE_S)
-                grid.setVerticalSpacing(3)
-                label_rows(grid, rows)
-                self.changes.addLayout(grid)
-                rows.clear()
-
-        for entry in entries:
-            kind = entry[0]
-            if kind == "row":
-                _kind, label, value, tip = entry
-                rows.append(Row(label, value, tip=tip))
-                continue
-            flush()
-            if kind == "link":
-                _kind, text, detail, identity, cluster, *flag = entry
-                row = QtWidgets.QHBoxLayout()
-                row.setSpacing(themes.SPACE_S)
-                link = themes.link(text)
-                link.clicked.connect(
-                    lambda _checked=False, i=identity, c=cluster: self.change_chosen.emit(i, c)
-                )
-                row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-                style = "warning" if flag and flag[0] else "caption"
-                row.addWidget(_label(detail, style, wrap=True), 1)
-                self.changes.addLayout(row)
-            elif kind == "heading":
-                self.changes.addSpacing(themes.SPACE_XS)
-                heading = _label(entry[1], "muted")
-                heading.setToolTip(entry[2] if len(entry) > 2 else "")  # noqa: PLR2004
-                self.changes.addWidget(heading)
-            else:
-                self.changes.addWidget(
-                    _label(entry[1], "" if kind == "line" else "caption", wrap=True)
-                )
-        flush()
-
-    def show_unexplained(
-        self, button: str, enabled: bool, title: str, rows: list[tuple[str, str]], note: str
-    ) -> None:
-        """The on-request list of residual regions; each row's link frames its region."""
-        key = (button, enabled, title, tuple(rows), note)
-        if key == self._unexplained_key:
-            return
-        self._unexplained_key = key
-        self.unexplained_button.setText(button)
-        self.unexplained_button.setEnabled(enabled)
-        self.unexplained_title.setText(title)
-        self.unexplained_title.setVisible(bool(title))
-        self.unexplained_note.setText(note)
-        _clear(self.unexplained)
-        for index, (text, detail) in enumerate(rows):
-            if not text:
-                self.unexplained.addWidget(_label(detail, "caption"))
-                continue
-            row = QtWidgets.QHBoxLayout()
-            row.setSpacing(themes.SPACE_S)
-            link = themes.link(text)
-            link.setToolTip("Frame this region in the spectrum")
-            link.clicked.connect(lambda _checked=False, i=index: self.region_chosen.emit(i))
-            row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-            row.addWidget(_label(detail, "caption", wrap=True), 1)
-            self.unexplained.addLayout(row)
-
-    def reveal(self, block: str) -> None:
-        """Scroll the analysis page to the run review or to the fit setup."""
-        target = self.setup_block if block == "setup" else self.review_block
-        self._reveal = False
-
-        def scroll():  # once the reordered page has its geometry
-            if self._analysis_layout.indexOf(target) == 1:  # keep the page header in view
-                self.verticalScrollBar().setValue(0)
-                return
-            body = self.widget()
-            top = target.mapTo(body, QtCore.QPoint(0, 0)).y()
-            self.verticalScrollBar().setValue(max(0, top - themes.SPACE_M))
-
-        QtCore.QTimer.singleShot(0, self, scroll)  # dropped if the inspector goes first
-
     def reveal_unexplained(self) -> None:
         """Scroll a freshly computed list to the top of the inspector."""
-        self._reveal = self.analysis_page.isVisible()
+        self._reveal = self.run_page.isVisible() and self.analysis_page.isVisible()
         self._scroll_to_unexplained()
 
     def _stop_reveal(self, *_args) -> None:
@@ -823,7 +666,7 @@ class Inspector(QtWidgets.QScrollArea):
         # New rows reach the scroll range over several layout passes; follow it there.
         if not self._reveal:
             return
-        top = self.unexplained_section.mapTo(self.widget(), QtCore.QPoint(0, 0)).y()
+        top = self.run_page.unexplained_section.mapTo(self.widget(), QtCore.QPoint(0, 0)).y()
         bar = self.verticalScrollBar()
         target = top - themes.SPACE_M
         bar.setValue(target)

@@ -322,6 +322,9 @@ QToolButton:checked {{ background: {t.selection}; }}
 QToolButton#text {{ padding: 1px 2px 1px 0; font-size: {s.small}px; }}
 QToolButton#text:checked, QToolButton#text:hover:enabled {{ background: transparent; }}
 QToolButton#text:hover:enabled {{ color: {t.text}; }}
+QToolButton#info {{ padding: 0 2px; color: {t.secondary}; font-size: {s.small}px; }}
+QToolButton#info:hover:enabled {{ color: {t.accent}; background: transparent; }}
+QFrame#popover {{ background: {t.panel}; border: 1px solid {t.border}; border-radius: 6px; }}
 QPushButton#link {{ border: 0; background: transparent; color: {t.accent}; padding: 1px 0;
   min-height: 0; text-align: left; }}
 QPushButton#link:hover {{ text-decoration: underline; }}
@@ -329,6 +332,7 @@ QPushButton#link:hover {{ text-decoration: underline; }}
 QLineEdit, QAbstractSpinBox, QComboBox {{ min-height: {CONTROL_HEIGHT - 4}px; padding: 0 6px;
     border: 1px solid {t.outline}; border-radius: 5px; background: {t.plot}; color: {t.text};
     selection-background-color: {t.selection}; selection-color: {t.text}; }}
+QLineEdit[invalid="true"] {{ border-color: {t.error}; }}
 QLineEdit:disabled, QAbstractSpinBox:disabled, QComboBox:disabled {{ color: {t.disabled};
     background: {t.panel}; border-color: {t.divider}; }}
 

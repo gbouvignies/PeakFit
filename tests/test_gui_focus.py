@@ -15,6 +15,7 @@ from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -42,7 +43,7 @@ def workspace(request, qapp, scientific):
     spectra, peaks, config, result = scientific
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
-    widget.fitting.configuration = config.model_copy(deep=True)
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
     widget.fitting.setup_seen = True
     themes.apply(widget, request.param)
     widget.apply_theme(request.param)

@@ -28,6 +28,7 @@ from peakfit.gui.editor.profiles_view import (
 )
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -44,7 +45,7 @@ def scientific():
 def workspace(qapp, scientific):
     spectra, peaks, config, _ = scientific
     widget = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
-    widget.fitting.configuration = config.model_copy(deep=True)
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
     widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()

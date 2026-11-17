@@ -36,6 +36,7 @@ from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor import slices
+from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo, AxisModelTable
 from peakfit.gui.editor.profile import (
     PeakProfile,
     ProfilePlot,
@@ -43,7 +44,6 @@ from peakfit.gui.editor.profile import (
     parse_planes,
     peak_profile,
 )
-from peakfit.gui.editor.setup import DEFAULT_SOURCE
 from peakfit.gui.editor.spectral_geometry import MAIN_MIN
 from peakfit.gui.editor.unexplained import nearest_peak, unexplained_regions
 from peakfit.gui.editor.window import EditorWindow
@@ -51,6 +51,7 @@ from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project import StoredRun
 from peakfit.gui.spectrum import Dataset, display_position, read_dataset
 from peakfit.io.scientific import read_scientific
@@ -72,7 +73,7 @@ def workspace(qapp, scientific):
     spectra, peaks, config, _, _ = scientific
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
-    widget.fitting.configuration = config.model_copy(deep=True)
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
     widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()
@@ -227,7 +228,7 @@ def test_one_busy_state_locks_and_releases_every_edit(workspace):
         w.add_button,
         w.fit_button,
         w.inspector,
-        w.panel.setup,
+        w.panel.model_page,
     )
     assert all(control.isEnabled() for control in controls)
     w.fitting.fit()
@@ -426,7 +427,7 @@ def test_toolbar_title_and_close_share_one_unsaved_state(scientific, monkeypatch
         return w.modified.toolTip()
 
     assert shown() == ""
-    w.fitting.configure(config.model_copy(deep=True))
+    w.configure(config.model_copy(deep=True))
     assert shown() == "Unsaved: fit settings"
     publish(w, result)
     assert shown() == "Unsaved: peaks, fit settings, active run, run history"
@@ -550,11 +551,22 @@ def _warned(result):
 
 
 def _review_cell(grid, label: str) -> QtWidgets.QLabel:
-    """The value beside a label in a review grid."""
+    """The value beside a label in a review grid (first in its cell when it has ⓘ)."""
     for row in range(grid.rowCount()):
         item = grid.itemAtPosition(row, 0)
         if item is not None and item.widget().text() == label:
-            return grid.itemAtPosition(row, 1).widget()
+            value = grid.itemAtPosition(row, 1)
+            return value.widget() or value.layout().itemAt(0).widget()
+    raise KeyError(label)
+
+
+def _review_info(grid, label: str):
+    """The ⓘ beside a review row's value, if it has one."""
+    for row in range(grid.rowCount()):
+        item = grid.itemAtPosition(row, 0)
+        if item is not None and item.widget().text() == label:
+            cell = grid.itemAtPosition(row, 1).layout()
+            return cell.itemAt(1).widget() if cell is not None else None
     raise KeyError(label)
 
 
@@ -717,7 +729,7 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     # The toolbar names the application; the window title names the dataset.
     assert w.title.text() == "PeakFit"
     assert name in window.windowTitle()
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
     w.fitting.setup_seen = True
     qapp.processEvents()
     publish(w, _warned(result))
@@ -794,7 +806,7 @@ def test_side_panels_open_only_where_they_fit_and_never_enlarge_the_window(
     window.install_dataset(Dataset(Path("reference.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
     qapp.processEvents()
     publish(w, result)
     w.open_focus(w.peaks[0].id)
@@ -850,7 +862,7 @@ def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, 
     window.install_dataset(Dataset(Path("menus.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
     qapp.processEvents()
     publish(w, result)
     c = w.canvas
@@ -898,7 +910,7 @@ def test_mode_switches_never_enlarge_a_window_too_narrow_for_the_lanes(
     window.install_dataset(Dataset(Path("lanes.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
     qapp.processEvents()
     publish(w, result)
     c = w.canvas
@@ -1178,39 +1190,55 @@ def test_fit_is_disabled_with_the_preparation_reason(workspace):
     wait_until(lambda: fitting.prepared is not None)
     invalid = fitting.configuration.model_copy(deep=True)
     invalid.exclude_planes = [1]
-    fitting.configure(invalid)
+    w.configure(invalid)
     assert fitting.prepared is None
     wait_until(lambda: bool(fitting.blocked))
     assert "exclusions are unsupported" in fitting.blocked
     assert not w.fit_button.isEnabled()
     assert fitting.blocked in w.fit_button.toolTip()
-    assert w.panel.setup.blocked.isVisible()
-    assert fitting.blocked in w.panel.setup.blocked.text()
+    assert w.panel.model_page.blocked.isVisible()
+    assert fitting.blocked in w.panel.model_page.blocked.text()
     w.select_peak(w.peaks[0].id)
     fitting.fit()
     assert not fitting.busy
     assert w.selected_id is None
     valid = invalid.model_copy(deep=True)
     valid.exclude_planes = []
-    fitting.configure(valid)
+    w.configure(valid)
     wait_until(lambda: fitting.prepared is not None)
     assert w.fit_button.isEnabled()
     assert not fitting.blocked
 
 
-def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scientific):
-    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+def test_model_edits_mark_the_run_outdated_and_undo_restores_them(workspace, scientific):
+    w, fitting, model = workspace, workspace.fitting, workspace.panel.model_page
     publish(w, scientific[-1])
     assert fitting.current
-    setup.passes.setValue(3)
+    passes = fitting.configuration.fitting.refine_iterations
+    model.passes.setValue(3)
     assert fitting.configuration.fitting.refine_iterations == 3
     assert not fitting.current
     assert fitting.prepared is None
     wait_until(lambda: fitting.prepared is not None)
     assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
-    setup.lineshape.setCurrentIndex(setup.lineshape.findData("gaussian"))
-    assert fitting.configuration.fitting.family == "gaussian"
-    assert "Gaussian · explicit" in setup.shapes.text()
+    # The setting that differs from the run is marked, and the page says so once.
+    assert model.passes_title.text() == f"Passes {DIFFERS}"
+    assert f"{fitting.result.run_id[:8]}" in model.differs.text()
+    assert model.threshold_title.text() == "Threshold"
+    row = model.axes.rows[0]
+    other = "lorentzian" if row.family.currentData() != "lorentzian" else "sp1"
+    row.family.setCurrentIndex(row.family.findData(other))
+    assert fitting.configuration.fitting.axis_model(row.axis.label).family == other
+    assert row.name.text().endswith(DIFFERS)
+    assert w.undo_action.text() == "Undo settings change"
+    w.history(False)
+    assert row.family.currentData() != other
+    assert not row.name.text().endswith(DIFFERS)
+    w.history(False)
+    assert fitting.configuration.fitting.refine_iterations == passes
+    assert model.passes.value() == passes
+    assert model.passes_title.text() == "Passes"
+    assert not fitting.current  # Undo never recertifies a run
 
 
 def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, scientific):
@@ -1222,7 +1250,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     assert not c.regions_visible
     assert not c.region_image.isVisible()
     assert "fitting regions" not in c.legend.text()
-    w.panel.setup.regions.setChecked(True)
+    w.panel.model_page.regions.setChecked(True)
     assert c.region_image.isVisible()
     assert "fitting regions · preview for current settings" in c.legend.text()
     cluster = next(cl for cl in prepared.clusters if len(cl.peaks) > 1)
@@ -1258,19 +1286,19 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     wait_until(lambda: fitting.prepared is not None)
     w._update_inspector()
     assert c.region_source == "preview for current settings"
-    w.panel.setup.regions.setChecked(False)
+    w.panel.model_page.regions.setChecked(False)
     assert not c.region_image.isVisible()
     assert "fitting regions" not in c.legend.text()
 
 
 def test_the_loaded_screen_says_each_thing_once(workspace):
-    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    w, fitting, setup = workspace, workspace.fitting, workspace.panel.model_page
     wait_until(lambda: fitting.prepared is not None)
     w.select_peak(None)
     w._update_inspector()
     # The toolbar states the run; the counts live in the tab, plane field and page.
     assert w.summary.text() == "Not fitted"
-    assert not w.panel.review_block.isVisibleTo(w)  # no run section before a fit
+    assert not w.panel.run_page.run_block.isVisibleTo(w)  # no run section before a fit
     assert w.panel.status.text().startswith(f"{len(w.peaks)} peaks · ")
     # The total is in the Peaks tab; the footer counts only a filter.
     nav = w.navigator
@@ -1280,8 +1308,8 @@ def test_the_loaded_screen_says_each_thing_once(workspace):
     assert nav.count.text().endswith(f"of {len(w.peaks)} peaks")
     nav.search.setText("")
     # Setup values stay; their explanations are tooltips, numbers never use e+.
-    assert "\n" not in setup.shapes.text()
-    assert setup.shapes.toolTip()
+    assert all("\n" not in row.family.currentText() for row in setup.axes.rows)
+    assert all(row.family.toolTip() for row in setup.axes.rows)
     assert "e+" not in setup.noise.text() + setup.level.text()
     # Only an explicit noise level is worth a caption; the estimate is the default.
     explicit = bool(fitting.configuration.noise_level)
@@ -1327,12 +1355,16 @@ def test_the_peak_page_says_each_thing_once(workspace, scientific):
 
 
 def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
-    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    w, fitting = workspace, workspace.fitting
     wait_until(lambda: fitting.prepared is not None)
-    shapes = [("¹⁵N", "Pseudo-Voigt", DEFAULT_SOURCE), ("¹H", "SP2", "from NMRPipe apodization")]
-    setup.show_state(fitting.configuration, shapes, fitting.prepared, fitting.blocked)
-    assert setup.shape_caution.isVisible()
-    assert setup.shape_caution.text().startswith("▲ ¹⁵N: no recognized apodization")
+    table = AxisModelTable([AxisInfo("F2", "¹⁵N F2", "pvoigt"), AxisInfo("F3", "¹H F3", "sp2")])
+    table.show_model(FitConfig())
+    nitrogen, proton = table.rows
+    assert nitrogen.family.currentText() == "Auto · Pseudo-Voigt"
+    assert not nitrogen.caution.isHidden()
+    assert nitrogen.caution.text().startswith("▲ No recognized apodization")
+    assert proton.caution.isHidden()
+    assert not table.invalid
     assert w.fit_button.isEnabled()
     assert not fitting.blocked
 
@@ -1492,7 +1524,7 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
     # Without a current preparation the section says why instead of showing stale values.
     invalid = fitting.configuration.model_copy(deep=True)
     invalid.exclude_planes = [1]
-    fitting.configure(invalid)
+    w.configure(invalid)
     wait_until(lambda: bool(fitting.blocked))
     w._update_inspector()
     assert grid.count() == 0
@@ -1926,18 +1958,18 @@ def test_the_active_run_reads_as_label_rows(workspace, scientific):
     panel = w.panel
     total = len(result.outcome.clusters)
     usable = sum(c.usable for c in result.outcome.clusters)
-    assert _review_row(panel.run_rows, "Run") == f"{result.run_id[:8]} · Current"
-    assert _review_cell(panel.run_rows, "Run").toolTip() == result.run_id
-    assert _review_row(panel.run_rows, "Usable") == f"{usable} / {total}"
-    fitted = _review_row(panel.run_rows, "Fitted")
+    assert _review_row(panel.run_page.run_rows, "Run") == f"{result.run_id[:8]} · Current"
+    assert _review_cell(panel.run_page.run_rows, "Run").toolTip() == result.run_id
+    assert _review_row(panel.run_page.run_rows, "Usable") == f"{usable} / {total}"
+    fitted = _review_row(panel.run_page.run_rows, "Fitted")
     assert fitted.startswith(result.completed_at[:10] + "\u00a0")  # a date and time, not ISO
     assert fitted.count(" ") == 2  # ordinary spaces only around the dot, where it wraps
     # The run section and the fit setup put their values in one column.
     QtWidgets.QApplication.processEvents()  # lay out the new rows
     x = lambda widget: widget.mapTo(panel.analysis_page, QtCore.QPoint(0, 0)).x()  # noqa: E731
-    assert x(_review_cell(panel.run_rows, "Run")) == x(panel.setup.passes)
+    assert x(_review_cell(panel.run_page.run_rows, "Run")) == x(panel.model_page.passes)
     # No parent run: no changes section.
-    assert panel.changes_title.isHidden()
+    assert panel.run_page.changes_title.isHidden()
 
 
 def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
@@ -1990,7 +2022,7 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
         released.set()
     wait_until(lambda: fitting._parents.get(parent.run_id) is parent)
     w.render_fitting()
-    assert panel.changes_title.text() == "CHANGES FROM PARENT RUN"
+    assert panel.run_page.changes_title.text() == "CHANGES FROM PARENT RUN"
     assert "parent00" in texts()  # the run ID keeps its case, as a row
     assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
     assert not any("resolved" in t for t in texts())
@@ -2062,7 +2094,7 @@ def test_cluster_focus_frames_compares_and_returns_exactly(workspace, scientific
     # The fitting region is a separate toggle, shared with the setup's.
     w.focus_bar.regions.click()
     assert c.regions_visible
-    assert w.panel.setup.regions.isChecked()
+    assert w.panel.model_page.regions.isChecked()
     # The residual is the whole-spectrum residual of the overview: (D − M) / σ_stat.
     w.set_mode(2)
     wait_until(lambda: not c.contour_pending)
@@ -2250,7 +2282,7 @@ def test_escape_leaves_focus_from_any_column_but_discards_a_draft_first(workspac
 
 
 def _unexplained_links(w):
-    layout = w.panel.unexplained
+    layout = w.panel.run_page.unexplained
     return [
         widget
         for index in range(layout.count())
@@ -2297,10 +2329,10 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     publish(w, result)
     w.select_peak(None)
     panel = w.panel
-    assert panel.unexplained_button.text() == "Find on plane 1"
-    assert panel.unexplained_button.isEnabled()
+    assert panel.run_page.unexplained_button.text() == "Find on plane 1"
+    assert panel.run_page.unexplained_button.isEnabled()
     assert _unexplained_links(w) == []  # nothing is computed until asked
-    assert "beyond ±5 σ_stat" in panel.unexplained_note.text()
+    assert "beyond ±5 σ_stat" in panel.run_page.unexplained_note.text()
 
     # A low Display threshold, so the synthetic noise crosses it.
     def accept(dialog):
@@ -2312,9 +2344,9 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
     w.display_dialog()
     assert w.unexplained_threshold == 2.0
-    assert "beyond ±2 σ_stat" in panel.unexplained_note.text()
+    assert "beyond ±2 σ_stat" in panel.run_page.unexplained_note.text()
     revision, peaks, mode = w.edits.revision, w.peaks, c.comparison_mode
-    panel.unexplained_button.click()
+    panel.run_page.unexplained_button.click()
     wait_until(lambda: w._unexplained[1] != "pending")
     assert isinstance(w._unexplained[1], list), w._unexplained
     regions = w._unexplained[1]
@@ -2333,12 +2365,12 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     assert regions == unexplained_regions(residual, 2.0, positions)
     assert regions
     count = len(regions)
-    assert panel.unexplained_title.text() == (
+    assert panel.run_page.unexplained_title.text() == (
         f"Plane 1 · {formatting.count(count, 'region')} beyond ±2 σ_stat"
     )
-    assert not panel.unexplained_button.isEnabled()
+    assert not panel.run_page.unexplained_button.isEnabled()
     # The new list scrolls into view below the fit setup.
-    section = panel.unexplained_section
+    section = panel.run_page.unexplained_section
     wait_until(lambda: section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() >= 0)
     assert section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() < panel.viewport().height()
     links = _unexplained_links(w)
@@ -2368,15 +2400,15 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     assert w.fitting.current
     # Another plane needs its own request; the old list is not shown for it.
     w.set_plane(2)
-    assert panel.unexplained_button.text() == "Find on plane 2"
-    assert panel.unexplained_button.isEnabled()
+    assert panel.run_page.unexplained_button.text() == "Find on plane 2"
+    assert panel.run_page.unexplained_button.isEnabled()
     assert _unexplained_links(w) == []
     # An Outdated run's list stays available, labelled with its run.
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
     w.select_peak(None)
-    assert panel.unexplained_button.isEnabled()
-    assert panel.unexplained_note.text().startswith(
+    assert panel.run_page.unexplained_button.isEnabled()
+    assert panel.run_page.unexplained_note.text().startswith(
         f"Residual of Run {result.run_id[:8]} · historical. Distances are to the current"
     )
 
@@ -2625,18 +2657,18 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     # The unexplained list keeps the run's residual; distances follow working peaks.
     w.select_peak(None)
     w.unexplained_threshold = 2.0
-    w.panel.unexplained_button.click()
+    w.panel.run_page.unexplained_button.click()
     wait_until(lambda: w._unexplained[1] != "pending")
     regions = w._unexplained[1]
     assert isinstance(regions, list)
     assert regions
     first = regions[0]
-    assert w.panel.unexplained_title.text().endswith(f"beyond ±2 σ_stat · {tag}")
+    assert w.panel.run_page.unexplained_title.text().endswith(f"beyond ±2 σ_stat · {tag}")
     nearest, distance = nearest_peak(first.row, first.column, w._native_peaks())
     names = {p.id: p.name for p in w.peaks}
     detail = _unexplained_links(w)[0].parent().findChildren(QtWidgets.QLabel)
     assert any(f"{distance:.1f} pts from {names[nearest]}" in label.text() for label in detail)
-    note = w.panel.unexplained_note.text()
+    note = w.panel.run_page.unexplained_note.text()
     assert "☆ marks a peak added since that run" in note
     assert "◇" not in note
     # A peak added on the first region becomes its nearest, marked ☆ and never ◇.
@@ -2669,7 +2701,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert c.comparison_result is None
     assert not w.mode_buttons[2].isEnabled()
     assert w.mode_buttons[2].toolTip() == f"Unavailable: {reason}"
-    assert w.panel.unexplained_title.text() == f"Unavailable: {reason}"
+    assert w.panel.run_page.unexplained_title.text() == f"Unavailable: {reason}"
     # Focus shows the experiment only, and the modes still say why.
     w.open_focus("1")
     assert w.focus_open
@@ -2678,37 +2710,48 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert w.mode_buttons[2].toolTip() == f"Unavailable: {reason}"
 
 
-def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
+def test_the_analysis_shows_model_before_a_fit_and_run_after_behind_one_switch(
     workspace, scientific
 ):
     w = workspace
     panel = w.panel
-    layout = panel._analysis_layout
     w.select_peak(None)
-    # Before the first fit the setup leads (below the failure block, hidden without a
-    # failure) and there is no unexplained-signal section.
-    assert panel.failure_block.isHidden()
-    assert layout.indexOf(panel.setup_block) == 1
-    assert not panel.unexplained_button.isVisible()
+    w._update_inspector()
+    # Before the first fit: the Model page, with Run unavailable and saying why.
+    assert panel.page == "model"
+    assert panel.model_tab.isChecked()
+    assert not panel.run_page.isVisibleTo(panel)
+    assert not panel.run_tab.isEnabled()
+    assert panel.run_tab.toolTip() == "Available after the first fit"
+    # The first setting is above the fold.
+    first = panel.model_page.axes.rows[0].family
+    assert first.mapTo(panel.viewport(), QtCore.QPoint(0, first.height())).y() <= (
+        panel.viewport().height()
+    )
     publish(w, scientific[-1])
+    w.select_peak(None)
+    assert panel.page == "run"  # a new run brings Run forward
+    assert panel.run_page.unexplained_button.isVisible()
     w.select_peak(w.peaks[0].id)
     assert not panel.analysis_page.isVisible()
-    # A click on the toolbar run summary clears the selection and opens the review.
+    # A click on the toolbar run summary clears the selection and opens Run.
     QtTest.QTest.mouseClick(w.summary, QtCore.Qt.MouseButton.LeftButton)
     wait_until(lambda: panel.analysis_page.isVisible())
     assert w.selected_id is None
-    assert layout.indexOf(panel.review_block) == 1
-    assert panel.unexplained_button.isVisible()
-    assert "Click to open the analysis page" in w.summary.toolTip()
-    review = panel.review_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
+    assert panel.page == "run"
+    assert "Click to open the Run page" in w.summary.toolTip()
+    review = panel.run_page.run_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
     assert 0 <= review < panel.viewport().height()
-    # The settings chip still reaches the setup, now below the review.
+    # The settings chip opens Model; the choice holds while the run stays the same.
     QtTest.QTest.mouseClick(w.settings_button, QtCore.Qt.MouseButton.LeftButton)
-    wait_until(
-        lambda: 0
-        <= panel.setup_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
-        < panel.viewport().height()
-    )
+    assert panel.page == "model"
+    assert panel.model_page.isVisible()
+    w._update_inspector()
+    assert panel.page == "model"
+    QtTest.QTest.mouseClick(panel.run_tab, QtCore.Qt.MouseButton.LeftButton)
+    assert panel.page == "run"
+    assert panel.run_page.isVisible()
+    assert not panel.model_page.isVisible()
 
 
 def test_enter_on_a_name_returns_focus_so_a_places_the_next_peak(workspace, scientific):
@@ -2767,9 +2810,12 @@ def bundled_workspace(qapp):
     data = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
     dataset = read_dataset(data / "pseudo3d.ft2", data / "pseudo3d.list", data / "b1_offsets.txt")
     widget = EditorWorkspace(dataset)
-    widget.fitting.configuration = PeakFitConfig(
-        fitting=FitConfig(refine_iterations=2),
-        parameters=ParameterConfig.model_validate({"defaults": {"*.*.lw": {"value": 20.0}}}),
+    widget.edits = WorkingEdits(
+        widget.peaks,
+        PeakFitConfig(
+            fitting=FitConfig(refine_iterations=2),
+            parameters=ParameterConfig.model_validate({"defaults": {"*.*.lw": {"value": 20.0}}}),
+        ),
     )
     widget.fitting.setup_seen = True
     widget.resize(1280, 750)
@@ -2889,8 +2935,8 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     assert "Escape discards" in panel.editor.x_field.toolTip()
     # The unexplained-signal list is framed as a diagnostic, never peak picking.
     w.select_peak(None)
-    assert panel.unexplained_note.text().startswith("Diagnostic only")
-    assert "never proposes peaks" in panel.unexplained_note.toolTip()
+    assert panel.run_page.unexplained_note.text().startswith("Diagnostic only")
+    assert "never proposes peaks" in panel.run_page.unexplained_info.body.text()
 
 
 def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientific):
@@ -2993,15 +3039,20 @@ def test_a_noise_power_mismatch_is_shown_where_errors_are_read(workspace, scient
     warned = _with_noise_check(scientific[-1], NoisePowerStatus.MISMATCH)
     model = warned.outcome.noise_model
     publish(w, warned)
-    # The Analysis page: a row in the warning style naming the axis, with what was
-    # found and what to do as its caption, in the wording the run-line tooltip uses.
-    rows = w.panel.run_rows
+    # The Run page: a one-line verdict in the warning style naming the axis; what was
+    # found and what to do sit behind its ⓘ, in the wording the run-line tooltip uses.
+    rows = w.panel.run_page.run_rows
     cell = _review_cell(rows, "Noise check")
     assert cell.text().startswith("▲ F2")
     assert "errors" in cell.text()
     assert cell.objectName() == "warning"
-    caption = _review_caption(rows, "Noise check")
+    assert _review_caption(rows, "Noise check") == ""
+    info = _review_info(rows, "Noise check")
+    assert info is not None
+    assert info.focusPolicy() & QtCore.Qt.FocusPolicy.TabFocus
+    caption = info.body.text()
     assert caption == model.power_finding
+    assert info.accessibleDescription() == caption
     assert str(model.power_warning).endswith(caption[1:])
     assert str(model.power_warning) in w.summary.toolTip()
     assert "Check how F2 was processed" in caption
@@ -3021,7 +3072,7 @@ def test_a_consistent_or_inconclusive_noise_check_shows_no_warning(workspace, sc
     checked = _with_noise_check(scientific[-1], status)
     publish(w, checked)
     with pytest.raises(KeyError):
-        _review_cell(w.panel.run_rows, "Noise check")
+        _review_cell(w.panel.run_page.run_rows, "Noise check")
     assert "Noise check" not in w.summary.text()
     cluster = next(c for c in checked.outcome.clusters if c.usable)
     identities = {i.engine_name: i.working_id for i in checked.inputs.identities}

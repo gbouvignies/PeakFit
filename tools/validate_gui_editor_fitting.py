@@ -105,11 +105,11 @@ def run(exports):  # noqa: PLR0915
     w.set_plane(60)
     view = c.box.viewRange()
     seeds = w.peaks
-    w.show_fit_setup()
+    w.show_model_page()
     wait_until(lambda: w.fitting.prepared is not None, timeout=60)
     prepared = w.fitting.prepared
     assert prepared is not None
-    assert w.panel.setup.passes.value() == 2
+    assert w.panel.model_page.passes.value() == 2
     w.panel.grab().save(str(OUTPUT / "settings.webp"), "WEBP", 95)
     report["prepared_clusters"] = len(prepared.clusters)
     report["prepared_peaks"] = len(prepared.identities)

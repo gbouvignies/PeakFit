@@ -11,21 +11,25 @@ from typing import TYPE_CHECKING, cast
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.engine.domain.spectrum import axis_lineshapes, get_dimension_label
+from peakfit.engine.domain.spectrum import (
+    axis_lineshapes,
+    determine_shape_name,
+    get_dimension_label,
+)
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor import slices
+from peakfit.gui.editor.axis_table import AxisInfo
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
-from peakfit.gui.editor.fitting import DatasetFitting
+from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
-from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.editor.spectral_geometry import SliceSizes, default_sizes, stored_share
 from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
@@ -37,7 +41,7 @@ from peakfit.gui.editor.unexplained import (
 from peakfit.gui.failures import failure_details
 from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
 from peakfit.gui.icons import icon
-from peakfit.gui.peaks import PeakEdits
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project import Analysis, dataset_header
 from peakfit.gui.spectrum import display_position
 
@@ -72,7 +76,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         super().__init__()
         self.inputs_loading = False
         self.dataset = dataset
-        self.edits = PeakEdits(dataset.peaks)
+        self.edits = WorkingEdits(dataset.peaks, default_settings())
         self.fitting = DatasetFitting(self)
         # Ticks only while a fit job is busy, to show its elapsed time.
         self._fit_clock = QtCore.QTimer(self)
@@ -175,8 +179,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.error.hide()
         layout.addWidget(self.error)
         self._build_actions()
-        # The fit setup shows on the dataset page, with nothing selected.
-        self.panel.analysis_page.installEventFilter(self)
+        # The Model page shows the settings that the first Fit submits.
+        self.panel.model_page.installEventFilter(self)
         self.canvas.status_changed.connect(self.status.setText)
         self.canvas.hovered.connect(self.navigator.highlight)
         self.navigator.hovered.connect(lambda identity: self.canvas.hover(identity, from_list=True))
@@ -203,7 +207,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.focus_bar.close_requested.connect(self.close_focus)
         self.focus_bar.selected.connect(lambda i: self.select_peak(i, cluster=True))
-        regions = self.panel.setup.regions
+        regions = self.panel.model_page.regions
         self.focus_bar.regions.toggled.connect(regions.setChecked)
         regions.toggled.connect(self.focus_bar.regions.setChecked)
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c, center=True))
@@ -213,8 +217,17 @@ class EditorWorkspace(QtWidgets.QWidget):
             lambda backward: self.fitting.next_warning(backward=backward)
         )
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
-        self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
-        self.panel.setup.regions_toggled.connect(self.canvas.set_regions_visible)
+        model = self.panel.model_page
+        model.set_axes(_axis_infos(dataset.spectra))
+        model.set_plane_count(int(dataset.spectra.data.shape[0]))
+        model.changed.connect(self.configure)
+        model.invalid_changed.connect(lambda _text: self.render_fitting())
+        model.regions_toggled.connect(self.canvas.set_regions_visible)
+        self.panel.page_chosen.connect(self.choose_page)
+        # The page the user chose, until a new run or failed attempt brings Run forward.
+        self._page: str | None = None
+        self._page_basis: tuple[str | None, str] = (None, "")
+        self._recorded: tuple[str, PeakFitConfig] | None = None
         self.panel.plane_requested.connect(self.set_plane)
         self.canvas.selected.connect(self.select_peak)
         self.canvas.placed.connect(self.place_peak)
@@ -270,7 +283,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         # The run line: currentness and counts first, so a narrow window elides the tail.
         self.summary = ElidedLabel()
         self.summary.setObjectName("muted")
-        # The run summary opens the analysis page at the active run.
+        # The run summary opens the Run page.
         self.summary.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.summary.installEventFilter(self)
         bar.addWidget(self.summary, 1)
@@ -317,7 +330,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._spectrum_tools = (*self.mode_buttons, self.add_button, self.pin_button, full, display)
         bar.addSpacing(themes.SPACE_XS)
         self.settings_button = themes.command("", "Fit settings: lineshapes, clustering and passes")
-        self.settings_button.clicked.connect(self.show_fit_setup)
+        self.settings_button.clicked.connect(self.show_model_page)
         bar.addWidget(self.settings_button)
         self.cancel_fit = themes.command("Cancel")
         self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
@@ -421,47 +434,54 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._adapt_toolbar()
         self.settings_button.setToolTip(
             f"Fit settings: lineshapes {shapes} · {clustering} · {passes}. "
-            "Click to open the fit setup."
+            "Click to open the Model page."
         )
 
-    def show_fit_setup(self) -> None:
-        """Clear the selection and open the inspector at the fit setup."""
+    def show_model_page(self) -> None:
+        """Clear the selection and open the inspector at the Model page."""
+        self._open_page("model")
+
+    def show_run_page(self) -> None:
+        """Clear the selection and open the inspector at the Run page."""
+        self._open_page("run")
+
+    def _open_page(self, page: str) -> None:
         if not self.commit_fields():
             return
         self.inspector_button.setChecked(True)
         self.toggle_inspector()
         self.select_peak(None)
-        self.panel.reveal("setup")
-        self.fitting.setup_seen = True
+        self.choose_page(page)
 
-    def show_analysis_page(self) -> None:
-        """Clear the selection and open the inspector at the active run's review."""
-        if not self.commit_fields():
+    def choose_page(self, page: str) -> None:
+        """Show the Run or Model page and keep it until a new run or failure."""
+        if page == "run" and not self._run_available():
+            page = "model"
+        self._page = page
+        self.panel.show_page(page)
+        if page == "model":
+            self.fitting.setup_seen = True
+
+    def _run_available(self) -> bool:
+        fitting = self.fitting
+        return fitting.result is not None or fitting.failed or fitting.busy
+
+    def configure(self, settings: PeakFitConfig) -> None:
+        """Commit edited working settings as one undoable edit; a run becomes Outdated."""
+        if self.fitting.busy or settings == self.edits.settings:
             return
-        self.inspector_button.setChecked(True)
-        self.toggle_inspector()
-        self.select_peak(None)
-        self.panel.reveal("review")
+        self.edits.configure(settings, "settings change")
+        self._refresh()
 
-    def _shapes(self) -> list[tuple[str, str, str]]:
-        """Resolved lineshape per spectral axis, with where it came from."""
-        config = self.fitting.configuration.fitting
-        spectra = self.dataset.spectra
-        try:
-            lineshapes = axis_lineshapes(config, spectra)
-        except (ValueError, KeyError, AttributeError) as exc:
-            return [("Lineshape", "unresolved", str(exc))]
-        rows = []
-        for axis, lineshape in zip(spectra.spectral_params, lineshapes, strict=True):
-            if not lineshape.detected:
-                source = "explicit"
-            elif lineshape.family == "pvoigt":
-                source = DEFAULT_SOURCE
-            else:
-                source = "from apodization"
-            title = formatting.axis_name(axis)
-            rows.append((title, lineshape_text(lineshape), source))
-        return rows
+    def _run_settings(self) -> tuple[str, PeakFitConfig] | None:
+        """The active run's short ID and recorded settings, read once per run."""
+        result = self.fitting.result
+        if result is None:
+            return None
+        if self._recorded is None or self._recorded[0] != result.run_id:
+            settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
+            self._recorded = (result.run_id, settings)
+        return result.run_id[:8], self._recorded[1]
 
     def _fitting_regions(self):
         """The active run's recorded regions, or else the current preparation's."""
@@ -608,7 +628,11 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def restore(self, analysis: Analysis) -> None:
         """Adopt a verified analysis on this workspace's dataset, then its view."""
-        self.edits = PeakEdits(analysis.peaks, revision=analysis.revision)
+        self.edits = WorkingEdits(
+            analysis.peaks,
+            PeakFitConfig.model_validate_json(analysis.configuration),
+            revision=analysis.revision,
+        )
         completion = analysis.completion
         if completion:
             # Only the active result is resident and needs a process-local identity.
@@ -617,7 +641,6 @@ class EditorWorkspace(QtWidgets.QWidget):
             inputs = replace(result.inputs, snapshot=snapshot)
             completion = replace(completion, result=replace(result, inputs=inputs))
         self.fitting.restore(
-            PeakFitConfig.model_validate_json(analysis.configuration),
             completion,
             analysis.runs,
             analysis.journal,
@@ -873,7 +896,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 for v in (parameter.value, parameter.min, parameter.max)
             )
             rows.append((f"{kind} {title}", parameter.unit, start, low, high, parameter.vary))
-        return rows, "For the next fit, from the working position and fit setup."
+        return rows, "For the next fit, from the working position and model settings."
 
     def _run_changes(self) -> tuple[str, list[tuple]]:
         """What changed since the run this one was refitted from, as page entries."""
@@ -917,8 +940,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         if self.focus_open:
             self._update_focus()
         self.canvas.set_regions(*self._fitting_regions())
-        self.panel.setup.show_state(
-            fitting.configuration, self._shapes(), fitting.prepared, fitting.blocked
+        self.panel.model_page.show_state(
+            fitting.configuration, fitting.prepared, fitting.blocked, self._run_settings()
         )
         plane_values = (
             tuple(float(v) for v in spectra.z_values) if self.dataset.has_plane_values else None
@@ -969,12 +992,19 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.dataset.path.stem,
             f"{formatting.count(len(self.peaks), 'peak')} · "
             f"{formatting.count(planes, 'plane')} · {x} × {y}",
-            rows,
-            fitted=result is not None,
-            warned=bool(flagged),
+            run_available=self._run_available(),
         )
+        self.panel.run_page.show_run(rows, fitted=result is not None, warned=bool(flagged))
+        # A new run or failed attempt brings the Run page forward; before any, Model.
+        basis = (result.run_id if result else None, fitting.failure)
+        if basis != self._page_basis:
+            self._page_basis = basis
+            self._page = None
+        default = "run" if result is not None or fitting.failed else "model"
+        page = self._page or default
+        self.panel.show_page(page if page == "model" or self._run_available() else "model")
         if self.selected_id is None:
-            self.panel.show_changes(*self._run_changes())
+            self.panel.run_page.show_changes(*self._run_changes())
             self._show_unexplained()
 
     def _refresh(self) -> None:
@@ -1139,13 +1169,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._show_profiles()
 
     def _show_failure(self) -> None:
-        """A failed attempt leads the analysis page: what failed, where and why."""
+        """A failed attempt leads the Run page: what failed, where and why."""
         fitting = self.fitting
         if not fitting.failed or fitting.failure_stage is None:
-            self.panel.show_failure([], "")
+            self.panel.run_page.show_failure([], "")
             return
         status = "▲ " + fitting.attempt
-        self.panel.show_failure(
+        self.panel.run_page.show_failure(
             [
                 Row("Status", status, style="error"),
                 Row("Stage", fitting.failure_stage),
@@ -1202,7 +1232,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 else ""
             )
             + ("\n" + _recovery_note(fitting.recovery_error) if fitting.recovery_error else "")
-            + ("\nClick to open the analysis page at the active run" if result is not None else "")
+            + ("\nClick to open the Run page" if result is not None else "")
         )
 
     def _update_actions(self) -> None:
@@ -1211,7 +1241,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         busy = fitting.busy
         self.canvas.editing_enabled = not busy
         self.inspector.setEnabled(not busy)
-        self.panel.setup.setEnabled(not busy)
+        self.panel.model_page.setEnabled(not busy)
         self.add_button.setEnabled(not busy)
         self.add_action.setEnabled(not busy)
         self.undo_action.setText("Undo " + self.edits.undo_label)
@@ -1219,7 +1249,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.undo_action.setEnabled(self.edits.can_undo and not self.pending and not busy)
         self.redo_action.setEnabled(self.edits.can_redo and not self.pending and not busy)
         self.delete_action.setEnabled(self.selected_id is not None and not busy)
-        blocked = fitting.blocked
+        blocked = fitting.blocked or self.panel.model_page.invalid
         self.fit_button.setEnabled(
             bool(self.peaks) and not busy and not self.inputs_loading and not blocked
         )
@@ -1565,24 +1595,24 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.reveal_unexplained()
 
     def _show_unexplained(self) -> None:
-        """Fill the analysis page's list for the current plane, run and threshold."""
+        """Fill the Run page's list for the current plane, run and threshold."""
         fitting, plane = self.fitting, self.canvas.plane
         k = formatting.setting(self.unexplained_threshold)
         note = f"Diagnostic only · residual beyond ±{k} σ_stat"
-        self.panel.unexplained_note.setToolTip(
-            f"Connected regions of the whole-spectrum residual beyond ±{k} σ_stat. It never "
-            "proposes peaks or flags clusters; signal may be left unmodelled on purpose."
+        about = (
+            f"Connected regions of the whole-spectrum residual beyond ±{k} σ_stat on the "
+            "current plane, found on request. The list never proposes peaks or flags "
+            "clusters; signal may be left unmodelled on purpose."
         )
+        show = partial(self.panel.run_page.show_unexplained, about=about)
         button = f"Find on plane {plane + 1}"
         key = self._unexplained_key()
         if fitting.result is None or fitting.busy:
-            self.panel.show_unexplained(button, False, "", [], "Available after a fit. " + note)
+            show(button, False, "", [], "Available after a fit. " + note)
             return
         comparison = fitting.comparison
         if key is None:
-            self.panel.show_unexplained(
-                button, False, f"Unavailable: {comparison.reason}", [], note
-            )
+            show(button, False, f"Unavailable: {comparison.reason}", [], note)
             return
         if comparison.historical:
             # The residual is the run's; distances are to today's working peaks.
@@ -1592,13 +1622,13 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
         found_key, outcome = self._unexplained
         if found_key != key:
-            self.panel.show_unexplained(button, True, "", [], note)
+            show(button, True, "", [], note)
             return
         if isinstance(outcome, str):
-            self.panel.show_unexplained(button, False, f"Computing plane {plane + 1}…", [], note)
+            show(button, False, f"Computing plane {plane + 1}…", [], note)
             return
         if isinstance(outcome, Exception):
-            self.panel.show_unexplained(button, True, f"Unavailable: {outcome}", [], note)
+            show(button, True, f"Unavailable: {outcome}", [], note)
             return
         regions = outcome if isinstance(outcome, list) else []
         count = len(regions)
@@ -1641,7 +1671,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
         if count > _UNEXPLAINED_ROWS:
             rows.append(("", f"… and {formatting.grouped(count - _UNEXPLAINED_ROWS)} more"))
-        self.panel.show_unexplained(button, False, title, rows, note)
+        show(button, False, title, rows, note)
 
     def frame_region(self, index: int) -> None:
         """Frame a listed region in the overview and sample through its extreme."""
@@ -1659,15 +1689,15 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.canvas.view.setFocus()
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
-        """A click on the run summary opens the analysis page; showing it shows the setup."""
-        if watched is self.panel.analysis_page and event.type() == QtCore.QEvent.Type.Show:
+        """A click on the run summary opens the Run page; showing Model shows the settings."""
+        if watched is self.panel.model_page and event.type() == QtCore.QEvent.Type.Show:
             self.fitting.setup_seen = True
         if (
             watched is self.summary
             and event.type() == QtCore.QEvent.Type.MouseButtonRelease
             and event.button() == QtCore.Qt.MouseButton.LeftButton
         ):
-            self.show_analysis_page()
+            self.show_run_page()
             return True
         return super().eventFilter(watched, event)
 
@@ -1736,7 +1766,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.focus_bar.set_membership("", [])
         self.focus_bar.hide()
         self.panel.cluster_page.focus_button.show()
-        self.panel.setup.regions.setChecked(saved["regions"])
+        self.panel.model_page.regions.setChecked(saved["regions"])
         self.set_mode(saved["mode"])
         self.render_fitting()
         c.set_sizes(saved["sizes"], default_sizes(focus=False))
@@ -2061,6 +2091,18 @@ class IntensityField(QtWidgets.QDoubleSpinBox):
         return state, text, pos
 
 
+def _axis_infos(spectra) -> list[AxisInfo]:
+    """The spectral axes in the engine's order, with what Automatic resolves to on each."""
+    return [
+        AxisInfo(
+            param.label or get_dimension_label(i),
+            formatting.axis_name(param),
+            determine_shape_name(param),
+        )
+        for i, param in enumerate(spectra.spectral_params)
+    ]
+
+
 def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> list[Row]:
     """The active run as label rows: identity, completeness, then when it ran."""
     clusters = result.outcome.clusters
@@ -2104,7 +2146,7 @@ def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> li
                 f"▲ {', '.join(axes.get(a, a) for a in noise.power_mismatch)} · "
                 "errors may be miscalibrated",
                 style="warning",
-                detail=noise.power_finding,
+                info=noise.power_finding,
             )
         )
     return rows

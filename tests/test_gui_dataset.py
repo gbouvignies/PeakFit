@@ -121,9 +121,9 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
 
 def test_fit_setup_prepares_working_settings_independently_of_display(dataset_workspace):
     workspace, config, _prepared = dataset_workspace
-    fitting, setup = workspace.fitting, workspace.panel.setup
+    fitting, setup = workspace.fitting, workspace.panel.model_page
     config.clustering.contour_level = None
-    fitting.configure(config)
+    workspace.configure(config)
     wait_until(lambda: fitting.prepared is not None)
     prepared = fitting.prepared
     assert prepared is not None

@@ -1573,3 +1573,44 @@ Short records of non‑obvious design choices and trade‑offs.
   `docs/outputs.md`). An archive or project written before the amendment lacks
   `excluded_planes` and is refused as written by a development build, to be refit.
   A refused archive of another version names the PeakFit version that wrote it.
+
+## 2026-11-17: Run and Model pages; the per-axis model as a compact table (#215)
+- **Two pages, one switch.** With nothing selected the inspector shows Run or Model.
+  Model leads before the first fit; a completed run or a failed attempt brings Run
+  forward; the user's choice holds until the next one. One page at a time replaces
+  the single analysis page whose setup moved below the run review after a fit, so
+  each page starts at its own top and the Model page's first setting is above the
+  fold at 1280×800.
+- **A′, chosen by the user from prototypes.** A full table (family, J, both bounds,
+  Fit J, Phase on one row) needed 341–404 px against 288; stacked per-axis groups
+  fit but pushed Planes below the fold in five of six cases at 1280×800. The
+  compact table keeps one row per axis and puts a doublet's J range on a line
+  under it. Refinements asked for with the choice: **+ J** adds a doublet (it
+  exists once J is entered), × removes it, Tab reaches J and its bounds before
+  Fit J and Phase, an invalid entry is explained under its axis and blocks Fit,
+  and source captions that repeated the controls were dropped (Auto reads
+  “Auto · SP2”; the pseudo-Voigt fallback caution stays). With the J range line
+  the table needs 271 px for three doublet axes.
+- **Settings are undoable edits.** The working settings now live in the same edit
+  history as the peaks (`WorkingEdits`), so **Undo settings change** restores a
+  setting. Each settings commit bumps the scientific revision like a peak edit, so
+  Undo never recertifies a run: previously, setting a value back made the run
+  Current again.
+- **Explanations once, behind ⓘ.** The noise check is a one-line verdict on the Run
+  page with what was found and what to do behind a keyboard-reachable ⓘ (also its
+  accessible description); the unexplained-signal description moved from a tooltip
+  to an ⓘ. Qualifications (“Diagnostic only”, the χ²ᵣ note, the apodization
+  caution) stay visible.
+- **Marked differences.** Once a run exists, each setting that differs from the
+  run's recorded settings is marked •, with the run's value in the tooltip.
+- **Inventory.** Analysis header → above the switch. Last fit attempt, the run
+  rows, recovery, changes from the parent run and unexplained signal → Run (the
+  warning action moved from below the changes to right under the run rows). The
+  lineshape control, its one-line resolved summary and source caption → the
+  per-axis table; noise, threshold and level, passes or schedule → Model;
+  Advanced (solver, iteration limit, tolerance) → Model's **Optimizer limits**;
+  preparation counts, the blocked reason and **Show sampled fitting regions** →
+  the foot of Model. New on Model: the planes fitted (read-only until W4). Nothing
+  scientific was removed.
+- **Left to W4:** manual noise, an explicit clustering level, axis-wide
+  constraints and plane exclusion controls, and the parametrised GUI-vs-TOML test.

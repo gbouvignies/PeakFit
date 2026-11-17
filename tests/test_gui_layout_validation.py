@@ -13,6 +13,7 @@ from PySide6 import QtCore, QtWidgets
 
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 TOOLS = Path(__file__).resolve().parents[1] / "tools"
@@ -62,7 +63,7 @@ def fitted(qapp, scientific):
     """A workspace showing a completed fit, as the tool drives it."""
     spectra, peaks, config, result = scientific
     w = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
     w.fitting.setup_seen = True
     w.resize(1280, 500)
     w.show()

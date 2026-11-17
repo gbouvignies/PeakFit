@@ -17,6 +17,7 @@ from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.numerical import NumericalReview, parameter_rows, peak_rows
 from peakfit.gui.editor.window import EditorWindow, menu_shortcuts, shortcut_sections
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -50,7 +51,7 @@ def _window(qapp, scientific, size=(1280, 800)):
     window.install_dataset(Dataset(Path("consistency.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
     w.fitting.setup_seen = True
     qapp.processEvents()
     return window, w
@@ -113,7 +114,7 @@ def test_axis_names_are_distinct_and_identical_in_every_place(qapp, nuclei):
     texts += _texts(window)
     assert set(names) <= set(texts)  # the members table names each axis once
     w.select_peak(None)
-    w.show_fit_setup()
+    w.show_model_page()
     texts += _texts(window)
     texts.append(c.view.accessibleDescription())
     # Wherever an F-dimension is mentioned, it is one of the axis names, whole.
@@ -247,7 +248,7 @@ def test_the_shortcuts_list_names_every_key(qapp, heteronuclear):
         menu = action.menu()
         if isinstance(menu, QtWidgets.QMenu):
             assert {c for _k, c in menu_shortcuts(menu)} <= listed
-    assert {"Fit dataset", "Save analysis", "Undo peak edit", "Focus cluster"} <= listed
+    assert {"Fit dataset", "Save analysis", "Undo edit", "Focus cluster"} <= listed
     keys = {key for rows in sections.values() for key, _command in rows}
     assert {"E · O · R", "[ · ]", "N · Shift+N", "A", "Space", "Escape"} <= keys
     _close(qapp, window)

@@ -32,6 +32,7 @@ from peakfit.gui.editor.profile import PeakProfile, peak_profile
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_positions import continuation_source, dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
 from peakfit.gui.project_results import (
@@ -800,7 +801,7 @@ def _completed_fit(window, analysis):
     """Deliver one real completed fit of the installed dataset to the fitting workflow."""
     w = window.workspace
     f = w.fitting
-    f.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
+    w.edits = WorkingEdits(w.peaks, PeakFitConfig.model_validate_json(analysis.configuration))
     prepared = prepare_dataset_fit(w.dataset.spectra, w.peaks, f.configuration)
     prepared = replace(
         prepared, snapshot=replace(prepared.snapshot, source_files=w.dataset.sources)
@@ -892,7 +893,7 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
     w = window.workspace
     assert w is not None
     f = w.fitting
-    f.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
+    w.edits = WorkingEdits(w.peaks, PeakFitConfig.model_validate_json(analysis.configuration))
     for index in range(12):
         prepared = prepare_dataset_fit(w.dataset.spectra, w.peaks, f.configuration)
         prepared = replace(
