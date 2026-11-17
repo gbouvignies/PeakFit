@@ -15,16 +15,24 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.engine.domain.spectrum import fitted_plane_indices
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo, AxisModelTable, axis_model_text
 from peakfit.gui.editor.constraints import ConstraintsEditor, parse_number
-from peakfit.gui.editor.labels import LABEL_WIDTH, ElidedLabel, disclosure, section, text_label
+from peakfit.gui.editor.labels import (
+    LABEL_WIDTH,
+    ElidedLabel,
+    Row,
+    disclosure,
+    section,
+    text_label,
+)
 
 if TYPE_CHECKING:
-    from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.fitting import PreparedDatasetFit
 
 SOLVER = "VarPro · signed amplitudes solved per plane"
@@ -90,6 +98,45 @@ def constraints_text(parameters: ParameterConfig, names: dict[str, str]) -> str:
     return " · ".join(parts) or "None"
 
 
+def submitted_rows(result: DatasetFitResult, names: dict[str, str]) -> list[Row]:
+    """The settings a run was submitted with, as its Run page rows; unusual ones only.
+
+    Noise and threshold always; the planes and constraints when the run had any.
+    """
+    settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
+    level = result.inputs.contour_level
+    clustering = settings.clustering
+    rows = [
+        Row(
+            "Noise",
+            f"{formatting.scaled(result.inputs.noise)} · "
+            + ("manual" if settings.noise_level is not None else "estimated"),
+            tip="The statistical noise this run used",
+        ),
+        Row(
+            "Threshold",
+            f"level {formatting.setting(level)}"
+            if clustering.contour_level is not None
+            else f"{formatting.setting(clustering.contour_factor)} × noise = "
+            f"{formatting.scaled(level)}",
+            tip="The clustering threshold this run used",
+        ),
+    ]
+    if excluded := settings.exclude_planes:
+        total = result.inputs.snapshot.data_shape[0]
+        rows.append(
+            Row(
+                "Planes",
+                f"{formatting.grouped(total - len(excluded))} of {formatting.grouped(total)} "
+                f"fitted · {formatting.plane_numbers(excluded)} excluded",
+                tip="Excluded planes are measured, with no fitted amplitude",
+            )
+        )
+    if settings.parameters != ParameterConfig():
+        rows.append(Row("Constraints", constraints_text(settings.parameters, names)))
+    return rows
+
+
 def _cell(*items: QtWidgets.QWidget | QtWidgets.QLayout) -> QtWidgets.QVBoxLayout:
     """Widgets and layouts stacked in one form cell."""
     cell = QtWidgets.QVBoxLayout()
@@ -140,7 +187,10 @@ def _value_edit(name: str) -> QtWidgets.QLineEdit:
     edit = QtWidgets.QLineEdit()
     edit.setAccessibleName(name)
     edit.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-    edit.setFixedWidth(edit.fontMetrics().horizontalAdvance("0.000 × 10⁻⁰⁰") + 16)
+    # Room for 1.234 × 10⁻⁵ where the row has it, never wider than the inspector.
+    metrics = edit.fontMetrics()
+    edit.setMinimumWidth(metrics.horizontalAdvance("0.00 × 10⁰") + 12)
+    edit.setMaximumWidth(metrics.horizontalAdvance("0.000 × 10⁻⁰⁰") + 16)
     return edit
 
 

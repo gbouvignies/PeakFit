@@ -14,6 +14,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import (
     axis_lineshapes,
     determine_shape_name,
+    fitted_plane_indices,
     get_dimension_label,
 )
 from peakfit.gui import formatting
@@ -27,7 +28,7 @@ from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, Page, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
-from peakfit.gui.editor.model_page import RunSettings
+from peakfit.gui.editor.model_page import RunSettings, submitted_rows
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
@@ -391,6 +392,18 @@ class EditorWorkspace(QtWidgets.QWidget):
         planes.addSpacing(themes.SPACE_S)
         planes.addWidget(self.plane_caption)
         planes.addWidget(self.plane_label)
+        # A plane the working settings exclude is still navigated and shown, as measured.
+        self.plane_excluded = QtWidgets.QLabel("not fitted")
+        self.plane_excluded.setObjectName("caption")
+        self.plane_excluded.setToolTip(
+            "Excluded from the fit by the Model settings: measured and shown, "
+            "with no fitted amplitude"
+        )
+        self.plane_excluded.hide()
+        planes.addWidget(self.plane_excluded)
+        # Right-click: exclude this plane from the fit, or include it again.
+        strip.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.ActionsContextMenu)
+        self._plane_strip = strip
         if n_planes == 1:
             for widget in (self.previous, self.next, caption, self.spin, count, self.slider):
                 widget.hide()
@@ -477,6 +490,34 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _run_available(self) -> bool:
         fitting = self.fitting
         return fitting.result is not None or fitting.failed or fitting.busy
+
+    def toggle_plane_exclusion(self) -> None:
+        """Exclude the current plane from the fit, or include it again: one undoable edit."""
+        plane = self.canvas.plane
+        settings = self.fitting.configuration.model_copy(deep=True)
+        excluded = sorted(set(settings.exclude_planes) ^ {plane})
+        try:
+            fitted_plane_indices(self.dataset.spectra.data.shape[0], excluded)
+        except ValueError:
+            return  # the last fitted plane stays; the action is disabled for it
+        settings.exclude_planes = excluded
+        self.configure(settings)
+
+    def _show_plane_exclusion(self) -> None:
+        """The plane strip's mark and the exclusion command, for the current plane."""
+        plane, count = self.canvas.plane, self.dataset.spectra.data.shape[0]
+        excluded = self.fitting.configuration.exclude_planes
+        out = plane in excluded
+        self.plane_excluded.setVisible(out and count > 1)
+        action = self.exclude_plane_action
+        action.setText(
+            f"Include plane {plane + 1} in the fit"
+            if out
+            else f"Exclude plane {plane + 1} from the fit"
+        )
+        action.setEnabled(
+            count > 1 and not self.fitting.busy and (out or count - len(excluded) > 1)
+        )
 
     def configure(self, settings: PeakFitConfig) -> None:
         """Commit edited working settings as one undoable edit; a run becomes Outdated."""
@@ -755,6 +796,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.delete_action.setShortcuts(keys[::-1] if sys.platform == "darwin" else keys)
         self.delete_action.setShortcutContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.delete_action.triggered.connect(self.delete_peaks)
+        # Analysis ▸ and the plane strip's menu: the current plane, in or out of the fit.
+        self.exclude_plane_action = QtGui.QAction("Exclude plane from the fit", self)
+        self.exclude_plane_action.triggered.connect(self.toggle_plane_exclusion)
+        self._plane_strip.addAction(self.exclude_plane_action)
         self.actions_for_menu = [
             self.undo_action,
             self.redo_action,
@@ -994,6 +1039,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             rows += _run_rows(
                 result, current=bool(fitting.current), warned=flagged, axes=self._axis_names()
             )
+            rows += submitted_rows(result, self._axis_names())
         # With no run the rows stay empty: the toolbar already says Not fitted.
         self._show_failure()
         if fitting.recovery_error:
@@ -1042,6 +1088,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def render_fitting(self) -> None:
         """Show the fitting state: the lock, comparison, run line and inspector."""
         fitting = self.fitting
+        self._show_plane_exclusion()
         if fitting.busy != self._fit_clock.isActive():
             if fitting.busy:
                 self._fit_clock.start()
@@ -1469,6 +1516,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.panel.set_plane(plane - 1)
         self.profiles.set_plane(plane - 1)
+        self._show_plane_exclusion()
         if self.selected_id is None:
             self._show_unexplained()
 

@@ -29,6 +29,7 @@ from peakfit.gui.editor.profile import (
     PeakProfile,
     ask_reference,
     framed_range,
+    not_fitted_text,
     peak_profile,
     quantity_menu,
     reference_text,
@@ -205,6 +206,8 @@ def _describe(tile: Tile, reference: tuple[int, ...], normalized: bool) -> str:
         correlation = correlation_line(tile.profile)
         if correlation:
             lines.append(correlation)
+        if excluded := not_fitted_text(tile.profile):
+            lines.append(excluded[0].upper() + excluded[1:])
         quantity = (
             f"A / A_ref ({reference_text(reference)})" if shown.ratio else "Signed amplitudes"
         )
@@ -358,6 +361,12 @@ def _plot(painter, area: QtCore.QRectF, tile: Tile, shown: Shown, style: Style) 
         y = to_point(x0, level).y()
         painter.setPen(QtGui.QPen(QtGui.QColor(theme.border), 1, pen_style))
         painter.drawLine(QtCore.QPointF(area.left(), y), QtCore.QPointF(area.right(), y))
+    # A plane the run excluded: measured, never fitted; a faint dotted line, no point.
+    painter.setPen(QtGui.QPen(QtGui.QColor(theme.faint), 1, QtCore.Qt.PenStyle.DotLine))
+    for position in profile.excluded_x:
+        if x0 <= position <= x1:
+            px = to_point(float(position), 0.0).x()
+            painter.drawLine(QtCore.QPointF(px, area.top()), QtCore.QPointF(px, area.bottom()))
     column = np.flatnonzero(profile.source_planes == style.plane)
     if column.size and visible[column[0]]:
         painter.setPen(QtGui.QPen(QtGui.QColor(theme.pin), 1, QtCore.Qt.PenStyle.DashLine))

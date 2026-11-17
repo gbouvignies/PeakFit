@@ -311,6 +311,7 @@ class AnalysisActions:
             if self.workspace:
                 self.workspace.stop()
             self.workspace = None
+            self.show_plane_action(None)
             self.adopt_status(None)
             review = NumericalReview(analysis)
             review.relink.clicked.connect(self.relink_source)

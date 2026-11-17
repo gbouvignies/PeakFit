@@ -177,6 +177,8 @@ class PeakProfile:
     series: tuple[ProfileSeries, ...]  # selected peak first
     source_planes: np.ndarray  # zero-based source plane of each amplitude column
     x: np.ndarray  # recorded plane values, or one-based plane numbers
+    excluded: np.ndarray  # zero-based planes measured but excluded from the run's fit
+    excluded_x: np.ndarray  # their positions on the same axis as ``x``
     plane_values: bool
     reduced_chi_squared: float
     noise_model: NoiseModel  # the noise correlation the error bars assume
@@ -228,13 +230,16 @@ def peak_profile(
     planes = np.asarray(
         snapshot.source_plane_indices or range(evaluation.amplitudes.shape[1]), dtype=int
     )
+    excluded = np.asarray(result.outcome.excluded_planes, dtype=int)
     recorded = plane_values is not None and tuple(snapshot.plane_values) == tuple(plane_values)
-    x = np.asarray(snapshot.plane_values, dtype=float)[planes] if recorded else planes + 1.0
+    values = np.asarray(snapshot.plane_values, dtype=float)
     return PeakProfile(
         result.run_id,
         series,
         planes,
-        x,
+        values[planes] if recorded else planes + 1.0,
+        excluded,
+        values[excluded] if recorded else excluded + 1.0,
         recorded,
         evaluation.statistics.reduced_chi_squared,
         result.outcome.noise_model,
@@ -350,6 +355,20 @@ def _sigma_range(errors: np.ndarray) -> str:
     digits = formatting.SIGMA_DIGITS
     low, high = (formatting.scaled(float(f(errors)), digits) for f in (np.min, np.max))
     return f"profile σ {low}" if low == high else f"profile σ {low} to {high}"
+
+
+def not_fitted_text(profile: PeakProfile) -> str:
+    """The planes the run measured but excluded from its fit, or ""."""
+    count = profile.excluded.size
+    if not count:
+        return ""
+    planes = formatting.plane_numbers(profile.excluded.tolist())
+    return f"plane{'s' if count > 1 else ''} {planes} measured, not fitted"
+
+
+def excluded_pen(theme) -> QtGui.QPen:
+    """The faint dotted line that marks a plane excluded from the fit."""
+    return pg.mkPen(color(theme.faint), width=1, style=QtCore.Qt.PenStyle.DotLine)
 
 
 def framed_range(x: np.ndarray) -> tuple[float, float] | None:
@@ -774,6 +793,13 @@ class ProfilePlot(QtWidgets.QWidget):
         self.plot.getPlotItem().addItem(self.zero, ignoreBounds=True)
         self.plot.getPlotItem().addItem(self.plane_line, ignoreBounds=True)
         low, high = float(x[visible].min()), float(x[visible].max())
+        # A plane the run excluded: measured, never fitted; a faint dotted line, no point.
+        for position in profile.excluded_x:
+            if low <= position <= high:
+                self.plot.getPlotItem().addItem(
+                    pg.InfiniteLine(position, angle=90, pen=excluded_pen(self.theme)),
+                    ignoreBounds=True,
+                )
         pad = 0.03 * (high - low) or 0.5
         # Bounds cover values, finite error bars and zero; unavailable σ adds none.
         ys = np.concatenate(
@@ -936,7 +962,11 @@ class ProfilePlot(QtWidgets.QWidget):
         extra = getattr(self, "_normalization_note", "")
         states = [
             part
-            for part in (self._hidden_text, "current plane is off scale" if off else "")
+            for part in (
+                self._hidden_text,
+                "current plane is off scale" if off else "",
+                not_fitted_text(profile),
+            )
             if part
         ]
         # One paragraph: what the bars are, then what is off scale. It wraps only

@@ -125,7 +125,7 @@ class _RuleRow(QtWidgets.QWidget):
             combo.setSizeAdjustPolicy(
                 QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
             )
-            combo.setMinimumContentsLength(5)
+            combo.setMinimumContentsLength(4)
         self.pattern = text_label("", "")  # an imported pattern, shown as written
         self.hold = QtWidgets.QCheckBox("Hold")
         self.hold.setToolTip("Hold the parameter at its start instead of fitting it")
@@ -205,7 +205,7 @@ def _number_edit(name: str) -> QtWidgets.QLineEdit:
     edit = QtWidgets.QLineEdit()
     edit.setAccessibleName(name)
     edit.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-    edit.setFixedWidth(edit.fontMetrics().horizontalAdvance("000.00") + 16)
+    edit.setFixedWidth(edit.fontMetrics().horizontalAdvance("00.00") + 14)
     return edit
 
 

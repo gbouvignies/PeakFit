@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.usefixtures("qapp", "app_look")
 
 AXES = [AxisInfo("F2", "¹⁵N F2", "gaussian"), AxisInfo("F3", "¹H F3", "gaussian")]
+INSPECTOR_CONTENT = 288  # logical px: a 320 px inspector less its margins at 1280×800
 BASE = '[fitting]\nfamily = "gaussian"\nrefine_iterations = 2\n'
 _WINDOWS: list[QtWidgets.QWidget] = []
 
@@ -308,3 +309,14 @@ def test_excluded_planes_read_as_plane_numbers(tmp_path):
     page, _emitted = _page(_toml(tmp_path, "exclude_planes = [0, 1]"))
     assert page.excluded.text() == "1–2"
     assert page.planes.text() == "1 of 3 fitted"
+
+
+def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, preview):
+    config = _toml(tmp_path, '[parameters.defaults]\n"2N-H.*.*" = { vary = false }')
+    page, _emitted = _page(config, preview)
+    _manual_noise(page, "1.234 × 10⁻⁵")
+    _level(page, "1.234 × 10⁵")
+    _exclude(page, "1, 41–42")  # invalid here: three planes; its message wraps
+    _rule(page, "F3", "eta", "0.5", "0.25", "0.75", hold=True)
+    page.constraints.add_rule.click()
+    assert page.minimumSizeHint().width() <= INSPECTOR_CONTENT
