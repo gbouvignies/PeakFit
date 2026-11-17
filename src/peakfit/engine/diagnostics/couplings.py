@@ -24,16 +24,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.algorithms.covariance_factors import free_parameters
-from peakfit.engine.domain.params_scalar import COUPLING_LABEL
+from peakfit.engine.domain.param_id import name_parts
+from peakfit.engine.domain.params_scalar import COUPLING_LABEL, LINEWIDTH_LABEL, PHASE_LABEL
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from peakfit.engine.algorithms.covariance_factors import LineshapeParameter
     from peakfit.shared.typing import FloatArray
-
-_LINEWIDTH_LABEL = "lw"
-_PHASE_LABEL = "phase"
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,13 +82,13 @@ def coupling_qualifications(
 
     qualifications = {}
     for name, parameter in by_name.items():
-        peak, axis, label = _parts(name)
+        peak, axis, label = name_parts(name)
         if label != COUPLING_LABEL:
             continue
-        linewidth = f"{peak}.{axis}.{_LINEWIDTH_LABEL}"
+        linewidth = f"{peak}.{axis}.{LINEWIDTH_LABEL}"
         width = by_name[linewidth].value if linewidth in by_name else np.nan
         phase = next(
-            (other for other in by_name if _parts(other)[1:] == (axis, _PHASE_LABEL)), None
+            (other for other in by_name if name_parts(other)[1:] == (axis, PHASE_LABEL)), None
         )
         qualifications[name] = CouplingQualification(
             coupling=name,
@@ -101,13 +99,6 @@ def coupling_qualifications(
             phase_correlation=correlation(name, phase),
         )
     return qualifications
-
-
-def _parts(name: str) -> tuple[str, str, str]:
-    """(peak or cluster, axis, label) of a ``peak.axis.label`` parameter name."""
-    owner, _, label = name.rpartition(".")
-    owner, _, axis = owner.rpartition(".")
-    return owner, axis, label
 
 
 __all__ = ["CouplingQualification", "coupling_qualifications"]

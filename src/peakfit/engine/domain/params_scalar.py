@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 _BOUND_DISPLAY_THRESHOLD = 1e10
 COUPLING_LABEL = "j"  # a doublet's J coupling, in Hz
+LINEWIDTH_LABEL = "lw"  # a shape's linewidth (FWHM), in Hz
+PHASE_LABEL = "phase"  # a cluster's phase on one axis, in degrees
 
 
 class Parameter(BaseModel):

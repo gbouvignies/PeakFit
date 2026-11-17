@@ -38,6 +38,7 @@ from peakfit.engine.scientific.final_outcome import FinalParameter
 from peakfit.engine.scientific.summary import RunSummary
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.io.writers.markdown import write_final_outcome_report
+from peakfit.io.writers.utils import format_float
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.completed import CompletedFit
@@ -237,6 +238,14 @@ def test_a_footprint_across_the_spectral_edge_wraps() -> None:
     assert footprint_f3.tolist() == [61]
 
 
+@pytest.mark.parametrize("j_max", [math.inf, 2000.0, 1e12])
+def test_an_unbounded_j_covers_the_whole_axis(j_max) -> None:
+    """A J bound of the sweep width or more, or none, can put a component anywhere."""
+    spectra = _spectra()
+    [shape, _] = _doublet_peak(spectra, Doublet(j=TRUE_J)).shapes
+    assert shape.footprint_i(j_max).tolist() == list(range(N15_SIZE))
+
+
 def test_a_singlet_footprint_is_its_centre_point() -> None:
     spectra = _spectra()
     config = FitConfig(family="lorentzian")
@@ -421,6 +430,8 @@ def test_the_report_lists_each_coupling_and_its_qualification(tmp_path) -> None:
     assert "## J Couplings" in report
     row = next(line for line in report.splitlines() if line.startswith("| A.F2.j |"))
     assert "| yes |" in row
-    assert f"| {qualification.linewidth_correlation:.2f} | N/A |" in row
+    assert qualification.linewidth_correlation is not None
+    rho = format_float(qualification.linewidth_correlation)
+    assert f"| {rho} | N/A |" in row
     plain = write_final_outcome_report(completed.outcome, tmp_path / "plain.md", summary)
     assert "J Couplings" not in plain.read_text()

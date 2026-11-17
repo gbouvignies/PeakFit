@@ -1591,7 +1591,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - **θ order made explicit.** The evaluation builds θ in the shapes' creation order
   (`lineshape_order`), which readers recompute from the recorded model geometry. It
   equalled the working order in every fit checked, so archives are unchanged.
-- **Open.** The validation fails two gates, neither from large J: an SP1 ¹H linewidth
-  biased by its contour-selected region (singlets too), and the qualification missing
-  the ~1 % of low-SNR unresolved fits that land on a narrow resolved doublet
+- **Open.** The validation fails two gates. The SP1 ¹H singlet linewidth under-covers;
+  an exploratory diagnosis points to its contour-selected region, singlets included.
+  At SNR 8 the qualification misses 3.6 % of J = ½ LW fits: 2.6 % have σ(J) withheld,
+  and 1.0 % land on a narrow resolved doublet with a confident, wrong σ(J)
   ([validation](validation/large-j.md)).

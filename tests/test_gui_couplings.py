@@ -12,7 +12,7 @@ from peakfit.engine.diagnostics.couplings import CouplingQualification
 from peakfit.engine.domain.config import AxisModel, Doublet, FitConfig
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
-from peakfit.gui.editor.inspector import COUPLING_TIP, coupling_caption
+from peakfit.gui.editor.inspector import COUPLING_TIP, coupling_caption, coupling_shown
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import Dataset
@@ -32,7 +32,8 @@ def test_the_caption_names_the_qualification_and_each_correlation() -> None:
     assert coupling_caption(resolved, "¹H F3") == (
         f"J ¹H F3 · ρ(J, LW) {formatting.correlation(-0.03)}"
     )
-    assert coupling_caption(CouplingQualification("A.F3.j", "A.F3.lw", False), "¹H F3") == ""
+    assert not coupling_shown(CouplingQualification("A.F3.j", "A.F3.lw", False))
+    assert coupling_shown(resolved)
 
 
 @pytest.fixture(scope="module")

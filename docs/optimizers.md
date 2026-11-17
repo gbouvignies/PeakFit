@@ -66,7 +66,7 @@ first-order σ(J) holds only while σ(J) ≪ J.
 - The cluster carries the uncertainty warning.
 - Use MCMC for an unresolved coupling ([validation](validation/doublet-j.md)).
 - A J below its linewidth is qualified "below LW", with its first-order ρ(J, LW):
-  J and the linewidth are determined together. At low SNR about 1 % of such fits
+  J and the linewidth are determined together. At SNR 8 and J = ½ LW, 1 % of fits
   land on a narrow, resolved doublet with Ĵ above LŴ and a confident, wrong σ(J);
   neither rule sees them ([large J](validation/large-j.md)).
 - A doublet's fitting region holds both components for any J up to its upper bound

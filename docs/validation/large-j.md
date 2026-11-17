@@ -5,17 +5,23 @@ Validation date: 2026-11-17 (W2c, #214). Tool: `tools/validate_large_j.py`, reco
 Tests: `tests/test_large_j.py`, `tests/test_gui_couplings.py`, and
 `tests/test_large_j_record.py`, which checks that this note quotes the records.
 
-**Verdict.** The gates fixed in advance fail in two places. Neither failure comes
-from a large-J region:
-- The ¹H singlet linewidth of the SP1 case under-covers. The cause is a bias from
-  contour-selected regions, which singlets show too.
-- At SNR 8, the "below LW" qualification is raised in 96.4 % of J = ½ LW fits.
+**Verdict.** The gates fixed in advance fail in two places:
+- **The ¹H (singlet-axis) linewidth of the SP1 ¹J case under-covers.** ±1.96σ covers
+  0.905, so "widths recovered within 2σ" holds for the ¹⁵N doublet axis but not for
+  this ¹H width. The likely cause, a bias from contour-selected regions that singlets
+  show too, comes from an exploratory diagnosis outside the protocol (below).
+- **At SNR 8, "below LW" is raised in 96.4 % of J = ½ LW fits**, short of the 99 %
+  gate. Of the 3.6 % not qualified, 2.6 % have σ(J) withheld. The other 1.0 % land on
+  a narrow resolved doublet with a confident σ(J) that misses the truth.
 
-Everything the issue asks of large J passes:
+What passes:
 - **Regions:** every realization holds both components in one region.
-- **¹J recovery:** J, both positions and the ¹⁵N linewidth are calibrated.
+- **¹J recovery:** J, both positions and the ¹⁵N linewidth are calibrated; the
+  Lorentzian ¹H width passes too, after a confirmation run.
 - **Phase:** the 10° phase is recovered within its σ, and ρ(J, phase) is reported.
-- **J below LW:** the qualification and ρ(J, LW) are reported.
+- **J below LW at SNR 50:** every fit is qualified, and ρ(J, LW) is reported and
+  matches the scatter of the estimates. At SNR 8, σ(J) and with it ρ(J, LW) are
+  withheld in 98.5 % of fits, so only the qualification remains.
 
 ## Scientific impact
 
@@ -163,7 +169,8 @@ One gate came within 0.5 SE of its limit; the confirmation run (realizations
   report a ±1.96σ interval that misses (the gate allows 5 %).
 - Diagnosis, on the record's own realizations:
     - 959 fits are qualified with σ(J) withheld, and 5 qualified with σ(J) reported;
-    - 26 are not qualified but have σ(J) withheld;
+    - 26 are not qualified but have σ(J) withheld: an unresolved coupling, as W2a's
+      rule says, whose estimate landed above its linewidth;
     - 10 are neither.
 - All 10 miss the truth at ±1.96σ. They land on a narrow resolved doublet
   (Ĵ = 11.8–15.6 Hz, LŴ = 5.9–14.5 Hz), so Ĵ > LŴ and the qualification, which reads
@@ -198,6 +205,18 @@ One gate came within 0.5 SE of its limit; the confirmation run (realizations
   confirmation passes it at 0.665 (−2.4 SE).
 - It needs its own change and validation: a region that does not depend on the noise
   in the data it fits.
+
+### Not validated: spans of one to two points
+
+A span inside the centre's 3 × 3 block (J_max/2 under about 1.5 points) leaves the
+region exactly as before, and a ¹J span joins the components' islands; both are
+validated above. Between them, a span reaching one or two points past the block adds
+those points, on the line only (`test_a_doublet_span_adds_only_its_own_points`). An
+example is a ¹H ³J of 7 Hz with default bounds, J_max/2 = 7 Hz, at a spacing finer
+than about 5 Hz per point. The first design's regression came from growing such
+regions by a whole neighbourhood; this one adds at most the span's own few points.
+No case of the protocol sits in that range, so its effect on unresolved low-SNR fits
+is not measured.
 
 ## First footprint design (superseded)
 

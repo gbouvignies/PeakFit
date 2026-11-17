@@ -127,7 +127,9 @@ def _coupling_section(
             f"| {name} | {_format_final_value(coupling.value, config)} | "
             f"{_format_final_value(coupling.standard_error, config)} | "
             f"{'yes' if qualification.below_linewidth else 'no'} | "
-            + " | ".join("N/A" if value is None else f"{value:.2f}" for value in rho)
+            + " | ".join(
+                "N/A" if value is None else _format_final_value(value, config) for value in rho
+            )
             + " |"
         )
     return [
