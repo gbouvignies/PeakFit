@@ -65,6 +65,9 @@ first-order σ(J) holds only while σ(J) ≪ J.
   withheld with it.
 - The cluster carries the uncertainty warning.
 - Use MCMC for an unresolved coupling ([validation](validation/doublet-j.md)).
+- Known limitation: for a partly resolved doublet at low SNR (J ≈ lw, peak 8σ), a
+  reported σ(J) is 10–16 % too small. Its ±1σ interval covers about 62 % instead of
+  68 %, while ±1.96σ stays near 93–94 %.
 
 The current bare CLI defaults to **two passes** (`--refine 2`), while
 `PeakFitConfig()` and the bundled example TOML specify one. State pass counts

@@ -16,6 +16,8 @@ Notable user-facing and architecture changes are recorded here.
     - **Unresolved doublets:** σ(J) is now withheld when it exceeds 10 % of J. Below
       that, a first-order σ for an unresolved doublet misleads. Singlet results are
       unchanged. See `docs/validation/doublet-j.md`.
+    - **Known limitation:** for a partly resolved doublet at low SNR, the reported
+      σ(J) is 10–16 % too small (±1σ covers about 62 %).
 - A varied parameter whose lineshape returns no derivative now stops the fit with
   an error, instead of being left unfitted.
 

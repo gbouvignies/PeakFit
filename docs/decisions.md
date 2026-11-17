@@ -1501,7 +1501,8 @@ Short records of non‑obvious design choices and trade‑offs.
     - The pre-registered confirmation run passes everywhere except partly resolved
       doublets at SNR 8. There, ±1σ coverage is 0.62 (−3.4 to −3.9 SE), while
       ±1.96σ and the misleading-confidence gate pass. That failure is recorded,
-      not tuned away.
+      not tuned away. Decided: document it as a first-order limitation and keep the
+      0.1 limit; changing the limit would need a new protocol and run.
     - A likelihood-ratio alternative was rejected: it costs a refit and keeps biased
       fits.
 - **Singlets are bit-identical.** Evidence:
