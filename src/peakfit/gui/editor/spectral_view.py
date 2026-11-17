@@ -1245,7 +1245,7 @@ class SpectralView(QtWidgets.QWidget):
         if needs_experiment and not experiment:
             text = "Preparing contours…"
         elif excluded:
-            text = f"Experimental contours only · {excluded}"
+            text = f"Plane {self.plane + 1} not fitted · experimental only{historical}"
         elif mode and not model:
             what = "residual" if mode == _RESIDUAL else "model"
             text = f"Experimental contours · {what} pending{historical}"
@@ -1805,7 +1805,7 @@ class SpectralView(QtWidgets.QWidget):
         if value is not None:
             lines.append(f"I {_unbroken(shown[0])}{_NBSP}a.u.")
         if self.comparison_mode and fitted is None:
-            lines.append("model pending")
+            lines.append("plane not fitted" if self._not_fitted() else "model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
             lines.append(f"model {_unbroken(shown[-1])}")

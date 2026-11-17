@@ -96,8 +96,9 @@ class Capture:
         """Save ``state`` at every size and appearance, then return to 1280×800."""
         for size in SIZES:
             for appearance in APPEARANCES:
-                self.session.window.resize(*size)
-                settle(400)
+                for _ in range(2):  # a first resize past the screen can be clamped
+                    self.session.window.resize(*size)
+                    settle(400)
                 if scroll_to is not None:
                     self.session.w.panel.ensureWidgetVisible(scroll_to, 0, 24)
                     settle(150)

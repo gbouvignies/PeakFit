@@ -173,10 +173,8 @@ def _value_edit(name: str) -> QtWidgets.QLineEdit:
     edit = QtWidgets.QLineEdit()
     edit.setAccessibleName(name)
     edit.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-    # Room for 1.234 × 10⁻⁵ where the row has it, never wider than the inspector.
-    metrics = edit.fontMetrics()
-    edit.setMinimumWidth(metrics.horizontalAdvance("0.00 × 10⁰") + 12)
-    edit.setMaximumWidth(metrics.horizontalAdvance("0.000 × 10⁻⁰⁰") + 16)
+    # Room for any value the formatter writes, such as 1.234 × 10⁻¹⁵.
+    edit.setFixedWidth(edit.fontMetrics().horizontalAdvance("−0.000 × 10⁻⁰⁰") + 16)
     return edit
 
 
@@ -255,8 +253,11 @@ class ModelPage(QtWidgets.QWidget):
             (
                 (
                     self.titles[Setting.NOISE],
+                    # The choice, then its value: both on one line need more than
+                    # the inspector has once it scrolls.
                     _cell(
-                        _line(self.noise_mode, self.noise, self.noise_value),
+                        _line(self.noise_mode),
+                        _line(self.noise, self.noise_value),
                         self.noise_estimate,
                         self.errors[Setting.NOISE],
                     ),
@@ -264,7 +265,8 @@ class ModelPage(QtWidgets.QWidget):
                 (
                     self.titles[Setting.THRESHOLD],
                     _cell(
-                        _line(self.threshold_mode, self.threshold, self.level_value),
+                        _line(self.threshold_mode),
+                        _line(self.threshold, self.level_value),
                         self.level,
                         self.errors[Setting.THRESHOLD],
                     ),
@@ -315,10 +317,12 @@ class ModelPage(QtWidgets.QWidget):
         self.constraints_summary.setObjectName("caption")
         constraints_row = QtWidgets.QHBoxLayout()
         constraints_row.setSpacing(2)
-        constraints_row.addWidget(self.constraints_toggle)
-        constraints_row.addWidget(self.constraints_differs)
+        left = QtCore.Qt.AlignmentFlag.AlignLeft
+        constraints_row.addWidget(self.constraints_toggle, 0, left)
+        constraints_row.addWidget(self.constraints_differs, 0, left)
         constraints_row.addSpacing(themes.SPACE_XS)
         constraints_row.addWidget(self.constraints_summary, 1)
+        constraints_row.addStretch(0)
         layout.addLayout(constraints_row)
         self.constraints: ConstraintsEditor | None = None
         self._constraints_slot = QtWidgets.QVBoxLayout()

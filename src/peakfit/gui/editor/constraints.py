@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 # The parameter kinds a rule constrains, with their unit. Positions are limited by
 # the position window, and J and phase are set in the lineshape table.
-KINDS: dict[str, tuple[str, str]] = {"lw": ("Linewidth", "Hz"), "eta": ("η", "")}
+KINDS: dict[str, tuple[str, str]] = {"lw": ("LW", "Hz"), "eta": ("η", "")}  # as tables say
 ALL_AXES = "*"
 WINDOW_AXES = set(PositionWindowConfig.model_fields)  # the axes a window can name
 NEW_RULE = "Set a start, a range or Hold; × removes the rule."
@@ -143,20 +143,16 @@ class _RuleRow(QtWidgets.QWidget):
 
     def __init__(self, editor: ConstraintsEditor, axes: list[AxisInfo]) -> None:
         super().__init__()
-        self.axis = QtWidgets.QComboBox()
-        self.axis.setAccessibleName("Rule axis")
-        self.axis.addItem("All axes", ALL_AXES)
-        for axis in axes:
-            self.axis.addItem(axis.name, axis.label)
-        self.kind = QtWidgets.QComboBox()
-        self.kind.setAccessibleName("Rule parameter")
-        for key, (name, _unit) in KINDS.items():
-            self.kind.addItem(name, key)
-        for combo in (self.axis, self.kind):
-            combo.setSizeAdjustPolicy(
-                QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
-            )
-            combo.setMinimumContentsLength(4)
+        self.axis = _choice(
+            "Rule axis",
+            "The axis the rule applies on, or all of them",
+            [("All", ALL_AXES), *((a.name, a.label) for a in axes)],
+        )
+        self.kind = _choice(
+            "Rule parameter",
+            "LW: linewidth, in Hz; η: the Lorentzian fraction of a pseudo-Voigt",
+            [(name, key) for key, (name, _unit) in KINDS.items()],
+        )
         self.pattern = text_label("", "")  # an imported pattern, shown as written
         self.hold = QtWidgets.QCheckBox("Hold")
         self.hold.setToolTip("Hold the parameter at its start instead of fitting it")
@@ -223,6 +219,19 @@ class _RuleRow(QtWidgets.QWidget):
         show_message(self.message, text, hint=hint)
         for edit in (self.start, self.low, self.high):
             mark_invalid(edit, bool(text) and not hint)
+
+
+def _choice(name: str, tip: str, items: list[tuple[str, str]]) -> QtWidgets.QComboBox:
+    combo = QtWidgets.QComboBox()
+    combo.setAccessibleName(name)
+    combo.setToolTip(tip)
+    for text, data in items:
+        combo.addItem(text, data)
+    combo.setSizeAdjustPolicy(
+        QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
+    combo.setMinimumContentsLength(4)
+    return combo
 
 
 def _number_edit(name: str) -> QtWidgets.QLineEdit:

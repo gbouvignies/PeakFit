@@ -158,7 +158,7 @@ def test_a_run_that_excluded_a_plane_shows_it_measured_not_fitted(workspace, sci
     wait_until(lambda: not w.canvas.contour_pending)
     label = w.canvas.pending_label
     assert label.isVisible()
-    assert "plane 2 is measured but not fitted" in label.toPlainText()
+    assert label.toPlainText() == "Plane 2 not fitted · experimental only"
     with pytest.raises(ValueError, match="Plane 2 is measured but not fitted"):
         dataset_model_plane(result, spectra.spectral_params, EXCLUDED, cancel=Event())
     # Fitted planes map to their own columns.
