@@ -1,13 +1,16 @@
 """Cluster review read from a completed run: numerical warnings, measures, highlights.
 
-The three families stay separate (specification §8). Numerical warnings are the
-engine's recorded classifications. Measures are recorded numbers. Highlights are
-descriptive rules with adjustable display thresholds; they change no scientific
-data, run state or warning count. Nothing here refits or recomputes statistics.
+The families stay separate (specification §8). Numerical warnings are the engine's
+recorded classifications and its amplitude decomposition. The correlated-profile
+flag (↔) states a limit of independent per-plane error bars, not a warning.
+Measures are recorded numbers. Highlights are descriptive rules with adjustable
+display thresholds; they change no scientific data, run state or warning count.
+Nothing here refits or recomputes statistics.
 """
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 from statistics import median
 from typing import TYPE_CHECKING
 
@@ -21,6 +24,28 @@ from peakfit.gui import formatting
 if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import SpectralParameters
     from peakfit.gui.dataset_fit import DatasetFitResult
+    from peakfit.gui.run_diagnostics import MemberDiagnostics
+
+
+# The correlated-profile flag's mark and words, wherever it is shown.
+CORRELATED_MARK = "↔"
+CORRELATED_SHORT = "errors correlated across planes"
+CORRELATED_TITLE = f"Profile {CORRELATED_SHORT}"
+CORRELATED_CHOICE = f"{CORRELATED_MARK} Profile errors correlated"  # the Show menu's short form
+
+
+class ReviewMark(Enum):
+    """The one mark a cluster row or tile shows, in increasing rank."""
+
+    NONE = ""
+    HIGHLIGHT = "◇"
+    CORRELATED = CORRELATED_MARK
+    WARNING = "▲"
+
+    @property
+    def rank(self) -> int:
+        """Sort order: a warning first, then ↔, then a highlight."""
+        return list(ReviewMark).index(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,14 +113,32 @@ class ClusterReview:
     correlation: float  # largest |ρ|; NaN when unavailable or one peak
     highlights: tuple[Highlight, ...]
     collinear: tuple[CollinearShapes, ...] = ()
+    correlated: tuple[str, ...] = ()  # members carrying the correlated-profile flag
 
     @property
     def single(self) -> bool:
         """A one-peak cluster has no amplitude correlation."""
         return len(self.ids) == 1
 
+    @property
+    def mark(self) -> ReviewMark:
+        """The one mark a list row or tile shows: ▲, then ↔, then ◇, else none."""
+        if self.warnings:
+            return ReviewMark.WARNING
+        if self.correlated:
+            return ReviewMark.CORRELATED
+        return ReviewMark.HIGHLIGHT if self.highlights else ReviewMark.NONE
 
-WARNING_KINDS = ("Unusable", "Not converged", "Uncertainty unreliable", "At bound")
+
+WARNING_KINDS = (
+    "Unusable",
+    "Not converged",
+    "Uncertainty unreliable",
+    "At bound",
+    "Amplitudes not identifiable",
+    "Ill-conditioned shapes",
+    "Near-collinear shapes",
+)
 HIGHLIGHT_KINDS = ("Amplitude correlation", "Linewidth outlier")
 
 
@@ -130,6 +173,17 @@ def _warnings(cluster) -> tuple[NumericalWarning, ...]:
     return tuple(warnings)
 
 
+def _decomposition(
+    diagnostics: MemberDiagnostics, names: dict[str, str]
+) -> tuple[NumericalWarning, ...]:
+    """One warning per decomposition kind, naming its members by assignment."""
+    by_kind: dict[str, list[str]] = {}
+    for kind, name in diagnostics.undetermined:
+        by_kind.setdefault(kind, []).append(names.get(name, name))
+    kinds = [kind for kind in WARNING_KINDS if kind in by_kind]
+    return tuple(NumericalWarning(kind, ", ".join(by_kind[kind])) for kind in kinds)
+
+
 def correlation_matrix(cluster) -> np.ndarray | None:
     """Recorded amplitude correlations, or None when the covariance is unavailable."""
     evaluation = cluster.analytical_evaluation
@@ -155,6 +209,8 @@ def review_clusters(
     display names (for example "¹H"). Parameters name axes by the engine rule.
     """
     identities = result.index.by_engine
+    assignments = {name: identity.assignment for name, identity in identities.items()}
+    working_ids = {name: identity.working_id for name, identity in identities.items()}
     order = [get_dimension_label(index) for index in range(len(axes))]
     names_of = dict(zip(order, titles, strict=True))
     fitted = {c.cluster_id: _parameters(c) for c in result.outcome.clusters}
@@ -204,12 +260,13 @@ def review_clusters(
                             )
                         )
         evaluation = cluster.analytical_evaluation
+        diagnostics = result.diagnostics[cluster.cluster_id]
         reviews.append(
             ClusterReview(
                 cluster.cluster_id,
                 tuple(identities[n].working_id for n in names),
                 tuple(identities[n].assignment for n in names),
-                _warnings(cluster),
+                _warnings(cluster) + _decomposition(diagnostics, assignments),
                 float(evaluation.statistics.reduced_chi_squared) if evaluation else math.nan,
                 evaluation.largest_recorded_residual if evaluation else math.nan,
                 int(evaluation.statistics.n_observations) if evaluation else 0,
@@ -228,6 +285,7 @@ def review_clusters(
                         else ()
                     )
                 ),
+                tuple(working_ids[n] for n in diagnostics.correlated if n in working_ids),
             )
         )
     return reviews

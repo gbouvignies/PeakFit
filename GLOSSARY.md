@@ -192,8 +192,11 @@ models at every native point, divided by the statistical noise. It includes poin
 outside fitting samples and is used for display and to locate unexplained signal.
 
 **Numerical warning**:
-An objective, engine-recorded condition of a cluster outcome: unusable, not
-converged, unreliable uncertainty, or a varied parameter at a bound.
+An objective condition of a cluster outcome, recorded by the engine or derived by
+its diagnostics from recorded values: unusable, not converged, unreliable
+uncertainty, a varied parameter at a bound, or an amplitude split the fitted shapes
+do not determine (not identifiable, ill-conditioned or near-collinear shapes). The
+correlated-profile flag is not one: it is a limit of the error bars.
 
 **At bound**:
 The review warning for a varied parameter whose distance from its nearest bound is

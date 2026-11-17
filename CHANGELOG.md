@@ -40,6 +40,17 @@ Notable user-facing and architecture changes are recorded here.
       analysis project 15.0.0 formats were amended in place to record excluded
       planes. Files that development builds wrote before are refused; refit them.
 
+- The desktop cluster list finds every per-cluster diagnostic the cluster and peak
+  pages show, without opening each cluster.
+    - An amplitude split the fitted shapes do not determine (amplitudes not
+      identifiable, ill-conditioned or near-collinear shapes) is now a ▲
+      numerical warning in the list, its Show menu and the toolbar count, as the
+      run comparison already reported it.
+    - Profile errors correlated across planes get a ↔ mark and a Show choice; they
+      remain a limit of the error bars, not a warning.
+    - N / Shift+N step through the clusters the Show choice lists; with all
+      clusters shown they still visit warned clusters only.
+
 
 ### Fixed
 
