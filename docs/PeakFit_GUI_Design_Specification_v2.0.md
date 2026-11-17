@@ -400,8 +400,8 @@ History shows the retention policy and each run's Full / Summary-only / Pinned
 status. The Run page compares the active run with any retained completed run: a
 run kept with full evidence supports every comparison of §9; against a
 Summary-only run only its recorded settings, cluster count and peaks are compared,
-and the page names the comparisons its pruned evidence no longer supports rather
-than reconstructing them. Pruning happens only after successful publication, not on starting a
+and the page names the comparisons that need full evidence rather than
+reconstructing them. Pruning happens only after successful publication, not on starting a
 replacement; crash/cancel retains the old active result. Actual disk-full/write
 failure is actionable and blocks further evidence eviction rather than silently
 losing the sole result. Closing unsaved work retains the normal save guard.

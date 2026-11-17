@@ -38,7 +38,7 @@ from peakfit.gui.editor.model_page import RunSettings, setting_differences
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
-from peakfit.gui.editor.run_page import submitted_rows
+from peakfit.gui.editor.run_page import BaselineChoice, submitted_rows
 from peakfit.gui.editor.spectral_geometry import SliceSizes, default_sizes, stored_share
 from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
@@ -982,7 +982,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._baseline = (result.run_id, identity)
         self.panel.run_page.show_changes(*self._run_changes())
 
-    def _run_changes(self) -> tuple[list[tuple[str, str, str]], str, list[tuple]]:
+    def _run_changes(self) -> tuple[list[BaselineChoice], str, list[tuple]]:
         """The runs to compare with, the baseline chosen and its changes, as page entries.
 
         The baseline is the active run's parent unless another retained run was chosen
@@ -997,25 +997,38 @@ class EditorWorkspace(QtWidgets.QWidget):
         others = [e for e in reversed(fitting.completed_runs()) if e["run_id"] != result.run_id]
         if not others:
             return [], "", [("note", "First run: there is no earlier run to compare with.")]
-        choices = []
-        for entry in others:
-            identity = entry["run_id"]
-            tags = [formatting.local_time(entry.get("completed_at", ""))]
-            tags += ["parent"] if identity == parent else []
-            tags += [] if fitting.full_evidence(identity) else ["summary only"]
-            label = f"Run {numbers[identity]}"
-            choices.append((label, " · ".join([label, *tags]), identity))
-        ids = [identity for _label, _text, identity in choices]
+        # What each run is to the active one: its parent, and whether it is pruned.
+        roles = {
+            e["run_id"]: [
+                *(["parent"] if e["run_id"] == parent else []),
+                *([] if fitting.full_evidence(e["run_id"]) else [f"summary{NBSP}only"]),
+            ]
+            for e in others
+        }
+        choices = [
+            BaselineChoice(
+                f"Run {numbers[e['run_id']]}",
+                " · ".join(
+                    [
+                        f"Run {numbers[e['run_id']]}",
+                        formatting.local_time(e.get("completed_at", "")),
+                        *roles[e["run_id"]],
+                    ]
+                ),
+                e["run_id"],
+            )
+            for e in others
+        ]
         chosen = self._baseline[1] if self._baseline and self._baseline[0] == result.run_id else ""
-        if chosen not in ids:
-            chosen = parent if parent in ids else ids[0]
+        if chosen not in roles:
+            # The parent; a run with no recorded parent compares with the newest other.
+            chosen = parent if parent in roles else others[0]["run_id"]
         entry = next(e for e in others if e["run_id"] == chosen)
         number = numbers[chosen]
         full = fitting.full_evidence(chosen)
-        tags = [chosen[:8], *(["parent"] if chosen == parent else [])]
-        tags += [] if full else ["summary only"]
         entries: list[tuple] = [
-            ("row", "Baseline", " · ".join([f"Run {number}", *tags]), chosen),
+            # The heading's menu names the run; the row adds its ID and evidence.
+            ("row", "Baseline", " · ".join([chosen[:8], *roles[chosen]]), chosen),
             *self._settings_entries(entry["configuration"], result),
         ]
         if not full:
@@ -2414,10 +2427,11 @@ def _before_after(before: int, after: int) -> str:
 
 
 def _summary_entries(number: int, entry: dict, result) -> list[tuple]:
-    """Against a Summary-only baseline: its recorded counts, and what it no longer supports.
+    """Against a Summary-only baseline: its recorded counts, and what is not compared.
 
-    The journal keeps the run's clusters and peaks; its reviews, measures and fitted
-    positions of usable clusters need the pruned evidence and are never reconstructed.
+    The journal keeps the run's clusters and peaks. Cluster reviews, measures and
+    positions are compared only with full evidence (members, fitting samples and
+    usability), so against a summary they are named and never reconstructed.
     """
     before, after = len(entry.get("diagnostics") or ()), len(result.outcome.clusters)
     old = {i["working_id"] for i in entry.get("identities") or ()}
@@ -2430,7 +2444,7 @@ def _summary_entries(number: int, entry: dict, result) -> list[tuple]:
         (
             "note",
             f"Run {number} is kept as a summary: cluster changes, ▲ warnings, measures "
-            "and position differences need its full evidence, which is no longer retained.",
+            "and position differences are compared only with a run kept with full evidence.",
         ),
     ]
 

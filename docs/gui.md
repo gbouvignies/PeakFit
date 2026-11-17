@@ -295,7 +295,8 @@ failed and canceled attempts get no number.
 After a refit, the Run page summarizes **Changes from run N ▾**: what differs
 between the active run and a baseline run, read from both recorded runs without
 refitting or judging either. The baseline is the run the active one was refitted
-from, its parent, unless you choose another in the heading's menu, which lists
+from, its parent (for a run with no recorded parent, the newest other run),
+unless you choose another in the heading's menu, which lists
 every earlier completed run newest first with its time, “parent” and, for a pruned
 run, “summary only”. The first row, **Baseline**, names it. Choosing a baseline
 changes only this section: the active run, working peaks and settings, Current or
@@ -311,9 +312,10 @@ matched by stable ID, so renamed peaks still compare.
   Identical settings read “Settings: identical”.
 
 - **Clusters**: each cluster whose numerical warnings or highlights changed,
-  that contains a peak moved or added by hand in a refit after the baseline
-  (“Edited: …”, from the moves each intermediate run recorded, so an edit undone
-  before fitting is never listed), or whose
+  that contains a peak moved or added by hand in a refit after the baseline and
+  not moved back to where the baseline left it (“Edited: …”, from the moves each
+  intermediate run recorded, so an edit undone before fitting, or a position
+  changed only by fitting, is never listed), or whose
   members were grouped differently. Clusters with newly reported warnings lead and
   are drawn in the warning style, then those whose warnings are no longer
   reported, then edited ones, then highlights and regroupings. Warnings include the
@@ -328,9 +330,9 @@ matched by stable ID, so renamed peaks still compare.
   before → after values.
 - **Measures** (χ²ᵣ, |r|max, |ρ|) before → after appear only when both runs define
   them identically: the same members, the same fitted planes (plane values and
-  exclusions), the same fitting samples, σ_stat and noise model, the same
-  lineshape model on every axis, the same constraints and the same number of
-  varied parameters. Otherwise the line names the first difference, for example
+  exclusions), the same lineshape model on every axis, the same constraints, the
+  same σ_stat and noise model, the same fitting samples and the same number of
+  varied parameters. Otherwise the line names the first difference in that order, for example
   “Measures not compared: fitting samples changed (67 → 68 per plane)” or
   “Measures not compared: lineshape model changed”, and shows no number. A lower
   χ²ᵣ is never presented as a better fit.
@@ -347,7 +349,8 @@ matched by stable ID, so renamed peaks still compare.
 Each name opens its cluster or peak; at most six clusters are listed with a count of
 the rest. A stored baseline is read off Qt. A Summary-only baseline keeps its
 recorded settings, clusters and peaks, so Settings and the **Clusters** count are
-compared; one line names what its pruned evidence no longer supports (cluster
+compared; one line names what is compared only against a run kept with full
+evidence, which has the members, fitting samples and usability they need (cluster
 changes, ▲ warnings, measures and position differences), and no value is
 reconstructed for them. The first run has nothing to compare.
 
@@ -804,7 +807,9 @@ file restores spectral views; a different spectrum cannot inherit the old result
 Corrupt project evidence and unsupported project versions are explicit errors.
 
 **File → Analysis history…** inspects retained runs in detail, named by run number
-as on the Run page. The latest ten completed runs
+as on the Run page; its status line names the active run (“Active run 4 · Current
+numerical evidence”), and failed or canceled attempts read as such, not as
+summaries. The latest ten completed runs
 retain full evidence; older runs have explicitly labeled Summary-only journal
 entries. **Keep full evidence** protects a full run from pruning. Historical evidence
 has a 1 GiB budget, excluding the active and protected runs; their costs appear in

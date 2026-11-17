@@ -12,7 +12,7 @@ from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
-from peakfit.gui.editor.changes import run_numbers
+from peakfit.gui.editor.changes import completed, run_numbers
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
 from peakfit.gui.project_results import reconstruct_result
@@ -189,8 +189,8 @@ class NumericalReview(QtWidgets.QWidget):
         for entry in reversed(analysis.journal):
             identity = entry["run_id"]
             if identity not in full_ids:
-                status = entry.get("status", "completed")
-                kind = "Summary only" if status == "completed" else f"{status.capitalize()} attempt"
+                status = str(entry.get("status", ""))
+                kind = "Summary only" if completed(entry) else f"{status.capitalize()} attempt"
                 self.run.addItem(
                     f"{named(identity)}{formatting.local_time(entry.get('completed_at', ''))} · "
                     f"{identity[:8]} · {kind}",

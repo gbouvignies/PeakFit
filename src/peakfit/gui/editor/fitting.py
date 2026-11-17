@@ -13,6 +13,7 @@ from PySide6 import QtCore, QtWidgets
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import DatasetFitResult
+from peakfit.gui.editor.changes import completed
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.failures import WorkerError, failure_message, log_failure
 from peakfit.gui.fit_positions import DatasetCompletion, continuation_source, dataset_completion
@@ -369,7 +370,7 @@ class DatasetFitting(QtCore.QObject):
 
     def completed_runs(self) -> list[dict]:
         """The journal's completed runs, oldest first; failed or canceled attempts are not."""
-        return [e for e in self.journal if e.get("status") == "completed"]
+        return [e for e in self.journal if completed(e)]
 
     def full_evidence(self, identity: str) -> bool:
         """Whether a run's full evidence is retained, rather than its summary only."""

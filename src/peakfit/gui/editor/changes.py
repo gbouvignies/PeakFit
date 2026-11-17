@@ -26,6 +26,7 @@ import numpy as np
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
+from peakfit.gui.fitting import ADDED_SINCE, MOVED_SINCE
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -35,26 +36,38 @@ if TYPE_CHECKING:
     from peakfit.gui.editor.review import ClusterReview
 
 DISPLACEMENTS = 5  # largest position differences listed
-EDITS = ("moved since run", "added since run")  # continuation reasons of a manual edit
+EDITS = (MOVED_SINCE, ADDED_SINCE)  # continuation reasons of a manual edit
+
+
+def completed(entry: Mapping[str, Any]) -> bool:
+    """Whether a journal entry is a completed run, not a failed or canceled attempt."""
+    return entry.get("status") == "completed"
 
 
 def run_numbers(journal: Iterable[Mapping[str, Any]]) -> dict[str, int]:
     """Each completed run's number, 1-based in journal order; attempts get none."""
-    completed = (e["run_id"] for e in journal if e.get("status") == "completed")
-    return {identity: number for number, identity in enumerate(completed, 1)}
+    runs = (e["run_id"] for e in journal if completed(e))
+    return {identity: number for number, identity in enumerate(runs, 1)}
+
+
+def _positions(peaks) -> dict[str, tuple[float, ...]]:
+    return {p["id"]: tuple(float(x) for x in p["positions"]) for p in peaks or ()}
 
 
 def edited_since(
     journal: Iterable[Mapping[str, Any]], active_id: str, baseline_id: str
 ) -> frozenset[str] | None:
-    """Working IDs moved or added by hand in a refit after the baseline run.
+    """Working IDs moved or added by hand in a refit after the baseline run, and kept.
 
     Each refit records, against the run it continued from, the peaks whose working
     position was moved or added by hand. Following the parent links from the active
     run back to the baseline collects them; an edit undone before a fit was never
-    recorded. None when the baseline is not an earlier run of the active one.
+    recorded. A recorded edit counts only while the active run still started the
+    peak away from where the baseline left it (its adopted working position): one
+    moved back by hand there is not edited. A position changed only by fitting never
+    is. None when the baseline is not an earlier run of the active one.
     """
-    entries = {e["run_id"]: e for e in journal if e.get("status") == "completed"}
+    entries = {e["run_id"]: e for e in journal if completed(e)}
     edited: set[str] = set()
     run, seen = active_id, set()
     while run != baseline_id:
@@ -69,7 +82,9 @@ def edited_since(
         if not parent:
             return None
         run = parent
-    return frozenset(edited)
+    started = _positions(entries[active_id].get("initial_peaks")) if active_id in entries else {}
+    left = _positions(entries[baseline_id].get("working_peaks"))
+    return frozenset(i for i in edited if started.get(i) != left.get(i))
 
 
 @dataclass(frozen=True, slots=True)

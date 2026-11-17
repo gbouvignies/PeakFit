@@ -1763,8 +1763,10 @@ Short records of non‑obvious design choices and trade‑offs.
   (baseline → active).
 - **Edits along the recorded chain.** A peak is "edited" against a non-parent
   baseline only when a refit after it recorded the peak as moved or added by hand
-  (`edited_since` follows the parent links); an edit undone before a fit, or a
-  position changed only by fitting, is never one.
+  (`edited_since` follows the parent links) and the active run still started it
+  away from where the baseline left it; an edit undone before a fit, a peak moved
+  back by hand to the baseline's position, or a position changed only by fitting,
+  is never one. The reason prefixes have one home, where `gui.fitting` writes them.
 - **Stricter measure comparability, for every baseline.** Measures are also withheld
   when the fitted planes (plane values or exclusions), the effective lineshape model
   of an axis or the constraints differ; run-level differences are named before

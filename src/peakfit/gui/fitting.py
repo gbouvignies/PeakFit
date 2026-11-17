@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 
 
 _SPECTRAL_DIMENSIONS = 2
+# How a continuation records a peak edited by hand since its source run; the run
+# comparison reads these prefixes back (``editor.changes.edited_since``).
+ADDED_SINCE, MOVED_SINCE = "added since run", "moved since run"
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,10 +255,10 @@ def _continue(initial, cluster, settings, working, positions, source, reasons) -
         identity = working[peak.name]
         fitted = source.values.get(identity)
         if identity not in source.positions:
-            reasons[identity] = f"added since run {run}"
+            reasons[identity] = f"{ADDED_SINCE} {run}"
             continue
         if tuple(source.positions[identity]) != positions[identity]:
-            reasons[identity] = f"moved since run {run}"
+            reasons[identity] = f"{MOVED_SINCE} {run}"
             continue
         if identity in source.retained or fitted is None:
             why = source.retained.get(identity, "no fitted values")

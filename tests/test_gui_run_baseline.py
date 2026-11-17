@@ -142,6 +142,36 @@ def test_edits_are_those_recorded_by_refits_after_the_baseline(chain):
     assert FITTED not in (edited_since(journal, ids[3], ids[1]) or {FITTED})
 
 
+def test_a_peak_moved_back_where_the_baseline_left_it_is_not_edited(chain):
+    # Run B starts from a peak moved by hand; before run C it is moved back by hand to
+    # where run A left it. Both refits record the move, yet against run A it is not
+    # edited: run C started it exactly where a continuation from run A would have.
+    spectra, config, runs, _journal = chain
+    first = runs[0]
+    moved = tuple(
+        replace(p, positions=(p.positions[0] + 0.01, p.positions[1])) if p.id == MOVED else p
+        for p in first.working_peaks
+    )
+    second = _fit(spectra, moved, config, first)
+    left = next(p for p in first.working_peaks if p.id == MOVED)
+    back = tuple(left if p.id == MOVED else p for p in second.working_peaks)
+    third = _fit(spectra, back, config, second)
+    reasons = dict(third.result.inputs.continuation.reasons)
+    assert reasons[MOVED].startswith("moved since run")
+    journal = []
+    parent = None
+    for run in (first, second, third):
+        journal.append(dict(journal_entry(run), parent_run_id=parent))
+        parent = run.result.run_id
+    a, b, c = (run.result.run_id for run in (first, second, third))
+    assert edited_since(journal, c, a) == frozenset()
+    assert edited_since(journal, c, b) == {MOVED}
+    assert edited_since(journal, b, a) == {MOVED}
+    # Also after a save: positions read back from JSON lists compare the same.
+    reread = json.loads(json.dumps(journal))
+    assert edited_since(reread, c, a) == frozenset()
+
+
 def test_a_non_parent_comparison_labels_only_recorded_edits(chain):
     spectra, _config, runs, journal = chain
     active, baseline = runs[3].result, runs[1].result
@@ -398,13 +428,13 @@ def test_the_parent_is_the_default_baseline_and_runs_keep_their_numbers(chain, w
     shown = window()
     page = shown.workspace.panel.run_page
     ids = [run.result.run_id for run in runs]
-    wait_until(lambda: f"Run 3 · {ids[2][:8]} · parent" in _texts(shown))
+    wait_until(lambda: f"{ids[2][:8]} · parent" in _texts(shown))
     assert page.baseline.text().startswith("Run 3")
     assert [c[0] for c in page.baseline.choices] == ["Run 3", "Run 2", "Run 1"]
     menu = [c[1] for c in page.baseline.choices]
     assert menu[0].endswith("· parent")
-    assert menu[2].endswith("· summary only")
-    assert _row(shown, "Baseline") == f"Run 3 · {ids[2][:8]} · parent"
+    assert menu[2].endswith("· summary\u00a0only")
+    assert _row(shown, "Baseline") == f"{ids[2][:8]} · parent"
     from test_gui_editor_fitting import _review_row  # noqa: PLC0415
 
     assert _review_row(page.run_rows, "Run").startswith(f"4 · {ids[3][:8]} · ")
@@ -420,7 +450,7 @@ def test_choosing_a_baseline_changes_nothing_and_survives_save_and_reopen(chain,
     # Run 2: full evidence, settings identical, the hand-moved peak listed as edited.
     _choose(shown, 2)
     assert _state(shown) == before
-    assert _row(shown, "Baseline") == f"Run 2 · {ids[1][:8]}"
+    assert _row(shown, "Baseline") == ids[1][:8]
     texts = _texts(shown)
     assert _row(shown, "Settings") == "identical"
     moved = next(p.name for p in w.peaks if p.id == MOVED)
@@ -430,7 +460,7 @@ def test_choosing_a_baseline_changes_nothing_and_survives_save_and_reopen(chain,
     _choose(shown, 1)
     assert _state(shown) == before
     texts = _texts(shown)
-    assert _row(shown, "Baseline") == f"Run 1 · {ids[0][:8]} · summary only"
+    assert _row(shown, "Baseline") == f"{ids[0][:8]} · summary\u00a0only"
     assert any("Gaussian → Lorentzian" in t for t in texts)
     assert any(t.startswith("Run 1 is kept as a summary") for t in texts)
     assert not any("χ²ᵣ" in t or "ppm ·" in t for t in texts)
@@ -452,10 +482,11 @@ def test_choosing_a_baseline_changes_nothing_and_survives_save_and_reopen(chain,
     page = again.workspace.panel.run_page
     wait_until(lambda: page.baseline.text().startswith("Run 3"))
     assert [c[0] for c in page.baseline.choices] == ["Run 3", "Run 2", "Run 1"]
-    assert _row(again, "Baseline") == f"Run 3 · {ids[2][:8]} · parent"
+    assert _row(again, "Baseline") == f"{ids[2][:8]} · parent"
     # A working edit, fitted or not, is not part of either record: the comparison of
     # run 4 with run 2 is the same with peak 0 moved, and after Undo.
     _choose(again, 2)
+    assert _state(again) == before
     compared = _changes(again)
     w = again.workspace
     fitted = next(p for p in w.peaks if p.id == FITTED)

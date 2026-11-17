@@ -2017,7 +2017,7 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     w.render_fitting()
     assert panel.run_page.changes_title.text() == "CHANGES FROM"
     assert panel.run_page.baseline.text().startswith("Run 1")
-    assert "Run 1 · parent00 · parent" in texts()  # the run ID keeps its case, as a row
+    assert "parent00 · parent" in texts()  # the run ID keeps its case, as a row
     assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
     assert not any("resolved" in t for t in texts())
     links = [

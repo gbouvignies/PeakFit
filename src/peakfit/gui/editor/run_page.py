@@ -8,6 +8,7 @@ page never refits or recomputes statistics, and choosing a baseline changes noth
 but what the changes section compares.
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -74,6 +75,15 @@ def submitted_rows(result: DatasetFitResult, names: dict[str, str]) -> list[Row]
     return rows
 
 
+@dataclass(frozen=True, slots=True)
+class BaselineChoice:
+    """A run the active run can be compared with, as the heading's menu lists it."""
+
+    label: str  # "Run 3", shown on the menu button
+    text: str  # "Run 3 · <time> · parent", the menu item
+    run_id: str
+
+
 def _rows() -> QtWidgets.QGridLayout:
     grid = QtWidgets.QGridLayout()
     grid.setHorizontalSpacing(themes.SPACE_S)
@@ -132,10 +142,10 @@ class RunPage(QtWidgets.QWidget):
         self.baseline = themes.MenuChoice(
             "Compare with",
             "The run the active run is compared with; nothing else changes",
-            [("", "", "")],
+            [("", "", "")],  # until a run has earlier runs; the heading is hidden
         )
         self.baseline.currentIndexChanged.connect(
-            lambda index: self.baseline_chosen.emit(self.baseline.choices[index][2])
+            lambda _index: self.baseline_chosen.emit(self.baseline.currentData())
         )
         heading.addWidget(self.baseline, 0, QtCore.Qt.AlignmentFlag.AlignVCenter)
         heading.addStretch(1)
@@ -205,12 +215,12 @@ class RunPage(QtWidgets.QWidget):
         QtGui.QGuiApplication.clipboard().setText(self._failure_details)
 
     def show_changes(
-        self, choices: list[tuple[str, str, str]], chosen: str, entries: list[tuple]
+        self, choices: list[BaselineChoice], chosen: str, entries: list[tuple]
     ) -> None:
-        """Show run-to-run changes against the ``chosen`` baseline run.
+        """Show run-to-run changes against the ``chosen`` baseline run (its run ID).
 
-        ``choices`` are the runs to compare with, as (short label, menu text, run ID);
-        with no baseline chosen the heading hides. Entries are ("row", label, value,
+        ``choices`` are the runs to compare with; with no baseline chosen the
+        heading hides. Entries are ("row", label, value,
         tooltip), ("heading", text[, tooltip]), ("note", text) or ("link", text,
         detail, working ID, opens a cluster page[, warning]). Consecutive rows share
         one label grid.
@@ -219,11 +229,12 @@ class RunPage(QtWidgets.QWidget):
         if key == self._changes_key:
             return
         self._changes_key = key
-        shown = bool(chosen) and any(c[2] == chosen for c in choices)
+        ids = [c.run_id for c in choices]
+        shown = chosen in ids
         self.changes_heading.setVisible(shown)
         if shown:
             self.baseline.set_choices(
-                choices, next(i for i, c in enumerate(choices) if c[2] == chosen)
+                [(c.label, c.text, c.run_id) for c in choices], ids.index(chosen)
             )
         clear_layout(self.changes)
         rows: list[Row] = []
