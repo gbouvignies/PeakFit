@@ -60,17 +60,22 @@ class FocusBar(QtWidgets.QWidget):
     def show_cluster(
         self,
         names: tuple[str, ...],
+        run: str,
         run_id: str,
         *,
         current: bool,
         historical: bool,
         outside: str | None,
     ) -> None:
-        """Name the cluster, its run and whether the selection is outside it."""
+        """Name the cluster, its run and whether the selection is outside it.
+
+        ``run`` is how captions name the run (its number); the tooltip adds its ID.
+        """
         cluster = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "") if names else ""
         self.title.setText(f"Focus · {cluster}")
         # The always-visible title carries the run; the note may be empty.
-        self.title.setToolTip(f"Run {run_id[:8]} · {'Current' if current else 'Outdated'}")
+        state = "Current" if current else "Outdated"
+        self.title.setToolTip(f"Run {run} · {state}\nRun ID {run_id}")
         # The run's identity is in the toolbar; the bar adds only what differs.
         parts = (
             "" if current else "Outdated",

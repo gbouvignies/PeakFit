@@ -139,7 +139,7 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     # The Outdated run's residual stays, explicitly historical; nothing is refitted.
     assert c.comparison_mode == 2
     assert c.comparison_result is result
-    assert c.comparison_label == f"Run {result.run_id[:8]} · historical"
+    assert c.comparison_label == "Run 1 · historical"
     w.history(False)
     assert w.peaks == w.fitting.completion.working_peaks
     assert not w.fitting.current  # Undo never recertifies a run
@@ -206,7 +206,8 @@ def test_fitting_state_is_rendered_on_transitions_without_polling(workspace):
     assert not w._fit_clock.isActive()
     assert busy_at_transition[0]
     assert not busy_at_transition[-1]
-    assert w.summary.text().startswith(f"Run {fitting.result.run_id[:8]} · Current")
+    assert w.summary.text().startswith("Run 1 · Current")
+    assert f"Run ID {fitting.result.run_id}" in w.summary.toolTip()
     # Counts only when something is not usable or not converged; always in the tooltip.
     clusters = fitting.result.outcome.clusters
     if all(c.usable and c.optimizer_provenance.converged for c in clusters):
@@ -645,7 +646,7 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
     assert "Outdated" in w.panel.status.text()
     assert panel._profile is not None
     w.place_peak(peak.positions)
-    assert f"Not part of run {result.run_id[:8]}" in w.panel.status.text()
+    assert "Not part of run 1: added or renamed" in w.panel.status.text()
 
 
 def test_profile_follows_only_accepted_selection(workspace, scientific):
@@ -1265,7 +1266,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     result = scientific[-1]
     publish(w, result)
     w._update_inspector()
-    assert c.region_source == f"recorded in run {result.run_id[:8]}"
+    assert c.region_source == "recorded in run 1"
     # A committed edit hides the preparation at once: no obsolete region is shown.
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
@@ -2110,7 +2111,7 @@ def test_cluster_focus_frames_compares_and_returns_exactly(workspace, scientific
     edited = (peak.positions[0], peak.positions[1] + 0.001)
     w.move_peak(peak.id, edited)
     wait_until(lambda: not c.contour_pending)
-    tag = f"Run {result.run_id[:8]} · historical"
+    tag = "Run 1 · historical"
     assert "Outdated · model and residual are historical" in w.focus_bar.note.text()
     assert tag in c.legend.text()
     assert w.focus_open
@@ -2403,7 +2404,7 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     w.select_peak(None)
     assert panel.run_page.unexplained_button.isEnabled()
     assert panel.run_page.unexplained_note.text().startswith(
-        f"Residual of Run {result.run_id[:8]} · historical. Distances are to the current"
+        "Residual of Run 1 · historical. Distances are to the current"
     )
 
 
@@ -2532,7 +2533,7 @@ def test_correct_and_refit_in_focus(workspace, scientific):  # noqa: PLR0915
     assert w.fitting.current
     bar = w.focus_bar
     text = bar.membership_plain
-    assert text.startswith(f"Regrouped by run {refit.run_id[:8]} · was Duplicate +1")
+    assert text.startswith("Regrouped by run 2 · was Duplicate +1")
     assert "joined by Duplicate" in text
     assert text.endswith("now fitted in other clusters: Duplicate ›")
     assert '<a href="0">Duplicate ›</a>' in bar.membership.text()
@@ -2571,13 +2572,11 @@ def test_an_added_peak_keeps_focus_context_and_is_followed_after_refit(workspace
     w.history(False)
     w.select_peak(added.id, cluster=True)
     assert w._focus_ids == ("remote",)
-    refit = _refit(w)
+    _refit(w)
     wait_until(lambda: not c.contour_pending)
     # It joined the remote peak's cluster: a merge, said without a link back.
     assert set(w._focus_ids) == {"remote", added.id}
-    assert (
-        w.focus_bar.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
-    )
+    assert w.focus_bar.membership_plain == f"Run 2 fits {added.name} with Duplicate"
 
 
 def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientific):  # noqa: PLR0915
@@ -2586,7 +2585,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     publish(w, result)
     w.set_mode(2)
     wait_until(lambda: not c.contour_pending)
-    tag = f"Run {result.run_id[:8]} · historical"
+    tag = "Run 1 · historical"
     axes = [axis.model_copy(deep=True) for axis in c.spectra.spectral_params]
     model = dataset_model_plane(result, axes, c.plane, cancel=Event())
     residual = (c.spectra.data[c.plane] - model.values) / result.outcome.noise
@@ -2689,7 +2688,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     w.canvas.spectra = spectra
     w.edits.revision += 1
     w.render_fitting()
-    reason = f"Run {result.run_id[:8]} was recorded with different plane values"
+    reason = "Run 1 was recorded with different plane values"
     assert w.fitting.comparison.reason == reason
     assert c.comparison_mode == 0
     assert c.comparison_result is None

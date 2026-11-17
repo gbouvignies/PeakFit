@@ -278,6 +278,7 @@ class SpectralView(QtWidgets.QWidget):
         self.comparison_mode = 0
         # The recorded run identity of a historical (Outdated) model; empty if current.
         self.comparison_label = ""
+        self.comparison_run = ""  # how captions name the compared run: its number
         self.added: frozenset[str] = frozenset()
         self.departed: tuple[WorkingPeak, ...] = ()
         self.residual_threshold = 3.0
@@ -998,18 +999,25 @@ class SpectralView(QtWidgets.QWidget):
         return bool(self.comparison_label)
 
     def set_comparison(
-        self, result: DatasetFitResult | None, mode: int = 0, *, label: str = ""
+        self,
+        result: DatasetFitResult | None,
+        mode: int = 0,
+        *,
+        run: str,
+        label: str = "",
     ) -> None:
         """Bind one immutable run and one mode across all three spectral views.
 
-        ``label`` names a historical run (``Run 5d7b4768 · historical``) wherever its
-        model or residual is shown; it is empty for the current run.
+        ``run`` is how captions name the run: its number. ``label`` names a
+        historical run (``Run 3 · historical``) wherever its model or residual is
+        shown; it is empty for the current run.
         """
         if result is not self.comparison_result:
             self.model_planes.keep_only(result.run_id if result is not None else None)
         self.comparison_result = result
         self.comparison_mode = mode if result is not None else 0
         self.comparison_label = label if result is not None else ""
+        self.comparison_run = run if result is not None else ""
         self._place_changes()
         # Lanes follow the run, not the mode: the plot keeps its place across modes.
         self._relayout()
@@ -1107,7 +1115,7 @@ class SpectralView(QtWidgets.QWidget):
         result = self.comparison_result
         if result is None or not self.comparison_mode:
             return ""
-        return not_fitted(result, self.plane)
+        return not_fitted(result, self.plane, self.comparison_run)
 
     def _prefetch(self, axes, levels) -> None:
         """Prepare the next plane's measured contours, in the direction of travel."""

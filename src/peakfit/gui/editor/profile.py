@@ -194,7 +194,7 @@ def peak_profile(
     """
     found = result.index.find(working_id)
     if found is None:
-        return f"Not part of run {result.run_id[:8]}"
+        return "Not part of this run"
     engine_name, cluster = found
     evaluation = cluster.analytical_evaluation
     if not cluster.usable or evaluation is None:

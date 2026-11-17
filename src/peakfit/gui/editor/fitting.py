@@ -13,14 +13,13 @@ from PySide6 import QtCore, QtWidgets
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import DatasetFitResult
-from peakfit.gui.editor.changes import completed
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.failures import WorkerError, failure_message, log_failure
 from peakfit.gui.fit_positions import DatasetCompletion, continuation_source, dataset_completion
 from peakfit.gui.fit_process import FitProcess
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, run_id
-from peakfit.gui.project_results import journal_entry
+from peakfit.gui.project_results import completed, journal_entry, run_name
 from peakfit.gui.session_evidence import SessionEvidence
 
 if TYPE_CHECKING:
@@ -44,11 +43,13 @@ class Comparison:
     A current run compares directly. After working inputs change, the Outdated run
     stays comparable as *historical* evidence while it was recorded on the same
     spectrum, axes and planes; ``reason`` says why it was withdrawn otherwise.
-    ``added`` holds working IDs that run did not fit; ``departed`` the run's
-    adopted peaks that were moved or deleted since, at their recorded positions.
+    ``run`` is how captions name the run (its number); ``added`` holds working IDs
+    that run did not fit; ``departed`` the run's adopted peaks that were moved or
+    deleted since, at their recorded positions.
     """
 
     result: DatasetFitResult | None = None
+    run: str = ""
     historical: bool = False
     reason: str = ""
     added: frozenset[str] = frozenset()
@@ -59,7 +60,7 @@ class Comparison:
         """The recorded run identity every historical display carries; empty if current."""
         if self.result is None or not self.historical:
             return ""
-        return f"Run {self.result.run_id[:8]} · historical"
+        return f"Run {self.run} · historical"
 
 
 def comparison_mismatch(recorded: FitInputSnapshot, working: FitInputSnapshot) -> str:
@@ -253,16 +254,18 @@ class DatasetFitting(QtCore.QObject):
         if completion is None:
             return Comparison()
         result = completion.result
+        run = run_name(result.run_id, self.journal)
         if self.current:
-            return Comparison(result)
+            return Comparison(result, run)
         recorded = result.inputs.snapshot
         reason = comparison_mismatch(recorded, self.snapshot(recorded))
         if reason:
-            return Comparison(reason=f"Run {result.run_id[:8]} was {reason}")
+            return Comparison(reason=f"Run {run} was {reason}")
         fitted = {p.id: p for p in completion.working_peaks}
         working_peaks = {p.id: p for p in self.workspace.peaks}
         return Comparison(
             result,
+            run,
             historical=True,
             added=frozenset(working_peaks.keys() - fitted.keys()),
             departed=tuple(

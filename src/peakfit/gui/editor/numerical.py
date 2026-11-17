@@ -12,10 +12,9 @@ from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
-from peakfit.gui.editor.changes import completed, run_numbers
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
-from peakfit.gui.project_results import reconstruct_result
+from peakfit.gui.project_results import completed, reconstruct_result, run_numbers
 
 
 def axis_names(analysis) -> tuple[str, str]:

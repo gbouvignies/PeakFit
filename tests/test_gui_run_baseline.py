@@ -21,7 +21,7 @@ from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.gui import formatting, project
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.axis_table import AxisInfo
-from peakfit.gui.editor.changes import compare_runs, edited_since, run_numbers
+from peakfit.gui.editor.changes import compare_runs, edited_since
 from peakfit.gui.editor.model_page import Setting, setting_differences
 from peakfit.gui.editor.review import NumericalWarning, review_clusters
 from peakfit.gui.editor.window import EditorWindow
@@ -29,7 +29,7 @@ from peakfit.gui.editor.workspace import _change_entries
 from peakfit.gui.fit_positions import continuation_source, dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
-from peakfit.gui.project_results import journal_entry
+from peakfit.gui.project_results import journal_entry, run_numbers
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
