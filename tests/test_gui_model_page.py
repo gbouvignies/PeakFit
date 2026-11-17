@@ -70,6 +70,11 @@ def _page(config: PeakFitConfig, preview=None, run: RunSettings | None = None):
     return page, emitted
 
 
+def _plain(text: str) -> str:
+    """A caption as read: no-break space and word joiners as typed text."""
+    return text.replace("\u00a0", " ").replace("\u2060", "")
+
+
 def _type(edit: QtWidgets.QLineEdit, text: str) -> None:
     edit.setText(text)
     edit.editingFinished.emit()
@@ -356,7 +361,10 @@ def test_each_new_setting_is_marked_when_it_differs_from_the_run(tmp_path, previ
 def test_excluded_planes_read_as_plane_numbers(tmp_path):
     page, _emitted = _page(_toml(tmp_path, "exclude_planes = [0, 1]"))
     assert page.excluded.text() == "1–2"
-    assert page.planes.text().replace("\u00a0", " ") == "1 of 3 fitted · numbered 1–3"
+    assert (
+        page.planes.text().replace("\u00a0", " ").replace("\u2060", "")
+        == "1 of 3 fitted · numbered 1–3"
+    )
 
 
 def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, preview):

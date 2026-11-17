@@ -63,6 +63,11 @@ def workspace(qapp, scientific):
     qapp.processEvents()
 
 
+def _plain(text: str) -> str:
+    """A caption as read: no-break space and word joiners as typed text."""
+    return text.replace("\u00a0", " ").replace("\u2060", "")
+
+
 def _publish(workspace, result):
     fitting = workspace.fitting
     fitting._submitted_revision = workspace.edits.revision
@@ -87,7 +92,10 @@ def test_excluding_the_current_plane_is_one_undoable_edit_kept_in_navigation(wor
     assert action.text() == "Include plane 2 in the fit"
     model = w.panel.model_page
     assert model.excluded.text() == "2"
-    assert model.planes.text().replace("\u00a0", " ") == "2 of 3 fitted · numbered 1–3"
+    assert (
+        model.planes.text().replace("\u00a0", " ").replace("\u2060", "")
+        == "2 of 3 fitted · numbered 1–3"
+    )
     w.set_plane(1)
     assert not w.plane_excluded.isVisible()
     w.history(False)

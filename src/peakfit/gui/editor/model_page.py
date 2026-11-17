@@ -558,7 +558,7 @@ class ModelPage(QtWidgets.QWidget):
 
     def _show_planes(self, excluded: list[int]) -> None:
         # The convention, said once: navigation's numbers, never the TOML's indices.
-        numbering = f"numbered\u00a01–{self._planes}"
+        numbering = f"numbered\u00a01\u2060–\u2060{self._planes}"  # never broken inside
         fitted = planes_fitted(self._planes, excluded).replace(" ", "\u00a0")
         self.planes.setText(f"{fitted} · {numbering}")
 
