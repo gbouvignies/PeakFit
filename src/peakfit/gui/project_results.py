@@ -46,9 +46,10 @@ def restore_result(run, outcome, retained_samples):
         tuple(tuple(s) for s in raw["source_files"]),
         tuple(raw["source_plane_indices"]),
     )
-    excluded = outcome.excluded_planes
-    if snapshot.source_plane_indices != fitted_plane_indices(
-        len(snapshot.source_plane_indices) + len(excluded), excluded
+    if (
+        snapshot.source_plane_indices
+        != fitted_plane_indices(snapshot.data_shape[0], outcome.excluded_planes)
+        or len(snapshot.plane_values) != snapshot.data_shape[0]
     ):
         raise ValueError("Run planes must be every plane of the spectrum but the excluded ones.")
     config = stored_config(snapshot.configuration)
@@ -58,8 +59,8 @@ def restore_result(run, outcome, retained_samples):
         retained_samples,
         run["models"],
         snapshot.spectral_parameters,
-        snapshot.plane_values,
-        snapshot.data_shape,
+        snapshot.fitted_plane_values,
+        snapshot.fitted_shape,
         config.model_dump(),
     )
     identities = tuple(PeakIdentity(**p) for p in run["identities"])
@@ -290,10 +291,10 @@ def reconstruct_result(result, dataset):
         result.outcome,
         result.completed_fit.samples,
         {
-            "data_shape": snapshot.data_shape,
+            "data_shape": snapshot.fitted_shape,
             "models": model_records(result.completed_fit.model_snapshot),
             "spectral_parameters": [json.loads(p) for p in snapshot.spectral_parameters],
-            "plane_values": snapshot.plane_values,
+            "plane_values": snapshot.fitted_plane_values,
             "metadata": {"configuration": json.loads(snapshot.configuration)},
         },
         source_data=dataset.spectra.data,

@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import numpy as np
 
+from peakfit.engine.domain.spectrum import fitted_plane_indices
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.gui.fit_positions import DatasetCompletion, dataset_completion
 from peakfit.gui.project_results import (
@@ -66,9 +67,16 @@ class Analysis:
             and snapshot.configuration == self.configuration
             and snapshot.spectral_parameters == tuple(self.header["axes"])
             and snapshot.plane_values == tuple(self.header["planes"])
-            and snapshot.source_plane_indices == tuple(self.header["source_plane_indices"])
+            and snapshot.source_plane_indices == self.fitted_planes
             and snapshot.source_files == tuple(tuple(s) for s in self.header["sources"])
         )
+
+    @property
+    def fitted_planes(self) -> tuple[int, ...]:
+        """The dataset's planes the working settings fit: all but the excluded ones."""
+        planes = tuple(self.header["source_plane_indices"])
+        excluded = stored_config(json.loads(self.configuration)).exclude_planes
+        return tuple(planes[i] for i in fitted_plane_indices(len(planes), excluded))
 
     @property
     def completion(self):

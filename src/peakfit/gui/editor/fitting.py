@@ -65,12 +65,11 @@ def comparison_mismatch(recorded: FitInputSnapshot, working: FitInputSnapshot) -
     """Why a run's model cannot be compared with the working data, or an empty string.
 
     The model of plane i is compared with measured plane i on the same axes, so the
-    spectrum, its axes and its plane mapping must be the ones the run recorded.
+    spectrum, its axes and its plane mapping must be the ones the run recorded. A
+    plane the run excluded is measured but has no model (``fit_display.not_fitted``).
     """
     if recorded.spectral_parameters != working.spectral_parameters:
         return "recorded with different spectral axes"
-    if recorded.source_plane_indices != working.source_plane_indices:
-        return "recorded on a different selection of planes"
     if recorded.plane_values != working.plane_values:
         return "recorded with different plane values"
     if (recorded.spectrum_id, recorded.data_shape, recorded.source_files) != (
@@ -255,11 +254,7 @@ class DatasetFitting(QtCore.QObject):
         if self.current:
             return Comparison(result)
         recorded = result.inputs.snapshot
-        working = replace(
-            self.snapshot(recorded),
-            source_plane_indices=tuple(self.workspace.dataset.spectra.source_plane_indices),
-        )
-        reason = comparison_mismatch(recorded, working)
+        reason = comparison_mismatch(recorded, self.snapshot(recorded))
         if reason:
             return Comparison(reason=f"Run {result.run_id[:8]} was {reason}")
         fitted = {p.id: p for p in completion.working_peaks}

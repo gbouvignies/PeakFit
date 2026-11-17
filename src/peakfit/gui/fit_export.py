@@ -70,7 +70,7 @@ def export_fit_result(
             staged,
             WriterConfig(formats=tuple(settings.formats), precision=17),
             metadata=metadata,
-            # The desktop fit uses every plane, so its snapshot describes the spectrum.
+            # The snapshot describes the whole spectrum, excluded planes included.
             data_shape=snapshot.data_shape,
             spectral_parameters=[json.loads(axis) for axis in snapshot.spectral_parameters],
             plane_values=np.asarray(snapshot.plane_values),

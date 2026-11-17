@@ -1191,11 +1191,11 @@ def test_fit_is_disabled_with_the_preparation_reason(workspace):
     w, fitting = workspace, workspace.fitting
     wait_until(lambda: fitting.prepared is not None)
     invalid = fitting.configuration.model_copy(deep=True)
-    invalid.exclude_planes = [1]
+    invalid.exclude_planes = [0, 1, 2]  # every plane: nothing left to fit
     w.configure(invalid)
     assert fitting.prepared is None
     wait_until(lambda: bool(fitting.blocked))
-    assert "exclusions are unsupported" in fitting.blocked
+    assert "Every plane is excluded" in fitting.blocked
     assert not w.fit_button.isEnabled()
     assert fitting.blocked in w.fit_button.toolTip()
     assert w.panel.model_page.blocked.isVisible()
@@ -1528,7 +1528,7 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
     assert "next fit" in w.panel.starts_note.text()
     # Without a current preparation the section says why instead of showing stale values.
     invalid = fitting.configuration.model_copy(deep=True)
-    invalid.exclude_planes = [1]
+    invalid.exclude_planes = [0, 1, 2]  # every plane: nothing left to fit
     w.configure(invalid)
     wait_until(lambda: bool(fitting.blocked))
     w._update_inspector()

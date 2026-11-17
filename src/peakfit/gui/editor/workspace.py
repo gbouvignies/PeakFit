@@ -40,7 +40,12 @@ from peakfit.gui.editor.unexplained import (
     unexplained_regions,
 )
 from peakfit.gui.failures import failure_details
-from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
+from peakfit.gui.fit_display import (
+    ModelPlanes,
+    dataset_model_plane,
+    normalized_residual,
+    not_fitted,
+)
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project import Analysis, dataset_header
@@ -1557,6 +1562,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             return
         result, plane, threshold = self.fitting.comparison.result, self.canvas.plane, key[2]
         assert result is not None
+        if not_fitted(result, plane):
+            return
         observed = self.dataset.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.dataset.spectra.spectral_params]
         cached = self.model_planes.get(result.run_id, plane)
@@ -1618,6 +1625,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         comparison = fitting.comparison
         if key is None:
             show(button, False, f"Unavailable: {comparison.reason}", [], note)
+            return
+        if comparison.result is not None and (excluded := not_fitted(comparison.result, plane)):
+            show(button, False, f"Unavailable: {excluded}", [], note)
             return
         if comparison.historical:
             # The residual is the run's; distances are to today's working peaks.

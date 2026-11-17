@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.algorithms.clustering import prepare_clusters
+from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.algorithms.noise_power import check_noise_power
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import apply_constraints
@@ -37,6 +38,9 @@ class FitInputSnapshot:
     Spectrum identity is local to the loaded in-memory dataset. The viewer never
     edits its samples; replacing the dataset creates a new identity. Mutable
     metadata, plane coordinates, configuration, and working peaks are copied.
+    ``data_shape`` and ``plane_values`` describe the whole measured spectrum;
+    ``source_plane_indices`` are the planes fitted, column for column with the
+    amplitudes (every plane but those the configuration excludes).
     """
 
     spectrum_id: int
@@ -48,6 +52,16 @@ class FitInputSnapshot:
     contour_level: float
     source_files: tuple[tuple[str, str], ...] = ()
     source_plane_indices: tuple[int, ...] = ()
+
+    @property
+    def fitted_shape(self) -> tuple[int, ...]:
+        """The shape of the fitted planes: one per amplitude column."""
+        return (len(self.source_plane_indices), *self.data_shape[1:])
+
+    @property
+    def fitted_plane_values(self) -> tuple[float, ...]:
+        """The value of each fitted plane, column for column with the amplitudes."""
+        return tuple(self.plane_values[i] for i in self.source_plane_indices)
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,13 +114,15 @@ class PreparedDatasetFit:
     snapshot: FitInputSnapshot
     identities: tuple[PeakIdentity, ...]
     lineshapes: tuple[AxisLineshape, ...]  # each spectral axis's resolved model
-    noise: float
+    noise: float  # the statistical noise the fit uses: the configured value, else the estimate
     noise_model: NoiseModel  # the processing-derived noise correlation, or why not
     contour_level: float
     clusters: tuple[Cluster, ...]
     parameters: Parameters
     # None only for runs recorded before continuation provenance was retained.
     continuation: Continuation | None = None
+    # The noise estimated from the fitted planes, also when a configured value replaces it.
+    estimated_noise: float | None = None
 
 
 def prepare_dataset_fit(
@@ -130,10 +146,13 @@ def prepare_dataset_fit(
         else PeakFitConfig(fitting=FitConfig(refine_iterations=2))
     )
     _validate_constraint_targets(settings)
-    _validate_inputs(spectra, peaks, settings)
+    _validate_inputs(spectra, peaks)
+    # The fit sees only the planes not excluded, exactly as ``peakfit fit`` does.
+    whole, spectra = spectra, spectra.excluding_planes(settings.exclude_planes)
     lineshapes = axis_lineshapes(settings.fitting, spectra)
     identities, scientific_peaks = _working_model(spectra, peaks, lineshapes)
     noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, settings)
+    estimated = noise if settings.noise_level is None else _estimate(spectra)
     included = [peak.name for cluster in clusters for peak in cluster.peaks]
     if len(included) != len(identities) or set(included) != {i.engine_name for i in identities}:
         missing = [i.assignment for i in identities if i.engine_name not in included]
@@ -166,10 +185,10 @@ def prepare_dataset_fit(
         parameters.update(initial)
     return PreparedDatasetFit(
         FitInputSnapshot(
-            id(spectra),
-            tuple(spectra.data.shape),
-            tuple(axis.model_dump_json() for axis in spectra.params),
-            tuple(float(value) for value in spectra.z_values),
+            id(whole),
+            tuple(whole.data.shape),
+            tuple(axis.model_dump_json() for axis in whole.params),
+            tuple(float(value) for value in whole.z_values),
             peaks,
             settings.model_dump_json(),
             float(threshold),
@@ -189,7 +208,16 @@ def prepare_dataset_fit(
             incompatible,
             tuple((p.id, reasons[p.id]) for p in peaks if p.id in reasons),
         ),
+        estimated,
     )
+
+
+def _estimate(spectra: Spectra) -> float | None:
+    """The noise the fitted planes would give, shown beside a configured value; None if none."""
+    try:
+        return prepare_noise_level(None, spectra)
+    except ValueError:
+        return None
 
 
 def _incompatible(source, settings, lineshapes, spectra) -> str:
@@ -289,14 +317,8 @@ def _validate_constraint_targets(settings: PeakFitConfig) -> None:
         )
 
 
-def _validate_inputs(
-    spectra: Spectra, peaks: tuple[WorkingPeak, ...], settings: PeakFitConfig
-) -> None:
-    """Reject inputs whose indexing or configuration would misrepresent the dataset fit."""
-    if settings.exclude_planes:
-        raise ValueError(
-            "The desktop dataset fit includes every plane; exclusions are unsupported."
-        )
+def _validate_inputs(spectra: Spectra, peaks: tuple[WorkingPeak, ...]) -> None:
+    """Reject inputs whose indexing would misrepresent the dataset fit."""
     if len({peak.id for peak in peaks}) != len(peaks):
         raise ValueError("Working peaks must have unique internal identities.")
     if (
