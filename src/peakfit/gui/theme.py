@@ -308,7 +308,7 @@ QPushButton#primary:hover:enabled {{ background: {t.accent}; }}
 QPushButton#primary:disabled {{ background: {t.divider}; border-color: {t.divider};
     color: {t.disabled}; }}
 QPushButton#menu {{ padding: 0 8px 0 10px; }}
-QPushButton#menu[compact="true"] {{ padding: 0 4px 0 6px; }}
+QPushButton#menu[compact="true"] {{ padding: 0 4px 0 5px; font-size: {s.small}px; }}
 QPushButton#segment {{ border-radius: 0; border-right-width: 0; padding: 0 9px;
     color: {t.secondary}; background: {t.panel}; }}
 QPushButton#segment[edge="first"] {{ border-top-left-radius: 5px;

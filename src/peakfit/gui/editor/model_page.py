@@ -135,10 +135,10 @@ def _cell(*items: QtWidgets.QWidget | QtWidgets.QLayout) -> QtWidgets.QVBoxLayou
     return cell
 
 
-def _line(*widgets: QtWidgets.QWidget) -> QtWidgets.QHBoxLayout:
+def _line(*widgets: QtWidgets.QWidget, spacing: int = 4) -> QtWidgets.QHBoxLayout:
     """Widgets side by side, left-aligned."""
     line = QtWidgets.QHBoxLayout()
-    line.setSpacing(4)
+    line.setSpacing(spacing)
     for widget in widgets:
         line.addWidget(widget)
     line.addStretch(1)
@@ -266,7 +266,7 @@ class ModelPage(QtWidgets.QWidget):
                 (
                     self.titles[Setting.NOISE],
                     _cell(
-                        _line(self.noise, self.noise_value, self.noise_mode),
+                        _line(self.noise, self.noise_value, self.noise_mode, spacing=2),
                         self.noise_estimate,
                         self.errors[Setting.NOISE],
                     ),
@@ -274,7 +274,7 @@ class ModelPage(QtWidgets.QWidget):
                 (
                     self.titles[Setting.THRESHOLD],
                     _cell(
-                        _line(self.threshold, self.level_value, self.threshold_mode),
+                        _line(self.threshold, self.level_value, self.threshold_mode, spacing=2),
                         self.level,
                         self.errors[Setting.THRESHOLD],
                     ),

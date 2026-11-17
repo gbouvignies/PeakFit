@@ -6,16 +6,18 @@ differs from the active run's.
 """
 
 import math
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 from builders import two_cluster_dataset
-from PySide6 import QtWidgets
+from PySide6 import QtGui, QtWidgets
 
 from peakfit.engine.domain.constraints import ParameterConstraint
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo
 from peakfit.gui.editor.constraints import rule_text
+from peakfit.gui.editor.labels import LABEL_WIDTH
 from peakfit.gui.editor.model_page import ModelPage, RunSettings, Setting
 from peakfit.io.config import load_config
 
@@ -364,17 +366,72 @@ def test_excluded_planes_read_as_plane_numbers(tmp_path):
     assert _plain(page.planes.text()) == "1 of 3 fitted · numbered 1–3"
 
 
-def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, preview):
-    config = _toml(tmp_path, '[parameters.defaults]\n"2N-H.*.*" = { vary = false }')
-    page, _emitted = _page(config, preview)
+@pytest.fixture(params=["system", "DejaVu Sans"])
+def font(request, monkeypatch):
+    """The platform's UI font, and DejaVu Sans as Linux (and so CI) renders "Sans Serif"."""
+    if request.param == "system":
+        yield request.param
+        return
+    from matplotlib import get_data_path  # noqa: PLC0415  # ships DejaVu Sans
+
+    fonts = Path(get_data_path()) / "fonts/ttf"
+    for name in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
+        QtGui.QFontDatabase.addApplicationFont(str(fonts / name))
+    system = QtGui.QFontDatabase.systemFont
+
+    def dejavu(which):
+        chosen = system(which)
+        chosen.setFamily(request.param)
+        return chosen
+
+    monkeypatch.setattr(QtGui.QFontDatabase, "systemFont", dejavu)
+    QtGui.QFont.insertSubstitution("Sans Serif", request.param)  # as fontconfig maps it
+    yield request.param
+    QtGui.QFont.removeSubstitutions("Sans Serif")
+
+
+def _row_widths(page) -> dict[str, int]:
+    """The width each row of the page needs, in logical px, to name the widest."""
+
+    def line_of(widget):
+        lines = page.findChildren(QtWidgets.QHBoxLayout)
+        return next(line for line in lines if line.indexOf(widget) >= 0)
+
+    titles = [title.sizeHint().width() for title in page.titles.values() if title.isVisible()]
+    labels = max(LABEL_WIDTH, *titles) + themes.SPACE_S
+    rows = {
+        "lineshape table": page.axes.minimumSizeHint().width(),
+        "statistical noise": labels + line_of(page.noise_mode).minimumSize().width(),
+        "threshold": labels + line_of(page.threshold_mode).minimumSize().width(),
+        "planes": labels + line_of(page.excluded).minimumSize().width(),
+        "constraints": page.constraints.minimumSizeHint().width(),
+    }
+    rows |= {
+        f"rule {i + 1}": r.minimumSizeHint().width() for i, r in enumerate(page.constraints.rules)
+    }
+    return rows
+
+
+def _widest_state(page) -> None:
+    """Each new setting at its widest: long values, an exclusion, rules and a new rule."""
     _manual_noise(page, "1.234 × 10⁻⁵")
     _level(page, "1.234 × 10⁵")
     _exclude(page, "1, 41–42")  # invalid here: three planes; its message wraps
     _rule(page, "F3", "eta", "0.5", "0.25", "0.75", hold=True)
     page.constraints.add_rule.click()
-    # Offscreen fonts run wider than macOS's: the scrolling inspector (10 px less) is
-    # checked natively, by tools/capture_model_settings.py.
-    assert page.minimumSizeHint().width() <= INSPECTOR_CONTENT
+
+
+def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, preview, font):
+    page, _emitted = _page(
+        _toml(tmp_path, '[parameters.defaults]\n"2N-H.*.*" = { vary = false }'), preview
+    )
+    _widest_state(page)
+    # The scrolling inspector (10 px less) is checked natively by the capture tool.
+    rows = _row_widths(page)
+    widest = max(rows, key=lambda row: rows[row])
+    assert page.minimumSizeHint().width() <= INSPECTOR_CONTENT, (
+        f"{font}: the {widest} row needs {rows[widest]} px of {INSPECTOR_CONTENT}; {rows}"
+    )
 
 
 @pytest.mark.parametrize("pattern", ["*.F2.cs", "*.*.phase", "*"])
@@ -451,12 +508,16 @@ def large_font():
 
 
 @pytest.mark.usefixtures("large_font")
-def test_every_new_setting_fits_the_widened_inspector_at_a_large_system_font(tmp_path, preview):
-    config = _toml(tmp_path, '[parameters.defaults]\n"2N-H.*.*" = { vary = false }')
-    page, _emitted = _page(config, preview)
-    _manual_noise(page, "1.234 × 10⁻⁵")
-    _level(page, "1.234 × 10⁵")
-    _exclude(page, "1, 41–42")
-    _rule(page, "F3", "eta", "0.5", "0.25", "0.75", hold=True)
+def test_every_new_setting_fits_the_widened_inspector_at_a_large_system_font(
+    tmp_path, preview, font
+):
+    page, _emitted = _page(
+        _toml(tmp_path, '[parameters.defaults]\n"2N-H.*.*" = { vary = false }'), preview
+    )
+    _widest_state(page)
     content = themes.text_room(320) - 2 * themes.SPACE_L
-    assert page.minimumSizeHint().width() <= content
+    rows = _row_widths(page)
+    widest = max(rows, key=lambda row: rows[row])
+    assert page.minimumSizeHint().width() <= content, (
+        f"{font}: the {widest} row needs {rows[widest]} px of {content}; {rows}"
+    )

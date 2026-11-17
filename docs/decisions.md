@@ -1739,3 +1739,7 @@ Short records of non‑obvious design choices and trade‑offs.
   caption states the numbering. On an excluded plane, “No model on this plane”
   sits in the plot's header strip, never over the contours. The analysis header
   drops its “ANALYSIS” overline: the Run | Model switch says what the page is.
+  The source menu is caption-sized, 2 px from its value: in CI's DejaVu Sans the
+  manual noise row needed 293 px of 288; it needs 285 now (271 natively). The width
+  test also runs under DejaVu Sans, as Linux renders the UI font, and names the
+  widest row when it fails.
