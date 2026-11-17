@@ -185,9 +185,11 @@ with code 1".
 `tools/capture_gui_review.py` is such a script: it regenerates the figures and
 `measurements.json` of the [GUI product review](validation/gui-product-review.md),
 whose test checks that the note quotes the record.
-`tools/capture_run_model_pages.py` and `tools/capture_model_settings.py` are two
-more, for the Run and Model pages ([record](validation/gui-run-model-pages.md))
-and the W4 Model settings ([record](validation/gui-model-settings.md)).
+`tools/capture_run_model_pages.py`, `tools/capture_model_settings.py` and
+`tools/capture_peak_parameters.py` are three more, for the Run and Model pages
+([record](validation/gui-run-model-pages.md)), the W4 Model settings
+([record](validation/gui-model-settings.md)) and the Peak page's Parameters
+([record](validation/gui-peak-parameters.md)).
 `tools/validate_gui_plane_exclusion.py` checks that a desktop fit excluding planes
 equals `peakfit fit --exclude` bit for bit on the bundled example.
 

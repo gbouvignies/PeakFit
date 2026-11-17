@@ -109,6 +109,14 @@ during a fit.
 **Parameter constraint**:
 A bound or fixed/vary rule applied to selected fitting parameters.
 
+**Own constraint**:
+A parameter constraint of one peak alone (a start, bounds, a position window or
+Hold), overriding the axis-wide rules for that peak. In the desktop editor it
+belongs to the working peak, by stable ID, not to its assignment, so it follows the
+peak through renames and is never shared by peaks of the same assignment; the
+configuration writes it as `[parameters.peaks."<name>"]`.
+_Avoid_: per-assignment constraint
+
 **Amplitude**:
 The fitted contribution of one peak in one plane.
 

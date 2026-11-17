@@ -26,10 +26,11 @@ from peakfit.gui.editor.axis_table import AxisInfo
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
-from peakfit.gui.editor.inspector import Inspector, Page, StartRow, parameter_order
+from peakfit.gui.editor.inspector import Inspector, Page, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
 from peakfit.gui.editor.model_page import RunSettings
 from peakfit.gui.editor.navigator import Navigator
+from peakfit.gui.editor.peak_parameters import NOTE, ParameterRow
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.run_page import submitted_rows
@@ -48,6 +49,7 @@ from peakfit.gui.fit_display import (
     normalized_residual,
     not_fitted,
 )
+from peakfit.gui.fitting import parameter_title
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project import Analysis, dataset_header
@@ -55,7 +57,7 @@ from peakfit.gui.spectrum import display_position
 
 if TYPE_CHECKING:
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
-    from peakfit.gui.peaks import WorkingPeak
+    from peakfit.gui.peaks import PeakLimits, WorkingPeak
     from peakfit.gui.spectrum import Dataset
 
 
@@ -230,6 +232,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         model.changed.connect(self.configure)
         model.invalid_changed.connect(lambda _text: self.render_fitting())
         model.regions_toggled.connect(self.canvas.set_regions_visible)
+        self.panel.parameters.changed.connect(self.constrain)
+        self.panel.parameters.invalid_changed.connect(lambda _text: self.render_fitting())
         self.panel.page_chosen.connect(self.choose_page)
         # The page the user chose, until a new run or failed attempt brings Run forward.
         self._page: Page | None = None
@@ -470,6 +474,11 @@ class EditorWorkspace(QtWidgets.QWidget):
     def show_model_page(self) -> None:
         """Clear the selection and open the inspector at the Model page."""
         self._open_page(Page.MODEL)
+
+    def show_limit_problem(self, identity: str) -> None:
+        """Select the peak whose own limit blocks the fit, its Parameters open."""
+        self.select_peak(identity, center=True)
+        self.panel.parameters_toggle.setChecked(True)
 
     def show_run_page(self) -> None:
         """Clear the selection and open the inspector at the Run page."""
@@ -925,41 +934,72 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Each spectral axis's name (``¹⁵N F2``) by the engine's label (``F2``)."""
         return formatting.axis_names(self.dataset.spectra.spectral_params)
 
-    def _starting_values(self) -> tuple[list[StartRow] | None, str]:
-        """The selected peak's parameters as the current preparation would submit them."""
+    def _parameter_rows(self) -> tuple[list[ParameterRow] | None, str]:
+        """The selected peak's parameters as the current preparation would submit them.
+
+        A limit of the peak's own on a parameter the model lacks is listed too, with
+        the preparation's reason, so it can be reset where it is shown.
+        """
         fitting = self.fitting
         prepared = fitting.prepared
-        if prepared is None:
+        peak = next((p for p in self.peaks if p.id == self.selected_id), None)
+        if prepared is None or peak is None:
             return None, fitting.blocked or "Preparing the current settings…"
-        engine = next(
-            (i.engine_name for i in prepared.identities if i.working_id == self.selected_id), None
-        )
+        engine = next((i.engine_name for i in prepared.identities if i.working_id == peak.id), None)
+        spectra = self.dataset.spectra
         axes = {
             get_dimension_label(index): formatting.axis_name(a)
-            for index, a in enumerate(self.dataset.spectra.spectral_params)
+            for index, a in enumerate(spectra.spectral_params)
         }
-        rows: list[StartRow] = []
+        settings = fitting.configuration.parameters
+        problems = {p.key: p.reason for p in prepared.problems if p.working_id == peak.id}
+        rows: dict[str, ParameterRow] = {}
+        for parameter in prepared.parameters.values():
+            identifier = parameter.param_id
+            if identifier is None or identifier.peak_name != engine:
+                continue
+            axis = identifier.axis or ""
+            key = f"{axis}.{identifier.label}"
+            window = settings.position_windows.get(axis) or settings.position_window
+            rows[key] = ParameterRow(
+                key,
+                parameter_title(identifier.label, axes.get(axis) or axis),
+                parameter.unit,
+                parameter.value,
+                parameter.min,
+                parameter.max,
+                parameter.vary,
+                window if identifier.label == "cs" else None,
+                problems.get(key, ""),
+            )
+        for key, _limit in peak.limits:
+            if key not in rows:
+                axis, _, kind = key.partition(".")
+                title = parameter_title(kind, axes.get(axis) or axis)
+                rows[key] = ParameterRow(
+                    key, title, "", math.nan, math.nan, math.nan, True, None, problems.get(key, "")
+                )
         # As in Fitted: positions before widths, the horizontal (direct) axis first.
         order = parameter_order(list(reversed(axes)))
-        parameters = sorted(
-            (
-                p
-                for p in prepared.parameters.values()
-                if p.param_id is not None and p.param_id.peak_name == engine
-            ),
-            key=lambda p: order(p.param_id.axis or "", p.param_id.label),
+        ordered = sorted(rows.values(), key=lambda r: order(*r.key.split(".")))
+        return ordered, NOTE
+
+    def _recorded_limits(self) -> tuple[str, PeakLimits] | None:
+        """The active run's short ID and the selected peak's own limits in it."""
+        result = self.fitting.result
+        if result is None or self.selected_id is None:
+            return None
+        recorded = next(
+            (p.limits for p in result.inputs.snapshot.peaks if p.id == self.selected_id), ()
         )
-        for parameter in parameters:
-            identifier = parameter.param_id
-            assert identifier is not None
-            title = axes.get(identifier.axis or "", identifier.axis or "")
-            kind = {"cs": "δ", "lw": "LW"}.get(identifier.label, identifier.label)
-            start, low, high = (
-                formatting.quantity(v, parameter.unit)
-                for v in (parameter.value, parameter.min, parameter.max)
-            )
-            rows.append((f"{kind} {title}", parameter.unit, start, low, high, parameter.vary))
-        return rows, "For the next fit, from the working position and model settings."
+        return result.run_id[:8], recorded
+
+    def constrain(self, identity: str, limits: PeakLimits) -> None:
+        """Commit one peak's own limits as one undoable edit; a run becomes Outdated."""
+        if self.fitting.busy:
+            return
+        self.edits.constrain(identity, limits)
+        self._refresh()
 
     def _run_changes(self) -> tuple[str, list[tuple]]:
         """What changed since the run this one was refitted from, as page entries."""
@@ -1004,7 +1044,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._update_focus()
         self.canvas.set_regions(*self._fitting_regions())
         self.panel.model_page.show_state(
-            fitting.configuration, fitting.prepared, fitting.blocked, self._run_settings()
+            fitting.configuration,
+            fitting.prepared,
+            fitting.blocked,
+            self._run_settings(),
+            own=sum(bool(p.limits) for p in self.peaks),
         )
         plane_values = (
             tuple(float(v) for v in spectra.z_values) if self.dataset.has_plane_values else None
@@ -1033,7 +1077,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             plane=plane,
         )
         if self.selected_id is not None:
-            self.panel.show_starts(*self._starting_values())
+            self.panel.show_parameters(*self._parameter_rows(), self._recorded_limits())
         x, y = (formatting.axis_name(a) for a in (self.canvas.x_axis, self.canvas.y_axis))
         planes = spectra.data.shape[0]
         flagged = 0
@@ -1312,7 +1356,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.undo_action.setEnabled(self.edits.can_undo and not self.pending and not busy)
         self.redo_action.setEnabled(self.edits.can_redo and not self.pending and not busy)
         self.delete_action.setEnabled(self.selected_id is not None and not busy)
-        blocked = fitting.blocked or self.panel.model_page.invalid
+        blocked = fitting.blocked or self.panel.model_page.invalid or self.panel.parameters.invalid
         self.fit_button.setEnabled(
             bool(self.peaks) and not busy and not self.inputs_loading and not blocked
         )
@@ -1333,6 +1377,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         else:
             self.edits.undo()
         self.panel.model_page.discard_drafts()
+        self.panel.parameters.discard_drafts()
         self._refresh()
 
     def start_placing(self) -> None:

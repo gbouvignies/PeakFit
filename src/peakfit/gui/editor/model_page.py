@@ -100,9 +100,12 @@ class ScaledValidator(QtGui.QValidator):
         return state, text, pos
 
 
-def constraints_text(parameters: ParameterConfig, names: dict[str, str]) -> str:
-    """Axis-wide and per-peak constraints in one line, or "None"."""
-    if parameters == ParameterConfig():
+def constraints_text(parameters: ParameterConfig, names: dict[str, str], own: int = 0) -> str:
+    """Axis-wide constraints and the count of peaks with their own, in one line, or "None".
+
+    ``own`` peaks have limits of their own, kept on the working peaks.
+    """
+    if parameters == ParameterConfig() and not own:
         return "None"
     parts = []
     if parameters.position_window is not None:
@@ -111,8 +114,8 @@ def constraints_text(parameters: ParameterConfig, names: dict[str, str]) -> str:
     parts += [f"{names.get(axis, axis)} ± {formatting.ppm(w)} ppm" for axis, w in windows.items()]
     if parameters.defaults.patterns:
         parts.append(formatting.count(len(parameters.defaults.patterns), "rule"))
-    if parameters.peaks:
-        parts.append(formatting.count(len(parameters.peaks), "peak") + " constrained")
+    if own:
+        parts.append(f"{formatting.count(own, 'peak')} with {'its' if own == 1 else 'their'} own")
     return " · ".join(parts) or "None"
 
 
@@ -400,9 +403,13 @@ class ModelPage(QtWidgets.QWidget):
         preview: PreparedDatasetFit | None,
         error: str,
         run: RunSettings | None = None,
+        own: int = 0,
     ) -> None:
-        """Reflect working settings, their preparation and the active run's settings."""
-        key = (configuration.model_dump_json(), id(preview), error, run)
+        """Reflect working settings, their preparation and the active run's settings.
+
+        ``own`` working peaks have limits of their own, edited on their Peak pages.
+        """
+        key = (configuration.model_dump_json(), id(preview), error, run, own)
         if key == self._key:
             return
         self._key = key
@@ -439,7 +446,10 @@ class ModelPage(QtWidgets.QWidget):
             self.constraints.show_parameters(
                 configuration.parameters, tuple(preview.parameters) if preview else None
             )
-        self.constraints_summary.setText(constraints_text(configuration.parameters, self._names()))
+            self.constraints.show_own(own)
+        self.constraints_summary.setText(
+            constraints_text(configuration.parameters, self._names(), own)
+        )
         self.blocked.setText(f"Fit unavailable: {error}" if error else "")
         self.blocked.setVisible(bool(error))
         for setting, title in self.titles.items():

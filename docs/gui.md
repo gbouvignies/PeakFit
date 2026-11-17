@@ -200,8 +200,9 @@ applied in order so a later rule overrides an earlier one. A rule waits, with a
 hint, until it sets something. An imported axis-wide rule on another parameter
 (`*.F2.cs`, `*.*.phase`, `*`) is shown as written, with its start, range and Hold
 editable; an imported rule for named peaks is shown as written and must be removed
-before a desktop fit. Per-peak constraints belong to their peak; the desktop fit
-does not apply them yet, and the page says so. Then **Optimizer limits** (collapsed:
+before a desktop fit. A peak's own constraints are set on its Peak page
+(**Parameters**); the section counts the peaks that have them (“2 peaks also have
+constraints of their own”), and so does its summary. Then **Optimizer limits** (collapsed:
 solver, iteration limit, tolerance). Values use × 10ⁿ, never e notation, and
 accept plain or scientific entry (1.5e5, 1.5 × 10⁵); the tolerance reads
 1 × 10⁻⁸. A typed value that cannot be fitted (a noise or level that is not
@@ -284,8 +285,8 @@ refitted from (named in its first row, **Parent run**), read from both recorded 
 Peaks are matched by stable ID, so renamed peaks still compare.
 
 - **Clusters** first: each cluster whose numerical warnings or highlights changed,
-  that contains a peak moved or added since the parent run (“Edited: …”), or whose
-  members were grouped differently. Clusters with newly reported warnings lead and
+  that contains a peak moved, added or given other constraints of its own since the
+  parent run (“Edited: …”), or whose members were grouped differently. Clusters with newly reported warnings lead and
   are drawn in the warning style, then those whose warnings are no longer
   reported, then edited ones, then highlights and regroupings. Warnings include the
   decomposition marks of the amplitude profile, as in the cluster list:
@@ -516,12 +517,36 @@ line, **Amplitude**, follows the current plane: the recorded amplitude ± its
 marginal σ, the uncertainty of that absolute amplitude including the lineshape
 uncertainty (`intensity_err_marginal`), as the caption under it says, starting with
 the plane. Its power of ten is in its name, as a unit would be: Amplitude (× 10⁹).
-**Starting values and bounds** (collapsed) is the same kind of table for the next
-fit: start, lower and upper bound per parameter (“fixed” in place of the bounds),
-from the current preparation of the working position and model settings. It stays
-separate from Fitted because it describes a different run. The values are
-read-only; while preparation runs or fails the section says so rather than
-showing old values.
+**Parameters** (collapsed) holds the next fit's starts and bounds and the peak's own
+constraints. Each parameter, positions then linewidths, the horizontal axis first,
+has a line with its name, **Hold** and ×, then its values: a position reads “at
+8.256 ± [window] ppm”, how far it may move from where the peak is (moving the peak is
+the position editor's); any other parameter reads “start [ ] range [ ] – [ ]” in
+its unit. An empty field shows, greyed, what the Model settings give this peak in the
+current preparation; a value typed there is the peak's own and applies to this peak
+only, as `[parameters.peaks."<name>"]` does for `peakfit fit`. **Hold** shows whether
+the parameter is held; changing it holds this peak's parameter, or fits it against a
+rule that holds it. × resets the parameter to the Model settings. Values accept
+plain or scientific entry, like the Model page's. The title counts the parameters
+set (“Parameters · 2 set for this peak”). Own constraints belong to the working
+peak, not to its assignment: they follow it through renames and moves, and two
+peaks of the same assignment have their own; deleting the peak deletes them, and
+Undo restores both. Each committed value is one undoable edit (**Undo constraints
+of G45N-HN**) that marks the run Outdated; once a run exists, a parameter whose own
+constraint differs from the one the run used is marked • on its name, with what the
+run used in the tooltip, and so is the section's title. A peak whose own constraints
+changed starts the next fit from the configured defaults (“constraints changed
+since run 5d7b4768”), as a moved peak does. A typed value that cannot be used (not a
+number, an empty range, a start outside the range typed beside it, a window that is
+not positive) is explained under its parameter, outlines its fields, keeps the
+committed value and disables **Fit** with the same reason until it is corrected or
+the peak is left. A committed constraint that cannot be fitted as given (a start
+outside the range the settings and the peak's own bounds give together, an empty
+range, a parameter the current lineshape lacks) is explained under its parameter
+and disables **Fit** with the peak's name; Fit then selects that peak with its
+Parameters open. `peakfit fit` would move such a start to its bound without saying
+so. While preparation runs or fails the section shows no values rather than old
+ones.
 
 **Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
 the active run's profiles in the centre, one tile per cluster, in the cluster list's

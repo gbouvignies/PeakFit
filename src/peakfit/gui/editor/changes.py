@@ -52,7 +52,7 @@ class ClusterChange:
     regrouped_from: tuple[str, ...]  # empty when the members are exactly the same
     before: tuple[str, ...]  # "▲ Uncertainty unreliable", "◇ Linewidth outlier", …
     now: tuple[str, ...]
-    edited: tuple[str, ...] = ()  # assignments moved or added since the parent run
+    edited: tuple[str, ...] = ()  # assignments moved, added or constrained since the parent
     measures: tuple[Measures, Measures] | None = None  # before, after; when comparable
     not_compared: str = ""  # why the recorded measures are not compared
     new: bool = False  # every member was added since the parent run: nothing before
@@ -159,14 +159,19 @@ def _comparison(
 
 
 def _edited(active: DatasetFitResult, parent: DatasetFitResult) -> set[str]:
-    """Working IDs moved or added since the parent run, as the active run recorded them."""
+    """Working IDs moved, added or given other own constraints since the parent run.
+
+    As the active run recorded them: each started from the configured defaults.
+    """
     continuation = active.inputs.continuation
     if continuation is None or continuation.run_id != parent.run_id:
         return set()
     return {
         identity
         for identity, reason in continuation.reasons
-        if reason.startswith(("moved since run", "added since run"))
+        if reason.startswith(
+            ("moved since run", "added since run", "constraints changed since run")
+        )
     }
 
 

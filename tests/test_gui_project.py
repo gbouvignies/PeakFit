@@ -32,7 +32,7 @@ from peakfit.gui.editor.profile import PeakProfile, peak_profile
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_positions import continuation_source, dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
-from peakfit.gui.peaks import WorkingEdits
+from peakfit.gui.peaks import ParameterLimit, WorkingEdits
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
 from peakfit.gui.project_results import (
@@ -1460,3 +1460,45 @@ def test_a_run_recorded_before_the_rule_reopens_and_exports_as_recorded(collinea
     path = export_fit_result(result, tmp_path / "old", completion=recorded)
     _, _, context = read_scientific(path / "scientific.npz")
     assert context["coordinate_table"]["peaks"][flagged]["adoption_status"] == "adopted_fitted"
+
+
+def test_peaks_own_limits_reopen_with_their_peaks_and_the_run(tmp_path, monkeypatch):
+    """A peak's own limits are saved with the working peak and with the run that used them."""
+    spectra, peaks, config, _prepared = two_cluster_dataset()
+    limits = (("F3.lw", ParameterLimit(lower=5.0, upper=80.0, vary=None)),)
+    constrained = (replace(peaks[0], limits=limits), *peaks[1:])
+    prepared = prepare_dataset_fit(spectra, constrained, config)
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    completion = dataset_completion(
+        result, prepared.snapshot, submitted_revision=0, manual_revision=0
+    )
+    edited = (replace(completion.working_peaks[0], limits=()), *completion.working_peaks[1:])
+    source = tmp_path / "source.ft2"
+    source.write_bytes(b"spectrum stand-in")
+    record = json.dumps(
+        {"path": str(source), "checksum_sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+    )
+    sources = (("spectrum", record),)
+    snapshot = replace(result.inputs.snapshot, source_files=sources)
+    result = replace(result, inputs=replace(result.inputs, snapshot=snapshot))
+    completion = replace(completion, result=result)
+    dataset = Dataset(source, spectra, edited, sources, True, 0.01)
+    analysis = Analysis(
+        dataset,
+        dataset_header(dataset),
+        edited,
+        config.model_dump_json(),
+        1,
+        (completion,),
+        {"plane": 0},
+    )
+    path = save_analysis(analysis, tmp_path / "limits.peakfit")
+    monkeypatch.setattr(
+        project, "read_dataset", lambda _path, **_kw: (_ for _ in ()).throw(OSError("missing"))
+    )
+    loaded = open_analysis(path)
+    assert loaded.peaks == edited  # the working peak, its limit removed since the run
+    reopened = loaded.completion.result.inputs
+    assert reopened.snapshot.peaks[0].limits == limits
+    assert reopened.engine_configuration == prepared.engine_configuration
+    assert not loaded.current

@@ -1,0 +1,677 @@
+{
+  "body_px": 13,
+  "captures": [
+    {
+      "file": "01-parameters-as-loaded-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-parameters-as-loaded-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-parameters-as-loaded-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-parameters-as-loaded-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "02-own-constraints-set-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "02-own-constraints-set-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "02-own-constraints-set-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "02-own-constraints-set-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-invalid-draft-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "invalid": "2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-invalid-draft-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "invalid": "2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-invalid-draft-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "invalid": "2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-invalid-draft-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "invalid": "2N-H: LW H F3: The range 60–40 Hz is empty. Make the lower bound smaller.",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "04-start-outside-range-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "invalid": "",
+      "blocked": "2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "04-start-outside-range-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "invalid": "",
+      "blocked": "2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "04-start-outside-range-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "invalid": "",
+      "blocked": "2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "04-start-outside-range-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: 2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "invalid": "",
+      "blocked": "2N-H: LW H F3: Start 500 Hz is outside its range 5–200 Hz. Change the start or the range.",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-model-page-counts-own-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-model-page-counts-own-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-model-page-counts-own-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-model-page-counts-own-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "06-run-records-own-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "06-run-records-own-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        320,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "06-run-records-own-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "06-run-records-own-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        320,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "07-after-fit-no-difference-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "07-after-fit-no-difference-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "07-after-fit-no-difference-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "07-after-fit-no-difference-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo edit",
+      "run_line": "Run b4a07dad · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "08-differs-from-run-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak •",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Run b4a07dad · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "08-differs-from-run-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak •",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Run b4a07dad · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "08-differs-from-run-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak •",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Run b4a07dad · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    },
+    {
+      "file": "08-differs-from-run-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "section_min_width": 261,
+      "title": "▾  Parameters · 3 set for this peak •",
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "blocked": "",
+      "undo": "Undo constraints of 2N-H",
+      "run_line": "Run b4a07dad · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": []
+    }
+  ]
+}

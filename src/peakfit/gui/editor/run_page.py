@@ -18,7 +18,9 @@ from peakfit.gui.editor.constraints import rule_text
 from peakfit.gui.editor.labels import InfoButton, Row, clear_layout, label_rows, section
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.model_page import constraints_text, planes_fitted
+from peakfit.gui.editor.peak_parameters import limit_text
 from peakfit.gui.failures import log_path
+from peakfit.gui.fitting import parameter_title
 
 NBSP = "\u00a0"
 
@@ -64,11 +66,20 @@ def submitted_rows(result: DatasetFitResult, names: dict[str, str]) -> list[Row]
             )
         )
     parameters = settings.parameters
-    if parameters != ParameterConfig():
+    own = [p for p in result.inputs.snapshot.peaks if p.limits]
+    if parameters != ParameterConfig() or own:
         rules = [rule_text(p, c) for p, c in parameters.defaults.patterns.items()]
-        rows.append(
-            Row("Constraints", constraints_text(parameters, names), detail="\n".join(rules))
-        )
+        engine = {i.working_id: i.engine_name for i in result.inputs.identities}
+        submitted = result.inputs.parameters
+        for peak in own:
+            for key, limit in peak.limits:
+                axis, _, kind = key.partition(".")
+                title = parameter_title(kind, names.get(axis) or axis)
+                name = f"{engine[peak.id]}.{key}"
+                unit = submitted[name].unit if name in submitted else ""
+                rules.append(f"{peak.name} {title}: {limit_text(limit, unit)}")
+        text = constraints_text(parameters, names, len(own))
+        rows.append(Row("Constraints", text, detail="\n".join(rules)))
     return rows
 
 

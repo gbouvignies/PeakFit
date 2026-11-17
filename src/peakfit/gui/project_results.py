@@ -13,7 +13,7 @@ from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.export import model_records
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import Continuation, FitInputSnapshot, PeakIdentity, PreparedDatasetFit
-from peakfit.gui.peaks import WorkingPeak
+from peakfit.gui.peaks import ParameterLimit, WorkingPeak
 from peakfit.io.config import stored_config
 from peakfit.io.readers.continuation import (
     UnavailableShape,
@@ -26,7 +26,15 @@ from peakfit.shared.exceptions import require_close
 
 def read_peaks(records):
     """Validate stable working identities and exact unfolded coordinates."""
-    peaks = tuple(WorkingPeak(p["id"], p["name"], tuple(p["positions"])) for p in records)
+    peaks = tuple(
+        WorkingPeak(
+            p["id"],
+            p["name"],
+            tuple(p["positions"]),
+            tuple((key, ParameterLimit(**limit)) for key, limit in p["limits"]),
+        )
+        for p in records
+    )
     if len({p.id for p in peaks}) != len(peaks) or any(not p.id for p in peaks):
         raise ValueError("Project peak identities must be unique and nonempty.")
     return peaks

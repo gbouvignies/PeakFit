@@ -11,7 +11,6 @@ from uuid import uuid4
 
 from threadpoolctl import threadpool_limits
 
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
@@ -133,7 +132,9 @@ def compute_dataset_fit(
     progress: Callable[[str], None] = lambda _: None,
 ) -> DatasetFitAttempt:
     """Run all configured passes, including real cross-cluster correction updates."""
-    config = PeakFitConfig.model_validate_json(prepared.snapshot.configuration)
+    if prepared.problems:
+        raise ValueError(prepared.problem_text())
+    config = prepared.engine_configuration
     total = len(prepared.clusters)
     passes = sum(
         step.iterations

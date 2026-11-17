@@ -294,7 +294,7 @@ def after_fit(s: ReviewSession, record: dict[str, Any]) -> None:
     title, value, sigma = (cell.text() for cell in amplitude.cells)
     # Every disclosure open: the whole page.
     toggles = (
-        panel.starts_toggle,
+        panel.parameters_toggle,
         panel.profile.about_toggle,
         panel.about_toggle,
         panel.provenance_toggle,
