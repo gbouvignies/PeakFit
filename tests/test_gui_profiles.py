@@ -183,7 +183,8 @@ def test_a_filtered_profiles_view_never_widens_the_window(qapp, scientific, monk
     window.install_dataset(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.configuration = config.model_copy(deep=True)
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
+    w.fitting.model_seen = True
     publish(w, result)
     w.navigator.filter.setCurrentIndex(w.navigator.filter.count() - 1)
     qapp.processEvents()
