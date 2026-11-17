@@ -122,6 +122,6 @@ been released since it was introduced, so `docs/outputs.md` amends it.
       [1, 10] Hz, is bit-identical too.
     - The doublet-J validation record reruns byte for byte.
     - Evidence is in the PR for #212.
-- **Large J values (W2c, #214).** The doublet model now expresses them, but
-  fitting regions and clustering do not yet cover both components of a large
-  splitting.
+- **Large J values (W2c, #214).** The doublet model expresses them, and since
+  #214 a doublet's fitting region holds both components for any J up to its upper
+  bound ([validation](../validation/large-j.md)).

@@ -1573,3 +1573,25 @@ Short records of non‑obvious design choices and trade‑offs.
   `docs/outputs.md`). An archive or project written before the amendment lacks
   `excluded_planes` and is refused as written by a development build, to be refit.
   A refused archive of another version names the PeakFit version that wrote it.
+
+## 2026-11-17: A doublet's region spans its J range; a J below its linewidth is qualified (#214)
+- **Footprint, undilated.** Clustering marks each peak's centre point, dilated by one
+  point as before, then each doublet's span cs ± J_max/2 as it is. J_max is J's
+  upper bound after the configured constraints, so the region holds both components
+  wherever J settles. The span connects the components' contour islands; it adds no
+  neighbourhood, so a span within the centre's 3 × 3 block changes nothing.
+- **Why not the dilated span.** It was tried first and passed the large-J gates, with
+  more precise SP1 ¹J phases (σ 0.73° against 1.13°). But it also grew small-J
+  regions, which raised the low-SNR J = ½ LW misleading σ(J) rate from 1.3 % to
+  6.7 % (7.8 % on 4000 more realizations). Small couplings had to stay unchanged.
+- **Below LW is a qualification.** A J below its linewidth means J and LW are
+  determined together. The peak page and report say so with ρ(J, LW), read from the
+  recorded C_θ (no format change). It is not a warning: σ(J) stays published where
+  the W2a rule keeps it.
+- **θ order made explicit.** The evaluation builds θ in the shapes' creation order
+  (`lineshape_order`), which readers recompute from the recorded model geometry. It
+  equalled the working order in every fit checked, so archives are unchanged.
+- **Open.** The validation fails two gates, neither from large J: an SP1 ¹H linewidth
+  biased by its contour-selected region (singlets too), and the qualification missing
+  the ~1 % of low-SNR unresolved fits that land on a narrow resolved doublet
+  ([validation](validation/large-j.md)).

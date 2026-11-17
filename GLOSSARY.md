@@ -89,6 +89,17 @@ A J coupling too small against the linewidth, at the data's signal-to-noise
 ratio, for a first-order σ: σ(J)/J exceeds the reliability limit (0.1). Its σ
 and the cluster's profile σ are withheld.
 
+**Below linewidth**:
+The qualification of a fitted J smaller than its peak's fitted linewidth on the same
+axis: the components overlap at half height, so J and the linewidth are determined
+together. It comes with ρ(J, LW) and, where fitted, ρ(J, phase), unless σ(J) is
+withheld. A qualification of the value, not a numerical warning.
+
+**Peak footprint**:
+The points of each spectral axis that a peak's components can reach, marked when
+clustering so that its segment holds them: a singlet's centre point; a doublet's every
+point from cs − J_max/2 to cs + J_max/2, with J_max the J upper bound the fit uses.
+
 **Fitting parameter**:
 A named model quantity that may be fixed, constrained, varied, or computed
 during a fit.
