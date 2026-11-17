@@ -4,6 +4,27 @@ Notable user-facing and architecture changes are recorded here.
 
 ## Unreleased
 
+### Breaking
+
+- Lineshape models are set per spectral axis: a family, an optional doublet and an
+  optional fitted phase on each axis ([ADR 0004](docs/adr/0004-per-axis-lineshape-models.md)).
+    - **TOML:** `[fitting] family` sets every axis; `[fitting.axes.F2]` sets one
+      axis's `family`, `phase = true` and `doublet = { j = 92.0 }`. A doublet needs
+      its J start in Hz; its bounds default to [J/2, 2J]. `lineshape` and
+      `fit_phase` are refused, with their replacement in the message.
+    - **CLI:** `--family`, `--doublet AXIS=J[,MIN,MAX]`, `--fix-j AXIS` and
+      `--phase AXIS` replace `--lineshape`, `--phx` and `--phy`, which are refused
+      with their replacement.
+    - **Phase on a family without one** (Gaussian, Lorentzian, pseudo-Voigt) is now
+      refused instead of silently ignored, including when `auto` detected it.
+    - **Files:** the unreleased scientific archive 12.0.0, fit JSON 9.0.0 and
+      analysis project 15.0.0 change in place. Archives and projects written by
+      development builds before this change are refused with a message to refit.
+    - **GUI:** the lineshape control sets one family on every axis. The doublet
+      choice is gone until per-axis controls arrive; doublets and phases from an
+      imported TOML are kept and shown.
+    - **Results:** singlet and all-axes doublet fits are bit-identical.
+
 ### Changed
 
 - Excluded planes (`exclude_planes`, `peakfit fit --exclude`) stay in the data and
@@ -18,6 +39,7 @@ Notable user-facing and architecture changes are recorded here.
     - **Breaking:** the unreleased scientific archive 12.0.0, fit JSON 9.0.0 and
       analysis project 15.0.0 formats were amended in place to record excluded
       planes. Files that development builds wrote before are refused; refit them.
+
 
 ### Fixed
 

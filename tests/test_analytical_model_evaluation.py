@@ -20,7 +20,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, VarProConfig
 from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.fitting.varpro_fit import fit_varpro
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
@@ -71,11 +71,7 @@ def gaussian_fit() -> GaussianFit:
         name="P1",
         positions=np.array([center], dtype=np.float64),
         shapes=create_shapes(
-            spectra,
-            FitConfig(lineshape="gaussian"),
-            "P1",
-            [center],
-            ["gaussian"],
+            spectra, axis_lineshapes(FitConfig(family="gaussian"), spectra), "P1", [center]
         ),
     )
     peak.set_cluster_id(37)

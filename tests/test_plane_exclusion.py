@@ -19,7 +19,7 @@ from peakfit.engine.algorithms.covariance_factors import (
     marginal_standard_errors,
     profile_standard_errors,
 )
-from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, fitted_plane_indices
 from peakfit.fit import fitting
 from peakfit.io.config import load_config
@@ -63,7 +63,10 @@ def _removed(spectra: Spectra) -> Spectra:
     )
 
 
-def _fit(directory, monkeypatch, spectra, peak_list, exclude):
+GAUSSIAN = {"family": "gaussian"}
+
+
+def _fit(directory, monkeypatch, spectra, peak_list, exclude, lineshapes=GAUSSIAN):
     """A CLI fit (``load_data``, ``run_fit``, ``write_fit_run_outputs``) of ``spectra``."""
     directory.mkdir()
     source, peaks = directory / "spectrum.ft2", directory / "peaks.list"
@@ -72,7 +75,7 @@ def _fit(directory, monkeypatch, spectra, peak_list, exclude):
     monkeypatch.setattr(fitting, "read_spectra", lambda *_: spectra.model_copy(deep=True))
     config = PeakFitConfig.model_validate(
         {
-            "fitting": {"lineshape": "gaussian", "refine_iterations": 2},
+            "fitting": lineshapes | {"refine_iterations": 2},
             "clustering": {"contour_level": 0.1},
             "output": {"formats": ["csv", "txt", "json"], "save_simulated": True},
             "exclude_planes": exclude,
@@ -130,6 +133,48 @@ def test_excluding_planes_equals_removing_them(runs):
             marginal_standard_errors(fa, ea.amplitudes),
             marginal_standard_errors(fb, eb.amplitudes),
         )
+
+
+def test_exclusion_with_a_doublet_on_one_axis_equals_removing_the_planes(
+    spectra, tmp_path, monkeypatch
+):
+    """Plane exclusion and a per-axis lineshape model (#222) work together end to end."""
+    full, peak_list = spectra
+    doublet = GAUSSIAN | {"axes": {"F2": {"doublet": {"j": 8.0, "min": 2.0, "max": 20.0}}}}
+    excluded, directory = _fit(
+        tmp_path / "excluded", monkeypatch, full, peak_list, EXCLUDED, doublet
+    )
+    removed, _ = _fit(tmp_path / "removed", monkeypatch, _removed(full), peak_list, [], doublet)
+    for ca, cb in zip(excluded.outcome.clusters, removed.outcome.clusters, strict=True):
+        assert [p.name for p in ca.final_nonlinear_parameters] == [
+            p.name for p in cb.final_nonlinear_parameters
+        ]
+        assert any(p.name.endswith(".F2.j") for p in ca.final_nonlinear_parameters)
+        _close(
+            [p.value for p in ca.final_nonlinear_parameters],
+            [p.value for p in cb.final_nonlinear_parameters],
+        )
+        ea, eb = ca.analytical_evaluation, cb.analytical_evaluation
+        assert ea is not None
+        assert eb is not None
+        _close(ea.amplitudes, eb.amplitudes)
+    monkeypatch.setattr(
+        "peakfit.io.readers.continuation.read_spectra", lambda *_: full.model_copy(deep=True)
+    )
+    restored = load_completed(directory / "scientific.npz")
+    assert restored.outcome.excluded_planes == tuple(EXCLUDED)
+    shapes = [s for c in restored.model_snapshot.clusters for p in c.peaks for s in p.shapes]
+    assert {(s.axis, s.description) for s in shapes} == {
+        ("F2", "gaussian doublet"),
+        ("F3", "gaussian"),
+    }
+    with (directory / "tables/intensities.csv").open() as stream:
+        marked = {
+            int(r["source_plane_index"])
+            for r in csv.DictReader(stream)
+            if r["plane_excluded"] == "yes"
+        }
+    assert marked == set(EXCLUDED)
 
 
 def test_simulated_predictions_cover_the_fitted_planes(runs):
@@ -322,15 +367,13 @@ def test_only_an_explicit_setting_excludes_a_plane(tmp_path):
         headless=None,
         noise=None,
         contour_level=None,
-        lineshape="auto",
+        lineshapes=FitConfig(),
         refine=1,
-        phx=False,
-        phy=False,
         exclude=None,
     )
     assert cli.exclude_planes == []
     toml = tmp_path / "peakfit.toml"
-    toml.write_text("[fitting]\nlineshape = 'gaussian'\n")
+    toml.write_text("[fitting]\nfamily = 'gaussian'\n")
     assert load_config(toml).exclude_planes == []
     _spectra, _config, pipeline, gui = completed_result([], False)
     assert pipeline.completed_fit.outcome.excluded_planes == ()

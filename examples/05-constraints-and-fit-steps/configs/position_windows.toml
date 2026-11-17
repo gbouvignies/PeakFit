@@ -1,7 +1,7 @@
 # Scenario 1: Position windows
 
 [fitting]
-lineshape = "auto"
+family = "auto"
 refine_iterations = 1
 
 [parameters]

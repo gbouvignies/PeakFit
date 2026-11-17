@@ -78,7 +78,7 @@ from peakfit.engine.scientific.replicates import (
 )
 
 if TYPE_CHECKING:
-    from peakfit.engine.domain.config import LineshapeName
+    from peakfit.engine.domain.config import LineshapeFamily
 
 type Copies = Literal["two copies", "three copies"]
 type PoolName = Literal["unflagged", "flagged"]
@@ -102,7 +102,7 @@ class Case:
     ``gated``: whether the case is part of the gate.
     """
 
-    lineshape: LineshapeName
+    lineshape: LineshapeFamily
     copies: Copies
     separation: tuple[float, float] | None = None
     shared_phase: bool = False

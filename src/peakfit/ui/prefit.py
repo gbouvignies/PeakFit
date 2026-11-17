@@ -8,7 +8,10 @@ from peakfit.engine.domain.spectrum import format_planes
 from peakfit.ui.branding import show_command_summary
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.engine.domain.spectrum import AxisLineshape
     from peakfit.fit.fitting import LoadedData
 
 
@@ -52,6 +55,11 @@ def _relative_path(path: Path) -> str:
         return str(resolved.relative_to(cwd))
     except Exception:
         return str(resolved)
+
+
+def describe_axis_lineshapes(lineshapes: Sequence[AxisLineshape]) -> str:
+    """Each axis's resolved model: ``F2 sp1 doublet (J 92 Hz in [46, 184]) · F3 sp2``."""
+    return " · ".join(f"{m.axis} {m.family}{m.details}" for m in lineshapes)
 
 
 def show_prefit_check(
@@ -98,6 +106,7 @@ def show_prefit_check(
                 "Run Setup",
                 {
                     "Method": method_str,
+                    "Lineshapes": describe_axis_lineshapes(loaded_data.lineshapes),
                     "Contour": contour_str,
                     "Clusters": str(n_clusters),
                     "Refine": refine_str,

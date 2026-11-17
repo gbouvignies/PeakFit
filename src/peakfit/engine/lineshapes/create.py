@@ -20,80 +20,42 @@ from peakfit.engine.lineshapes.models import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from peakfit.engine.domain.config import FitConfig
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
     from peakfit.engine.types import Shape
 
 
-SHAPES: dict[str, Callable[..., Shape]] = {
-    "gaussian": Gaussian,
-    "gaussian_doublet": GaussianDoublet,
-    "lorentzian": Lorentzian,
-    "lorentzian_doublet": LorentzianDoublet,
-    "no_apod": NoApod,
-    "no_apod_doublet": NoApodDoublet,
-    "pvoigt": PseudoVoigt,
-    "pvoigt_doublet": PseudoVoigtDoublet,
-    "sp1": SP1,
-    "sp1_doublet": SP1Doublet,
-    "sp2": SP2,
-    "sp2_doublet": SP2Doublet,
+# Lineshape family -> (singlet, doublet) constructors.
+SHAPES: dict[str, tuple[Callable[..., Shape], Callable[..., Shape]]] = {
+    "gaussian": (Gaussian, GaussianDoublet),
+    "lorentzian": (Lorentzian, LorentzianDoublet),
+    "no_apod": (NoApod, NoApodDoublet),
+    "pvoigt": (PseudoVoigt, PseudoVoigtDoublet),
+    "sp1": (SP1, SP1Doublet),
+    "sp2": (SP2, SP2Doublet),
 }
-
-
-def _available_shapes() -> list[str]:
-    """Return the available built-in shape names."""
-    return sorted(SHAPES)
-
-
-def _create_shape(
-    spectra: Spectra,
-    config: FitConfig,
-    shape_type: str,
-    *,
-    peak_name: str,
-    center: float,
-    dim: int,
-) -> Shape:
-    """Create a single shape instance for the provided peak."""
-    shape_provider = _resolve_shape_provider(shape_type)
-    return shape_provider(peak_name, center, spectra, dim, config)
 
 
 def create_shapes(
     spectra: Spectra,
-    config: FitConfig,
+    lineshapes: Sequence[AxisLineshape],
     peak_name: str,
     positions: Sequence[float],
-    shape_names: Sequence[str],
 ) -> list[Shape]:
-    """Create shapes for each peak dimension using provided names."""
-    if len(positions) != len(shape_names):
-        msg = "Number of positions and shape names must match"
+    """One shape per spectral axis of a peak, from each axis's resolved model."""
+    if len(positions) != len(lineshapes):
+        msg = "Number of positions and axis lineshapes must match"
         raise ValueError(msg)
-
     shapes: list[Shape] = []
-    for dim, (center, shape_name) in enumerate(zip(positions, shape_names, strict=False), start=1):
-        shapes.append(
-            _create_shape(
-                spectra,
-                config,
-                shape_name,
-                peak_name=peak_name,
-                center=center,
-                dim=dim,
-            )
-        )
+    for dim, (center, lineshape) in enumerate(zip(positions, lineshapes, strict=True), start=1):
+        try:
+            singlet, doublet = SHAPES[lineshape.family]
+        except KeyError as exc:
+            available = ", ".join(sorted(SHAPES))
+            msg = f"Unknown lineshape family '{lineshape.family}'. Available: {available}"
+            raise ValueError(msg) from exc
+        provider = doublet if lineshape.doublet is not None else singlet
+        shapes.append(provider(peak_name, center, spectra, dim, lineshape))
     return shapes
 
 
-def _resolve_shape_provider(shape_type: str) -> Callable[..., Shape]:
-    try:
-        return SHAPES[shape_type]
-    except KeyError as exc:
-        available = ", ".join(_available_shapes())
-        msg = f"Unknown lineshape '{shape_type}'. Available: {available}"
-        raise ValueError(msg) from exc
-
-
-__all__ = ["create_shapes"]
+__all__ = ["SHAPES", "create_shapes"]

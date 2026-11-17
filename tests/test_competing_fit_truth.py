@@ -18,7 +18,7 @@ from peakfit.engine.domain.config import (
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
@@ -86,7 +86,7 @@ def _synthetic_fit(cluster_ids: tuple[int, ...] = (11, 37, 91)) -> SyntheticFit:
             _spectral_parameters(size=n_points, direct=True),
         ],
     )
-    fit_config = FitConfig(lineshape="gaussian")
+    fit_config = FitConfig(family="gaussian")
     grid_indices = [np.arange(n_points, dtype=np.intp)]
 
     peaks: list[Peak] = []
@@ -101,11 +101,7 @@ def _synthetic_fit(cluster_ids: tuple[int, ...] = (11, 37, 91)) -> SyntheticFit:
             name=f"P{index}",
             positions=np.array([center], dtype=np.float64),
             shapes=create_shapes(
-                spectra,
-                fit_config,
-                f"P{index}",
-                [center],
-                ["gaussian"],
+                spectra, axis_lineshapes(fit_config, spectra), f"P{index}", [center]
             ),
         )
         peak.set_cluster_id(cluster_id)
@@ -597,12 +593,12 @@ def test_unordered_execution_associates_nonconsecutive_cluster_ids_by_identity()
     ordered_fit = _synthetic_fit(cluster_ids=(91, 11, 37))
     ordered_result, ordered_completion, _ordered_snapshots = _run_with_executor(
         ordered_fit,
-        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
+        FitConfig(family="gaussian", refine_iterations=1, max_iterations=25),
     )
     reversed_fit = _synthetic_fit(cluster_ids=(91, 11, 37))
     reversed_result, reversed_completion, _reversed_snapshots = _run_with_executor(
         reversed_fit,
-        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
+        FitConfig(family="gaussian", refine_iterations=1, max_iterations=25),
         reverse=True,
     )
 
@@ -633,7 +629,7 @@ def test_cluster_identity_rejects_duplicate_input_identifiers() -> None:
 
     with pytest.raises(ValueError, match=r"Duplicate cluster_id.*37"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -650,7 +646,7 @@ def test_cluster_identity_rejects_missing_optimizer_results() -> None:
 
     with pytest.raises(ValueError, match=r"Missing optimizer result cluster_id values: \[37\]"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -671,7 +667,7 @@ def test_cluster_identity_rejects_duplicate_optimizer_results() -> None:
         match=r"Duplicate optimizer result cluster_id values: \[11\]",
     ):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -693,7 +689,7 @@ def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
         match=r"Unexpected optimizer result cluster_id values: \[73\]",
     ):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -713,7 +709,7 @@ def test_results_with_other_optimizer_provenance_are_rejected(optimizer_kind) ->
 
     with pytest.raises(ValueError, match="provenance must record VarPro"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -737,7 +733,7 @@ def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
         ]
 
     result = run_pipeline(
-        config=FitConfig(lineshape="gaussian", refine_iterations=1),
+        config=FitConfig(family="gaussian", refine_iterations=1),
         clusters=fit.clusters,
         data_noise=1.0,
         base_params=fit.params,
@@ -759,7 +755,7 @@ def test_cluster_identity_optimizer_exception_aborts_run() -> None:
 
     with pytest.raises(RuntimeError, match=r"optimizer failed for cluster_id 37"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -772,7 +768,7 @@ def test_terminal_pass_uses_the_frozen_final_correction() -> None:
     fit = _synthetic_fit(cluster_ids=(11, 37))
     result, _completion_order, snapshots = _run_with_executor(
         fit,
-        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
+        FitConfig(family="gaussian", refine_iterations=1, max_iterations=25),
     )
 
     terminal_snapshot = snapshots[-1]
@@ -832,7 +828,7 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
             return completed
 
         result = run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            config=FitConfig(family="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -883,7 +879,7 @@ def test_refine_iterations_is_the_exact_pass_count(
     _result, _completion_order, snapshots = _run_with_executor(
         fit,
         FitConfig(
-            lineshape="gaussian",
+            family="gaussian",
             refine_iterations=refine_iterations,
             max_iterations=25,
         ),
@@ -897,7 +893,7 @@ def test_refine_iterations_is_the_exact_pass_count(
 def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
     fit = _synthetic_fit(cluster_ids=(11,))
     config = FitConfig(
-        lineshape="gaussian",
+        family="gaussian",
         max_iterations=25,
         steps=[
             FitStep(name="first", iterations=1),
@@ -914,7 +910,7 @@ def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
 
 def test_refine_iterations_must_be_positive() -> None:
     with pytest.raises(ValueError, match=r"refine_iterations.*at least 1"):
-        FitConfig(lineshape="gaussian", refine_iterations=0)
+        FitConfig(family="gaussian", refine_iterations=0)
 
 
 def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
@@ -928,7 +924,7 @@ def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
         return [function(task) for task in tasks]
 
     result = run_pipeline(
-        config=FitConfig(lineshape="gaussian", refine_iterations=2, max_iterations=25),
+        config=FitConfig(family="gaussian", refine_iterations=2, max_iterations=25),
         clusters=fit.clusters,
         data_noise=1.0,
         base_params=fit.params,
@@ -973,7 +969,7 @@ def test_pipeline_rejects_a_stale_result_correction_revision() -> None:
 
     with pytest.raises(ValueError, match=r"correction_revision.*expected 0, got 73"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
+            config=FitConfig(family="gaussian", refine_iterations=1, max_iterations=25),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -999,7 +995,7 @@ def test_usable_nonconverged_results_contribute_to_the_next_correction() -> None
             return results
 
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=2, max_iterations=25),
+            config=FitConfig(family="gaussian", refine_iterations=2, max_iterations=25),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,

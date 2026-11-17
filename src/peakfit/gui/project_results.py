@@ -6,16 +6,21 @@ from dataclasses import asdict, replace
 import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.spectrum import fitted_plane_indices
+from peakfit.engine.domain.spectrum import axis_lineshapes, fitted_plane_indices
 from peakfit.engine.scientific.completed import CompletedFit
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.export import model_records
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import Continuation, FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
-from peakfit.io.readers.continuation import UnavailableShape, restore_completed, restore_geometry
+from peakfit.io.config import stored_config
+from peakfit.io.readers.continuation import (
+    UnavailableShape,
+    metadata_spectra,
+    restore_completed,
+    restore_geometry,
+)
 from peakfit.shared.exceptions import require_close
 
 
@@ -46,7 +51,7 @@ def restore_result(run, outcome, retained_samples):
         len(snapshot.source_plane_indices) + len(excluded), excluded
     ):
         raise ValueError("Run planes must be every plane of the spectrum but the excluded ones.")
-    config = PeakFitConfig.model_validate_json(snapshot.configuration)
+    config = stored_config(snapshot.configuration)
     snapshot = replace(snapshot, configuration=config.model_dump_json())
     model, clusters = restore_geometry(
         outcome,
@@ -79,7 +84,12 @@ def restore_result(run, outcome, retained_samples):
     prepared = PreparedDatasetFit(
         snapshot,
         identities,
-        tuple(run["shape_names"]),
+        tuple(
+            axis_lineshapes(
+                config.fitting,
+                metadata_spectra(snapshot.spectral_parameters, snapshot.plane_values),
+            )
+        ),
         outcome.noise,
         outcome.noise_model,  # as recorded; reopening never re-derives it
         snapshot.contour_level,
@@ -182,7 +192,6 @@ def run_record(result):
         # The spectrum identity is process-local; reopening binds the loaded spectrum.
         "snapshot": {k: v for k, v in asdict(result.inputs.snapshot).items() if k != "spectrum_id"},
         "identities": [asdict(i) for i in result.inputs.identities],
-        "shape_names": result.inputs.shape_names,
         "initial_parameters": initial_parameter_records(result),
         "continuation": continuation_record(result),
         "models": [
@@ -202,7 +211,6 @@ def journal_entry(completion):
         "software_version": result.software_version,
         "noise": result.inputs.noise,
         "contour_level": result.inputs.contour_level,
-        "shape_names": result.inputs.shape_names,
         "n_optimizer_passes": result.outcome.n_optimizer_passes,
         "n_correction_updates": result.outcome.n_correction_updates,
         "terminal_correction_revision": result.outcome.terminal_correction_revision,

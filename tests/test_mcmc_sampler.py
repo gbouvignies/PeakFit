@@ -220,7 +220,7 @@ def test_undefined_correlations_stay_undefined():
 @pytest.fixture(scope="module")
 def close_pair():
     cluster, params = peak_pair(2.0, noise=0.05)
-    config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
+    config = PeakFitConfig(fitting=FitConfig(family="gaussian"))
     completed = run_pipeline(
         config, [cluster], 0.05, params, noise_model=not_modelled("synthetic spectrum")
     ).completed_fit

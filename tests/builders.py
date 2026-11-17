@@ -6,11 +6,11 @@ import numpy as np
 
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
+from peakfit.engine.domain.config import AxisModel, FitConfig, LineshapeFamily, PeakFitConfig
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.pipeline import run_pipeline
@@ -55,7 +55,7 @@ def overlapping_gaussians(amplitudes=None, z_values=None):
     )
     config = PeakFitConfig(
         noise_level=0.002,
-        fitting=FitConfig(lineshape="gaussian", steps=[FitStep(fix=["*.*.lw"])]),
+        fitting=FitConfig(family="gaussian", steps=[FitStep(fix=["*.*.lw"])]),
     )
     config.parameters.position_window = 0.04
     positions = [
@@ -66,7 +66,7 @@ def overlapping_gaussians(amplitudes=None, z_values=None):
         Peak(
             f"p_{i}",
             np.array(pos),
-            create_shapes(spectra, config.fitting, f"p_{i}", pos, ["gaussian", "gaussian"]),
+            create_shapes(spectra, axis_lineshapes(config.fitting, spectra), f"p_{i}", pos),
         )
         for i, pos in enumerate(positions)
     ]
@@ -103,13 +103,7 @@ def two_cluster_dataset(amplitudes=None, z_values=None, remote=None):
     shape = Peak(
         "remote",
         np.array(pos),
-        create_shapes(
-            spectra,
-            config.fitting,
-            "remote",
-            pos,
-            ["gaussian", "gaussian"],
-        ),
+        create_shapes(spectra, axis_lineshapes(config.fitting, spectra), "remote", pos),
     )
     coordinates = [index.ravel() for index in np.indices((32, 32))]
     values = Cluster.evaluate_peaks([shape], Parameters.from_peaks([shape]), coordinates)[0]
@@ -169,14 +163,14 @@ def peak_pair(
     separation: float,
     *,
     noise: float = 0.0,
-    lineshape: LineshapeName = "gaussian",
-    fit_phase: tuple[str, ...] = (),
+    family: LineshapeFamily = "gaussian",
+    phase: bool = False,
     amplitudes: np.ndarray | None = None,
 ):
     """One cluster of two 1D peaks ``separation`` points apart, over four planes.
 
-    ``fit_phase`` adds the cluster's phase on those axes (for lineshapes that have one),
-    a single parameter shared by both peaks. ``amplitudes`` (2 × S) replaces the
+    ``phase`` fits the cluster's phase on F2 (for a phased family), a single parameter
+    shared by both peaks. ``amplitudes`` (2 × S) replaces the
     default four-plane profiles.
     """
     if amplitudes is None:
@@ -205,19 +199,15 @@ def peak_pair(
         z_values=np.arange(float(n_planes)),
         params=[axis(n_planes, False), axis(101, True)],
     )
+    config = FitConfig(family=family, axes={"F2": AxisModel(phase=phase)})
+    lineshapes = axis_lineshapes(config, spectra)
     peaks = []
     for name, point in zip(("A", "B"), (50 - separation / 2, 50 + separation / 2), strict=True):
         center = float(spectra.spectral_params[0].pts2ppm(point))
         peak = Peak(
             name=name,
             positions=np.array([center]),
-            shapes=create_shapes(
-                spectra,
-                FitConfig(lineshape=lineshape, fit_phase=list(fit_phase)),
-                name,
-                [center],
-                [lineshape],
-            ),
+            shapes=create_shapes(spectra, lineshapes, name, [center]),
         )
         peak.set_cluster_id(1)
         peaks.append(peak)

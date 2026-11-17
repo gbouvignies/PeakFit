@@ -135,7 +135,7 @@ def main():
         "spectrum_sha256": hashlib.sha256((root / "pseudo3d.ft2").read_bytes()).hexdigest(),
         "data_shape": data.spectra.data.shape,
         "peaks": len(data.peaks),
-        "shape_names": data.shape_names,
+        "shape_names": [m.family for m in data.lineshapes],
         "clusters": len(outcome.clusters),
         "classifications": {
             name: sum(c.classification == name for c in outcome.clusters)

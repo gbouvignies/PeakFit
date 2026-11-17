@@ -39,10 +39,10 @@ import scipy.stats
 from peakfit.engine.algorithms.evaluation import nonlinear_errors_withheld
 from peakfit.engine.algorithms.varpro import fit_cluster
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, LineshapeName
+from peakfit.engine.domain.config import AxisModel, Doublet, FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 
 SEED = 20261117
@@ -64,8 +64,9 @@ REGIMES = {
     "partly resolved, low SNR": (12.0, 10.0, 8.0, True),
     "unresolved, low SNR": (5.0, 20.0, 8.0, False),
 }
-LINESHAPES: tuple[LineshapeName, ...] = ("lorentzian_doublet", "sp1_doublet")
-CASES: list[tuple[LineshapeName, str]] = [
+# Case labels as the record names them; each is a doublet of that family on F2.
+LINESHAPES = ("lorentzian_doublet", "sp1_doublet")
+CASES: list[tuple[str, str]] = [
     (lineshape, regime) for lineshape in LINESHAPES for regime in REGIMES
 ]
 
@@ -88,7 +89,7 @@ def _axis(size: int, *, direct: bool, sw: float, obs: float, label: str) -> Spec
     )
 
 
-def _problem(lineshape: LineshapeName, j_hz: float, lw_hz: float):
+def _problem(lineshape: str, j_hz: float, lw_hz: float):
     axis = _axis(512, direct=True, sw=3000.0, obs=600.0, label="F2")
     planes = _axis(3, direct=False, sw=1.0, obs=1.0, label="F1")
     spectra = Spectra(
@@ -96,8 +97,15 @@ def _problem(lineshape: LineshapeName, j_hz: float, lw_hz: float):
     )
     centre = float(axis.pts2ppm(256.0))
     phased = lineshape.startswith("sp")
-    config = FitConfig(lineshape=lineshape, fit_phase=["F2"] if phased else [])
-    peak = Peak("A", np.array([centre]), create_shapes(spectra, config, "A", [centre], [lineshape]))
+    # J's start and bounds are set below, so any valid doublet model serves here.
+    model = AxisModel(doublet=Doublet(j=5.0), phase=phased)
+    family = "lorentzian" if lineshape.startswith("lorentzian") else "sp1"
+    config = FitConfig(family=family, axes={"F2": model})
+    peak = Peak(
+        "A",
+        np.array([centre]),
+        create_shapes(spectra, axis_lineshapes(config, spectra), "A", [centre]),
+    )
     peak.set_cluster_id(1)
     truth = Parameters.from_peaks([peak])
     for parameter in truth.values():

@@ -1,30 +1,110 @@
 """Domain configuration and result models for PeakFit."""
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.engine.domain.fit_steps import FitStep
 
-LineshapeName = Literal[
-    "auto",
-    "gaussian",
-    "gaussian_doublet",
-    "lorentzian",
-    "lorentzian_doublet",
-    "pvoigt",
-    "pvoigt_doublet",
-    "sp1",
-    "sp1_doublet",
-    "sp2",
-    "sp2_doublet",
-    "no_apod",
-    "no_apod_doublet",
-]
+LineshapeFamily = Literal["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"]
+# Families evaluated as complex signals, whose phase can be fitted.
+PHASED_FAMILIES = frozenset({"sp1", "sp2", "no_apod"})
+# Bounds of a doublet's J when only its start is given: [J/DOUBLET_RANGE, J*DOUBLET_RANGE].
+DOUBLET_RANGE = 2.0
 OutputFormat = Literal["csv", "json", "txt"]
+_AXIS_LABEL = re.compile(r"F[1-9][0-9]*")
+# The J model every former ``*_doublet`` lineshape used, named when refusing one.
+OLD_DOUBLET = {"j": 5.0, "min": 1.0, "max": 10.0}
+
+
+def _around_start(factor: float):
+    """The default bound ``factor`` × the validated J start (none if J itself is invalid)."""
+    return lambda data: data["j"] * factor if "j" in data else 1.0
+
+
+class Doublet(BaseModel):
+    """A doublet on one spectral axis: two equal components split by a J coupling.
+
+    ``j`` is the start in hertz and has no default: the user states it. Without
+    explicit bounds, J may move within [j/2, 2j] (``DOUBLET_RANGE``).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    j: float = Field(gt=0, allow_inf_nan=False, description="J start, in Hz.")
+    min: float = Field(
+        default_factory=_around_start(1 / DOUBLET_RANGE),
+        gt=0,
+        allow_inf_nan=False,
+        description="Lower J bound, in Hz.",
+    )
+    max: float = Field(
+        default_factory=_around_start(DOUBLET_RANGE),
+        gt=0,
+        allow_inf_nan=False,
+        description="Upper J bound, in Hz.",
+    )
+    vary: bool = Field(default=True, description="Fit J; false holds it at its start.")
+
+    @model_validator(mode="after")
+    def _start_within_bounds(self) -> Doublet:
+        if not self.min <= self.j <= self.max or self.min >= self.max:
+            msg = (
+                f"Doublet J bounds [{self.min:g}, {self.max:g}] Hz must contain its start "
+                f"{self.j:g} Hz, with min < max."
+            )
+            raise ValueError(msg)
+        return self
+
+
+class AxisModel(BaseModel):
+    """The lineshape model on one spectral axis; unset fields keep the defaults.
+
+    ``family`` unset takes ``[fitting].family``. ``phase`` fits one phase per
+    cluster on this axis; it needs a phased family (sp1, sp2, no_apod).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    family: LineshapeFamily | None = Field(
+        default=None, description="Lineshape family on this axis; unset takes fitting.family."
+    )
+    doublet: Doublet | None = Field(default=None, description="A J doublet on this axis.")
+    phase: bool = Field(default=False, description="Fit the phase on this axis.")
+
+
+def _replaced_fields(data: dict[str, Any]) -> list[str]:
+    """Why a configuration written before per-axis models is refused, with its replacement."""
+    reasons = []
+    if "lineshape" in data:
+        old = str(data["lineshape"])
+        family, doublet = old.removesuffix("_doublet"), old.endswith("_doublet")
+        reasons.append(
+            f"'lineshape' was replaced by 'family' (every axis) and [fitting.axes.<axis>] "
+            f'(one axis): write family = "{family}"'
+            + (
+                ", and on each split axis a doublet with its J start in Hz, for example "
+                "doublet = { j = 92.0 } under [fitting.axes.F2]. The former doublets "
+                f"started at {OLD_DOUBLET['j']:g} Hz within [{OLD_DOUBLET['min']:g}, "
+                f"{OLD_DOUBLET['max']:g}] Hz on every axis"
+                if doublet
+                else ""
+            )
+            + "."
+        )
+    if "fit_phase" in data:
+        axes = data["fit_phase"] if isinstance(data["fit_phase"], list) else []
+        tables = " and ".join(f"[fitting.axes.{axis}]" for axis in axes)
+        reasons.append(
+            f"'fit_phase' was replaced by a per-axis phase: write phase = true under {tables}."
+            if tables
+            else "'fit_phase' was replaced by a per-axis phase: remove it (it fitted none)."
+        )
+    return reasons
 
 
 class FitConfig(BaseModel):
@@ -35,8 +115,14 @@ class FitConfig(BaseModel):
 
     Simple usage:
         [fitting]
-        lineshape = "auto"
+        family = "auto"
         refine_iterations = 2
+
+    Per-axis lineshape model (overrides ``family`` on one axis):
+        [fitting.axes.F2]
+        family = "sp1"
+        phase = true
+        doublet = { j = 92.0, min = 80.0, max = 100.0, vary = true }
 
     Advanced multi-step fit:
         [[fitting.steps]]
@@ -64,17 +150,17 @@ class FitConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    lineshape: LineshapeName = Field(
+    family: LineshapeFamily = Field(
         default="auto",
-        description="Lineshape model to use. 'auto' detects from NMRPipe apodization.",
+        description="Lineshape family of every axis; 'auto' detects it from the apodization.",
+    )
+    axes: dict[str, AxisModel] = Field(
+        default_factory=dict,
+        description="Per-axis lineshape models by axis label (F2, F3, ...).",
     )
     refine_iterations: Annotated[int, Field(le=20)] = Field(
         default=1,
         description="Number of optimizer passes; corrections update between passes.",
-    )
-    fit_phase: list[str] = Field(
-        default_factory=list,
-        description="Dimensions to fit phase correction for (e.g., ['F1', 'F2']).",
     )
     max_iterations: Annotated[int, Field(gt=0)] = Field(
         default=1000,
@@ -90,6 +176,27 @@ class FitConfig(BaseModel):
         default_factory=list,
         description="Multi-step fitting steps. If empty, uses refine_iterations.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_replaced_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict) and (reasons := _replaced_fields(data)):
+            raise ValueError(" ".join(reasons))
+        return data
+
+    @field_validator("axes")
+    @classmethod
+    def _axis_labels(cls, value: dict[str, AxisModel]) -> dict[str, AxisModel]:
+        invalid = [label for label in value if not _AXIS_LABEL.fullmatch(label)]
+        if invalid:
+            msg = f"Axis labels must look like F2, F3: got {', '.join(invalid)}."
+            raise ValueError(msg)
+        return value
+
+    def axis_model(self, label: str) -> AxisModel:
+        """The model configured on axis ``label``, with its family resolved to a name."""
+        model = self.axes.get(label, AxisModel())
+        return model.model_copy(update={"family": model.family or self.family})
 
     @field_validator("refine_iterations")
     @classmethod
@@ -155,8 +262,11 @@ class PeakFitConfig(BaseModel):
 
     Example TOML configuration:
         [fitting]
-        lineshape = "auto"
+        family = "auto"
         refine_iterations = 2
+
+        [fitting.axes.F2]  # optional per-axis model
+        doublet = { j = 92.0 }
 
         # Optional: multi-step fit
         [[fitting.steps]]
@@ -241,10 +351,14 @@ class VarProConfig:
 
 
 __all__ = [
+    "DOUBLET_RANGE",
+    "PHASED_FAMILIES",
+    "AxisModel",
     "ClusterConfig",
+    "Doublet",
     "FitConfig",
     "FitStep",
-    "LineshapeName",
+    "LineshapeFamily",
     "OutputConfig",
     "OutputFormat",
     "ParameterConfig",

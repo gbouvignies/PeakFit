@@ -11,7 +11,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
@@ -61,10 +61,9 @@ def completed():
                 np.array(positions),
                 create_shapes(
                     spectra,
-                    FitConfig(lineshape="lorentzian"),
+                    axis_lineshapes(FitConfig(family="lorentzian"), spectra),
                     name,
                     positions,
-                    ["lorentzian", "lorentzian"],
                 ),
             )
         )

@@ -4,9 +4,8 @@
 exclude_planes = []
 
 [fitting]
-lineshape = "auto"
+family = "auto"
 refine_iterations = 1
-fit_phase = []
 
 [clustering]
 contour_factor = 5.0

@@ -287,6 +287,36 @@ def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
         open_analysis(path)
 
 
+def _settings_before_axis_models(configuration):
+    """Fit settings as a development build before per-axis models recorded them."""
+    settings = json.loads(configuration)
+    fitting = settings["fitting"]
+    fitting["lineshape"] = fitting.pop("family")
+    fitting["fit_phase"] = []
+    del fitting["axes"]
+    return json.dumps(settings)
+
+
+def test_a_project_from_before_per_axis_models_is_refused_with_a_refit_message(analysis, tmp_path):
+    # Same project version: the development build recorded `lineshape`, `fit_phase`
+    # and each run's `shape_names`.
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+
+    def as_before(review):
+        snapshot = review["snapshot"]
+        snapshot["configuration"] = _settings_before_axis_models(snapshot["configuration"])
+        review["shape_names"] = ["sp2", "sp2"]
+
+    _rewrite_review(path, as_before)
+    manifest = json.loads((path / "manifest.json").read_text())
+    manifest["configuration"] = _settings_before_axis_models(manifest["configuration"])
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(
+        ValueError, match=r"development build before per-axis lineshape models.*refit"
+    ):
+        open_analysis(path)
+
+
 def test_reopening_reconstructs_the_covariance_between_planes_without_source_or_refit(
     analysis, tmp_path, monkeypatch
 ):
@@ -438,7 +468,7 @@ def test_unsupported_model_retains_numerical_evidence(analysis, tmp_path, monkey
     path = save_analysis(analysis, tmp_path / "unknown-model.peakfit")
 
     def change_model(review):
-        review["models"][0]["peaks"][0]["shapes"][0]["name"] = "future-model"
+        review["models"][0]["peaks"][0]["shapes"][0]["family"] = "future-model"
 
     _rewrite_review(path, change_model)
     monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)

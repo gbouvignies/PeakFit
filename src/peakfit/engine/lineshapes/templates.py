@@ -18,7 +18,7 @@ In all cases, `lw` represents the FWHM (Full Width at Half Maximum) in Hz.
 For apodized lineshapes, this is the FWHM as if there were no apodization.
 
 Subclasses only need to define:
-- `shape_name`: The lineshape name used by the constructor map
+- `shape_name`: The lineshape family used by the constructor maps
 - `param_specs`: Static method returning parameter specs
 - `kernel` / `kernel_with_derivs`: The mathematical kernel function
 """
@@ -39,8 +39,8 @@ from peakfit.engine.types import ClusterParameters, LineshapeResult, ParamSpec
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from peakfit.engine.domain.config import FitConfig
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.config import Doublet
+    from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
     from peakfit.engine.lineshapes.grid import SpectralGrid
     from peakfit.shared.typing import ComplexArray, FloatArray
 
@@ -58,23 +58,32 @@ if TYPE_CHECKING:
 # Parameter specifications
 # =============================================================================
 
-# Bounds and defaults of the parameters that follow ``cs`` and ``lw``.
+# Bounds and defaults of the parameters that follow ``cs`` and ``lw``. A doublet's
+# ``j`` has none: its start, bounds and freedom come from the axis model.
 _EXTRA_SPECS: dict[str, tuple[float, float, float, str]] = {
     "eta": (0.5, -1.0, 1.0, ""),
-    "j": (5.0, 1.0, 10.0, "Hz"),
     "phase": (0.0, -15.0, 15.0, "deg"),
 }
 
 
-def parameter_specs(
-    lw_default: float, *extras: str
-) -> Callable[[float, SpectralGrid | None], tuple[ParamSpec, ...]]:
+def _extra_spec(name: str, doublet: Doublet | None) -> ParamSpec:
+    if name != "j":
+        return ParamSpec(name, *_EXTRA_SPECS[name])
+    if doublet is None:
+        raise ValueError("A doublet lineshape needs its axis model's J start and bounds.")
+    return ParamSpec("j", doublet.j, doublet.min, doublet.max, "Hz", vary=doublet.vary)
+
+
+def parameter_specs(lw_default: float, *extras: str) -> Callable[..., tuple[ParamSpec, ...]]:
     """Specs for ``cs``, ``lw`` (starting at ``lw_default`` Hz), then ``extras`` in order.
 
     ``cs`` may move about one 50 Hz linewidth from its start; ``lw`` spans 0.1-200 Hz.
+    ``j`` takes the doublet's configured start, bounds and freedom.
     """
 
-    def specs(center: float, grid: SpectralGrid | None = None) -> tuple[ParamSpec, ...]:
+    def specs(
+        center: float, grid: SpectralGrid | None = None, doublet: Doublet | None = None
+    ) -> tuple[ParamSpec, ...]:
         window = estimate_cs_bounds_ppm(grid)
         return (
             ParamSpec(
@@ -85,7 +94,7 @@ def parameter_specs(
                 unit="ppm",
             ),
             ParamSpec(name="lw", default=lw_default, min_val=0.1, max_val=200.0, unit="Hz"),
-            *(ParamSpec(name, *_EXTRA_SPECS[name]) for name in extras),
+            *(_extra_spec(name, doublet) for name in extras),
         )
 
     return specs
@@ -169,6 +178,8 @@ class SimpleDoubletBase(ShapeBase):
     Same kernel interface as SimpleSingletBase.
     The doublet is constructed as: kernel(dw - J/2) + kernel(dw + J/2)
     """
+
+    doublet: ClassVar[bool] = True
 
     kernel: ClassVar[SimpleKernelFn]
     kernel_with_derivs: ClassVar[SimpleKernelWithDerivsFn]
@@ -259,10 +270,10 @@ class PhasedSingletBase(ShapeBase):
         center: float,
         spectra: Spectra,
         dim: int,
-        config: FitConfig,
+        lineshape: AxisLineshape,
         aq: float | None = None,
     ) -> None:
-        super().__init__(name, center, spectra, dim, config)
+        super().__init__(name, center, spectra, dim, lineshape)
         spec = self._grid.spec_params
         self._aq = aq if aq is not None else spec.aq_time
         self._kernel_state = type(self).make_state(self._aq, spec.apodq1, spec.apodq2)
@@ -308,6 +319,8 @@ class PhasedDoubletBase(ShapeBase):
     Same kernel interface as PhasedSingletBase.
     """
 
+    doublet: ClassVar[bool] = True
+
     kernel: ClassVar[PhasedKernelFn]
     kernel_with_derivs: ClassVar[PhasedKernelWithDerivsFn]
     make_state: ClassVar[StateFactory]
@@ -318,10 +331,10 @@ class PhasedDoubletBase(ShapeBase):
         center: float,
         spectra: Spectra,
         dim: int,
-        config: FitConfig,
+        lineshape: AxisLineshape,
         aq: float | None = None,
     ) -> None:
-        super().__init__(name, center, spectra, dim, config)
+        super().__init__(name, center, spectra, dim, lineshape)
         spec = self._grid.spec_params
         self._aq = aq if aq is not None else spec.aq_time
         self._kernel_state = type(self).make_state(self._aq, spec.apodq1, spec.apodq2)

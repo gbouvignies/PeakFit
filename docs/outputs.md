@@ -515,11 +515,18 @@ by development builds of that version can then become unreadable, and are refit.
 
 - Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
   read. A refused archive's message also names the PeakFit version that wrote it,
-  which can still open it. These unreleased formats were amended in place to record
-  excluded planes; an archive or project a development build wrote before that is
-  refused with "written by a development build of PeakFit", and is refit. Earlier versions are rejected with "Unsupported scientific result
-  version", "Unsupported fit JSON schema version" or "Unsupported analysis
-  version". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
+  which can still open it. Earlier versions are rejected with "Unsupported
+  scientific result version", "Unsupported fit JSON schema version" or "Unsupported
+  analysis version".
+- These unreleased formats were amended in place twice; files that development
+  builds wrote before an amendment are refused and refit:
+    - Per-axis lineshape models ([ADR 0004](adr/0004-per-axis-lineshape-models.md)):
+      archives and projects that record `[fitting] lineshape` and `fit_phase` are
+      refused with "written by a PeakFit development build before per-axis
+      lineshape models … refit".
+    - Excluded planes: an archive or project without `excluded_planes` is refused
+      with "written by a development build of PeakFit".
+- Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
   only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
   `fit_j_coupling`, `[parameters].from_file`, `[fitting].optimizer_seed`) or run metadata (`git_commit`,
   `completion_warnings`) that no longer exist. To

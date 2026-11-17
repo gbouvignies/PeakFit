@@ -13,7 +13,7 @@ from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.engine.domain.spectrum import axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import prepare_cluster_parameters
 from peakfit.io.readers.spectrum import read_noise_model
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
     from peakfit.gui.peaks import WorkingPeak
 
 
@@ -62,7 +62,6 @@ class ContinuationSource:
     run_id: str
     positions: Mapping[str, tuple[float, ...]]
     values: Mapping[str, Mapping[str, float]]
-    shape_names: tuple[str, ...]
     configuration: str
     spectral_parameters: tuple[str, ...]
     retained: Mapping[str, str]  # fitted but not adopted by that run, with the reason
@@ -100,7 +99,7 @@ class PreparedDatasetFit:
 
     snapshot: FitInputSnapshot
     identities: tuple[PeakIdentity, ...]
-    shape_names: tuple[str, ...]
+    lineshapes: tuple[AxisLineshape, ...]  # each spectral axis's resolved model
     noise: float
     noise_model: NoiseModel  # the processing-derived noise correlation, or why not
     contour_level: float
@@ -132,8 +131,8 @@ def prepare_dataset_fit(
     )
     _validate_constraint_targets(settings)
     _validate_inputs(spectra, peaks, settings)
-    shape_names = get_shape_names(settings.fitting, spectra)
-    identities, scientific_peaks = _working_model(spectra, peaks, settings, shape_names)
+    lineshapes = axis_lineshapes(settings.fitting, spectra)
+    identities, scientific_peaks = _working_model(spectra, peaks, lineshapes)
     noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, settings)
     included = [peak.name for cluster in clusters for peak in cluster.peaks]
     if len(included) != len(identities) or set(included) != {i.engine_name for i in identities}:
@@ -146,7 +145,7 @@ def prepare_dataset_fit(
     if not steps or sum(step.iterations for step in steps) < 1:
         raise ValueError("Fitting requires at least one optimizer pass.")
     parameters = Parameters()
-    incompatible = _incompatible(source, settings, shape_names, spectra) if source else ""
+    incompatible = _incompatible(source, settings, lineshapes, spectra) if source else ""
     seeding = source if not incompatible else None
     working = {i.engine_name: i.working_id for i in identities}
     positions = {p.id: tuple(p.positions) for p in peaks}
@@ -177,7 +176,7 @@ def prepare_dataset_fit(
             source_plane_indices=spectra.source_plane_indices,
         ),
         identities,
-        tuple(shape_names),
+        tuple(lineshapes),
         noise,
         check_noise_power(read_noise_model(spectra.dic, spectra.data.shape), spectra.data),
         float(threshold),
@@ -193,15 +192,15 @@ def prepare_dataset_fit(
     )
 
 
-def _incompatible(source, settings, shape_names, spectra) -> str:
+def _incompatible(source, settings, lineshapes, spectra) -> str:
     """Why a run's fitted values cannot seed this model at all, or ""."""
     previous = PeakFitConfig.model_validate_json(source.configuration)
-    if tuple(source.shape_names) != tuple(shape_names):
+    if source.spectral_parameters != tuple(axis.model_dump_json() for axis in spectra.params):
+        return "spectral axes differ from that run"
+    if axis_lineshapes(previous.fitting, spectra) != list(lineshapes):
         return "lineshape models differ from that run"
     if previous.parameters != settings.parameters:
         return "parameter constraints differ from that run"
-    if source.spectral_parameters != tuple(axis.model_dump_json() for axis in spectra.params):
-        return "spectral axes differ from that run"
     return ""
 
 
@@ -249,7 +248,7 @@ def _continue(initial, cluster, settings, working, positions, source, reasons) -
     return ids
 
 
-def _working_model(spectra, peaks, settings, shape_names):
+def _working_model(spectra, peaks, lineshapes):
     """Own model metadata and map arbitrary/duplicate assignments to safe scientific IDs."""
     owned = spectra.model_copy(
         update={
@@ -262,13 +261,7 @@ def _working_model(spectra, peaks, settings, shape_names):
         Peak(
             identity.engine_name,
             np.asarray(peak.positions),
-            create_shapes(
-                owned,
-                settings.fitting,
-                identity.engine_name,
-                peak.positions,
-                shape_names,
-            ),
+            create_shapes(owned, lineshapes, identity.engine_name, peak.positions),
         )
         for peak, identity in zip(peaks, identities, strict=True)
     ]

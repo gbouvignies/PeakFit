@@ -157,10 +157,13 @@ or **Analysis ▸ Active run**, opens the page at the review. The summary names 
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
 only, with “Outdated” repeated where an outdated run's values are shown; the settings button, or
-**Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape model (the
-resolved model per axis on one line, horizontal axis first, with a shared source
+**Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape family, applied
+to every axis (the resolved model per axis on one line, horizontal axis first, with a shared source
 such as “from apodization”; each axis's source is in the tooltip, and the
-pseudo-Voigt default used when no apodization is recognized is a caution),
+pseudo-Voigt default used when no apodization is recognized is a caution; the
+control reads **Per axis** when an imported TOML gives an axis its own family, and
+doublets and fitted phases from that TOML are kept and named in the line — they
+are not editable in the GUI yet),
 clustering threshold as a factor of the statistical noise with its absolute
 intensity, optimizer passes (default **two**, with the neighbor correction update
 between passes; an imported step schedule replaces the field) and, under
