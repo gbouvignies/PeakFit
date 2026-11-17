@@ -151,15 +151,15 @@ run summary (or **Analysis ▸ Active run**) choose the page, which then stays u
 the next run or failed attempt. Run is unavailable, and says so, until there is a
 run, a failed attempt or a fit in progress.
 
-The **Run** page reads as label rows: Run (short ID and Current or Outdated, the
-full ID in the tooltip), Model, Converged and Usable as counts of clusters, Fitted
+The **Run** page reads as label rows: Run (its number, short ID and Current or
+Outdated, the full ID in the tooltip), Model, Converged and Usable as counts of clusters, Fitted
 (date and local time with its zone, and duration), Warnings when any cluster has
 one, with **Select next cluster with a warning** right under the rows, and Noise
 check as a one-line verdict: **Consistent with the recorded processing**,
 **Inconclusive on …** or **Not checked** (why, behind its ⓘ), or, for a mismatch,
 the axes and that the errors may be miscalibrated in the warning style, with what
 was found and what to do behind its ⓘ, in the wording of the run line's tooltip. A recovery problem adds
-a row in the warning style. The changes from the parent run and the unexplained
+a row in the warning style. The changes from an earlier run and the unexplained
 signal follow (below). The summary names the run and whether it is Current; it
 gives cluster counts only when some cluster is unusable or not converged (always
 in its tooltip), and the run is named there only, with “Outdated” repeated where an
@@ -288,12 +288,32 @@ recorded fit is kept as it is, and the amplitude profile withholds their
 individual amplitudes as not established (below). The next fit starts them from the configured defaults;
 moving either peak makes it an ordinary edited peak.
 
-After a refit, the Run page summarizes **Changes from parent run**, the run it was
-refitted from (named in its first row, **Parent run**), read from both recorded runs without refitting or judging either.
-Peaks are matched by stable ID, so renamed peaks still compare.
+Runs are numbered in the order they completed, **run 1**, **run 2**, …, from the
+analysis journal, so a number stays the same after save, reopen and recovery;
+failed and canceled attempts get no number.
 
-- **Clusters** first: each cluster whose numerical warnings or highlights changed,
-  that contains a peak moved or added since the parent run (“Edited: …”), or whose
+After a refit, the Run page summarizes **Changes from run N ▾**: what differs
+between the active run and a baseline run, read from both recorded runs without
+refitting or judging either. The baseline is the run the active one was refitted
+from, its parent, unless you choose another in the heading's menu, which lists
+every earlier completed run newest first with its time, “parent” and, for a pruned
+run, “summary only”. The first row, **Baseline**, names it. Choosing a baseline
+changes only this section: the active run, working peaks and settings, Current or
+Outdated, Undo and Modified stay as they were, and nothing is saved with the
+choice. A new run, or reopening the analysis, compares with the parent again. Use
+**File → Analysis history…** to inspect a historical run in detail. Peaks are
+matched by stable ID, so renamed peaks still compare.
+
+- **Settings** first: each setting that differs, as “baseline → active”, each
+  side read from that run's own recorded settings (the same comparison as the
+  Model page's • marks): the per-axis lineshape model, statistical noise,
+  threshold, passes, excluded planes, constraints, iteration limit and tolerance.
+  Identical settings read “Settings: identical”.
+
+- **Clusters**: each cluster whose numerical warnings or highlights changed,
+  that contains a peak moved or added by hand in a refit after the baseline
+  (“Edited: …”, from the moves each intermediate run recorded, so an edit undone
+  before fitting is never listed), or whose
   members were grouped differently. Clusters with newly reported warnings lead and
   are drawn in the warning style, then those whose warnings are no longer
   reported, then edited ones, then highlights and regroupings. Warnings include the
@@ -303,14 +323,17 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   members, a mark is “now reported” or “no longer reported”. A regrouped cluster
   names the clusters it came from and lists its marks “Now” and “Before
   regrouping”; a mark that disappeared with regrouping is not presented as resolved.
-  A cluster made only of peaks added since the parent run is listed as a new
+  A cluster made only of peaks added since the baseline is listed as a new
   cluster with its members and current marks, never as a regrouping, and without
   before → after values.
 - **Measures** (χ²ᵣ, |r|max, |ρ|) before → after appear only when both runs define
-  them identically: the same members, the same fitting samples, σ_stat and noise
-  model, and the same number of varied parameters. Otherwise the line names the
-  first difference, for example “Measures not compared: fitting samples changed
-  (67 → 68 per plane)”. A lower χ²ᵣ is never presented as a better fit.
+  them identically: the same members, the same fitted planes (plane values and
+  exclusions), the same fitting samples, σ_stat and noise model, the same
+  lineshape model on every axis, the same constraints and the same number of
+  varied parameters. Otherwise the line names the first difference, for example
+  “Measures not compared: fitting samples changed (67 → 68 per plane)” or
+  “Measures not compared: lineshape model changed”, and shows no number. A lower
+  χ²ᵣ is never presented as a better fit.
 - **Whole run**, as rows: **Clusters** before → after with regroupings and peaks
   added or removed, and **With ▲ warnings** (clusters with engine warnings); a count
   that did not change reads “121, unchanged”. No run-level χ²ᵣ is shown: a
@@ -322,8 +345,11 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   do, one row reads “Positions: unchanged at display precision”.
 
 Each name opens its cluster or peak; at most six clusters are listed with a count of
-the rest. A stored parent run is read off Qt; one whose evidence is no longer
-retained is named as such. The first run has nothing to compare.
+the rest. A stored baseline is read off Qt. A Summary-only baseline keeps its
+recorded settings, clusters and peaks, so Settings and the **Clusters** count are
+compared; one line names what its pruned evidence no longer supports (cluster
+changes, ▲ warnings, measures and position differences), and no value is
+reconstructed for them. The first run has nothing to compare.
 
 **Signal not explained on this plane**, also on the Run page (what it is, behind its
 ⓘ), lists on request
@@ -777,7 +803,8 @@ and export. **Relink source…** verifies your explicit candidate. An identical 
 file restores spectral views; a different spectrum cannot inherit the old results.
 Corrupt project evidence and unsupported project versions are explicit errors.
 
-**File → Analysis history…** inspects retained runs. The latest ten completed runs
+**File → Analysis history…** inspects retained runs in detail, named by run number
+as on the Run page. The latest ten completed runs
 retain full evidence; older runs have explicitly labeled Summary-only journal
 entries. **Keep full evidence** protects a full run from pruning. Historical evidence
 has a 1 GiB budget, excluding the active and protected runs; their costs appear in
