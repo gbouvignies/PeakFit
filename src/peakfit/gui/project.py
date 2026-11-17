@@ -21,6 +21,7 @@ from peakfit.gui.project_results import (
     journal_entry,
     read_peaks,
     restore_result,
+    run_name,
     run_record,
     verify_model,
 )
@@ -297,7 +298,7 @@ def _save_generation(  # noqa: PLR0912, PLR0915
         if canceled():
             raise CancelledError
         identity = _safe_run_id(run_id(completion))
-        progress(f"Saving fit evidence · run {identity[:8]}")
+        progress(f"Saving fit evidence · run {run_name(identity, analysis.journal)}")
         target = evidence / identity
         previous = next((r for r in old.get("runs", []) if r["run_id"] == identity), None)
         if previous and target.is_dir():

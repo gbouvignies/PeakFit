@@ -218,7 +218,7 @@ reason, until it is corrected. The reason starts “Not applied:”, and nothing
 from the setting in effect (the estimate under a manual noise, the factor or level
 a threshold amounts to, the planes fitted) shows beside an entry that is not applied. Once a run exists, every setting whose working value differs from
 the one the run used is marked • (an axis on its name, a setting on its label, with
-what the run used in the tooltip), and the page says “• differs from run 5d7b4768”.
+what the run used in the tooltip), and the page says “• differs from run 3”.
 
 Every committed settings change is one undoable edit in the same history as peak
 edits (**Undo settings change**), and marks an existing run Outdated; Undo restores
@@ -290,7 +290,12 @@ moving either peak makes it an ordinary edited peak.
 
 Runs are numbered in the order they completed, **run 1**, **run 2**, …, from the
 analysis journal, so a number stays the same after save, reopen and recovery;
-failed and canceled attempts get no number.
+failed and canceled attempts get no number. Every caption that names a run uses
+its number: the toolbar (“Run 4 · Current · …”), the focus bar, the Profiles title
+and caption, historical comparisons, the Model page and the progress of a save.
+The Run page's Run and Baseline rows add the short ID, and tooltips give the full
+ID. Recorded continuation reasons (“moved since run …”) keep the short ID they were
+recorded with.
 
 After a refit, the Run page summarizes **Changes from run N ▾**: what differs
 between the active run and a baseline run, read from both recorded runs without
@@ -366,7 +371,7 @@ count of the rest). Choosing a row frames the region with surrounding context an
 places the slices through its extreme, keeping the plane, the comparison mode and the
 selection. A list belongs to one plane, run and threshold: another plane needs
 another request. For an Outdated run the list is that run's historical residual,
-titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
+titled “· Run 3 · historical”; distances are to the current working peaks
 and follow each edit, and a nearest peak added since the run is marked ☆. The list is descriptive,
 captioned “Diagnostic only · residual beyond ±5 σ_stat”; the tooltip adds that it never
 adds or proposes peaks and never flags clusters, and that a signal may be left
@@ -484,8 +489,9 @@ cluster in **focus**: the same spectral view, reframed in place on the displayed
 member positions ± max(3 × fitted FWHM, 8 native samples), at most a quarter of the
 spectral width and within the spectrum, with residual lanes on. The frame does not
 depend on the optimizer's fitting samples; **Fitting region** in the focus bar tints
-them, together with the Model page's toggle. The bar names the cluster and its run
-(“run 5d7b4768 · Outdated · model and residual are historical”), and every mode,
+them, together with the Model page's toggle. The bar names the cluster (its run's number,
+currentness and full ID in the title's tooltip) and says what differs from the
+toolbar (“Outdated · model and residual are historical”), and every mode,
 mark, legend, pin and display setting works as in the overview, since it is the
 same view. **‹ Spectrum** or **Escape** (from the spectrum, the cluster list or the
 inspector) returns to the overview exactly as it was: viewport, slice sizes and
@@ -693,7 +699,7 @@ reference choice is kept, so the next well-determined peak is normalized again.
 
 Drafts retain the accepted comparison. A committed manual scientific change marks
 the run **Outdated**; Overlay and Residual stay selectable and keep showing that
-run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
+run's model as **historical** evidence, named “Run 3 · historical” in the
 legend, the pending label and the mode tooltips. On
 the spectrum, ☆ marks a working peak the model does not contain (legend
 “☆ not in this model”; ◇ is kept for review highlights), and × the

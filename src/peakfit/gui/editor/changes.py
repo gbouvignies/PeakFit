@@ -13,8 +13,8 @@ samples and the same number of varied parameters. Otherwise they describe differ
 problems, and the change says why they are not compared. A lower χ²ᵣ is never
 presented as a better fit.
 
-Runs are numbered by their place among the journal's completed runs, and a peak is
-"edited" only when a refit after the baseline recorded it as moved or added by hand.
+A peak is "edited" only when a refit after the baseline recorded it as moved or
+added by hand.
 """
 
 import math
@@ -27,6 +27,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui.fitting import ADDED_SINCE, MOVED_SINCE
+from peakfit.gui.project_results import completed
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -37,17 +38,6 @@ if TYPE_CHECKING:
 
 DISPLACEMENTS = 5  # largest position differences listed
 EDITS = (MOVED_SINCE, ADDED_SINCE)  # continuation reasons of a manual edit
-
-
-def completed(entry: Mapping[str, Any]) -> bool:
-    """Whether a journal entry is a completed run, not a failed or canceled attempt."""
-    return entry.get("status") == "completed"
-
-
-def run_numbers(journal: Iterable[Mapping[str, Any]]) -> dict[str, int]:
-    """Each completed run's number, 1-based in journal order; attempts get none."""
-    runs = (e["run_id"] for e in journal if completed(e))
-    return {identity: number for number, identity in enumerate(runs, 1)}
 
 
 def _positions(peaks) -> dict[str, tuple[float, ...]]:

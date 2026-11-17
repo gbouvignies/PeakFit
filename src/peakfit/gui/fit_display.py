@@ -88,11 +88,11 @@ class ModelPlanes:
         return list(self._planes)
 
 
-def not_fitted(result: DatasetFitResult, plane: int) -> str:
-    """Why the run has no model of spectrum plane ``plane`` (zero-based), or ""."""
+def not_fitted(result: DatasetFitResult, plane: int, run: str) -> str:
+    """Why run ``run`` has no model of spectrum plane ``plane`` (zero-based), or ""."""
     if plane in result.inputs.snapshot.source_plane_indices:
         return ""
-    return f"plane {plane + 1} is measured but not fitted (run {result.run_id[:8]} excluded it)"
+    return f"plane {plane + 1} is measured but not fitted (run {run} excluded it)"
 
 
 def dataset_model_plane(
@@ -106,9 +106,8 @@ def dataset_model_plane(
 
     ``plane`` is a plane of the spectrum; a plane the run excluded has no model.
     """
-    reason = not_fitted(result, plane)
-    if reason:
-        raise ValueError(reason[0].upper() + reason[1:])
+    if plane not in result.inputs.snapshot.source_plane_indices:
+        raise ValueError(f"Plane {plane + 1} is measured but not fitted: the run excluded it")
     ny, nx = (axis.size for axis in axes)
     with _BLAS.limit(limits=1):
         values = project_final_grid(

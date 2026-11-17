@@ -28,7 +28,6 @@ from peakfit.gui.editor.changes import (
     RunChanges,
     compare_runs,
     edited_since,
-    run_numbers,
 )
 from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
@@ -57,6 +56,7 @@ from peakfit.gui.fit_display import (
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project import Analysis, dataset_header
+from peakfit.gui.project_results import run_name, run_numbers
 from peakfit.gui.spectrum import display_position
 
 if TYPE_CHECKING:
@@ -550,8 +550,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             return None
         if self._recorded is None or self._recorded[0] != result.run_id:
             settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
-            number = run_numbers(self.fitting.journal).get(result.run_id)
-            label = str(number) if number else result.run_id[:8]
+            label = run_name(result.run_id, self.fitting.journal)
             self._recorded = (result.run_id, RunSettings(label, settings))
         return self._recorded[1]
 
@@ -565,7 +564,8 @@ class EditorWorkspace(QtWidgets.QWidget):
                 (s.grid_indices, result.index.working_ids(members[s.cluster_id]))
                 for s in result.completed_fit.samples
             )
-            return ("run", result.run_id), regions, f"recorded in run {result.run_id[:8]}"
+            run = run_name(result.run_id, fitting.journal)
+            return ("run", result.run_id), regions, f"recorded in run {run}"
         prepared = fitting.prepared
         if prepared is not None:
             ids = {i.engine_name: i.working_id for i in prepared.identities}
@@ -604,7 +604,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         for index, button in enumerate(self.mode_buttons):
             button.setChecked(index == mode)
         self._fit_lanes()
-        self.canvas.set_comparison(result, mode, label=comparison.label)
+        self.canvas.set_comparison(result, mode, run=comparison.run, label=comparison.label)
 
     def step_plane(self, offset: int) -> None:
         """The previous (−1) or next (+1) plane in acquisition order."""
@@ -1126,6 +1126,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             busy=fitting.busy,
             plane_values=plane_values,
             plane=plane,
+            run_name=run_name(result.run_id, fitting.journal) if result else "",
             review=review,
             retained=retained.get(self.selected_id or ""),
         )
@@ -1307,7 +1308,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
         chosen = self.navigator.filter_text()
         self.profiles.title = (
-            f"{self.dataset.path.stem} · Run {result.run_id[:8]}"
+            f"{self.dataset.path.stem} · Run {run_name(result.run_id, self.fitting.journal)}"
             + ("" if self.fitting.current else " (outdated)")
             + (f" · {chosen}" if chosen else "")
         )
@@ -1329,7 +1330,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             if chosen
             else formatting.count(len(built), "cluster")
         )
-        historical = "" if self.fitting.current else f" · Run {result.run_id[:8]} · historical"
+        historical = (
+            ""
+            if self.fitting.current
+            else f" · Run {run_name(result.run_id, self.fitting.journal)} · historical"
+        )
         self.profiles.set_tiles(
             tiles,
             f"{count}{historical} · in the cluster list's order · double-click to focus",
@@ -1379,7 +1384,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             # All usable and converged needs no counts; anything else spells them out.
             complete = all(c.usable and c.optimizer_provenance.converged for c in clusters)
             text = (
-                f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
+                f"Run {run_name(result.run_id, fitting.journal)} · "
+                f"{'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + _noise_check(result.outcome.noise_model, self._axis_names())
                 + (fitting.attempt + " · " if fitting.attempt and not failed else "")
@@ -1406,6 +1412,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 else ""
             )
             + ("\n" + _recovery_note(fitting.recovery_error) if fitting.recovery_error else "")
+            + (f"\nRun ID {result.run_id}" if result is not None else "")
             + ("\nClick to open the Run page" if result is not None else "")
         )
 
@@ -1726,9 +1733,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         key = self._unexplained_key()
         if key is None or key == self._unexplained[0]:
             return
-        result, plane, threshold = self.fitting.comparison.result, self.canvas.plane, key[2]
+        comparison, plane, threshold = self.fitting.comparison, self.canvas.plane, key[2]
+        result = comparison.result
         assert result is not None
-        if not_fitted(result, plane):
+        if not_fitted(result, plane, comparison.run):
             return
         observed = self.dataset.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.dataset.spectra.spectral_params]
@@ -1792,7 +1800,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         if key is None:
             show(button, False, f"Unavailable: {comparison.reason}", [], note)
             return
-        if comparison.result is not None and (excluded := not_fitted(comparison.result, plane)):
+        if comparison.result is not None and (
+            excluded := not_fitted(comparison.result, plane, comparison.run)
+        ):
             show(button, False, f"Unavailable: {excluded}", [], note)
             return
         if comparison.historical:
@@ -1990,6 +2000,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         comparison = self.fitting.comparison
         self.focus_bar.show_cluster(
             review.names,
+            run_name(result.run_id, self.fitting.journal),
             result.run_id,
             current=bool(self.fitting.current),
             historical=comparison.historical,
@@ -2085,11 +2096,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         to the cluster that was on show.
         """
         names = {peak.id: peak.name for peak in self.peaks}
+        run = run_name(run_id, self.fitting.journal)
         followed = self.selected_id
         before = self._focus_ids
         if followed is not None and followed not in before and followed in review.ids:
             others = [names.get(i, i[:6]) for i in review.ids if i != followed]
-            text = f"Run {run_id[:8]} fits {names.get(followed, followed[:6])} " + (
+            text = f"Run {run} fits {names.get(followed, followed[:6])} " + (
                 "with " + ", ".join(others) if others else "on its own"
             )
             links = [] if set(before) & set(review.ids) else [(names.get(before[0], ""), before[0])]
@@ -2106,7 +2118,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         label = previous[0] + (f" +{len(previous) - 1}" if len(previous) > 1 else "")
         elsewhere = [i for i in left if i in by_id]
         gone = [i for i in left if i not in by_id]
-        parts = [f"Regrouped by run {run_id[:8]} · was {label}"]
+        parts = [f"Regrouped by run {run} · was {label}"]
         if joined:
             parts.append("joined by " + ", ".join(names.get(i, i[:6]) for i in joined))
         if gone:

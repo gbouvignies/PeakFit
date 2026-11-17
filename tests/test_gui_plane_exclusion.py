@@ -165,6 +165,10 @@ def test_a_run_that_excluded_a_plane_shows_it_measured_not_fitted(workspace, sci
     assert not w.canvas.pending_label.isVisible()
     assert w.canvas.caption.text().startswith("No model on this plane")
     assert "no model" in w.canvas.readout.text()
+    # The Run page names the run by its number.
+    w.show_run_page()
+    title = w.panel.run_page.unexplained_title.text()
+    assert title == "Unavailable: plane 2 is measured but not fitted (run 1 excluded it)"
     with pytest.raises(ValueError, match="Plane 2 is measured but not fitted"):
         dataset_model_plane(result, spectra.spectral_params, EXCLUDED, cancel=Event())
     # Fitted planes map to their own columns.

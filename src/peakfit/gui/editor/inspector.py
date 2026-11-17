@@ -615,13 +615,15 @@ class Inspector(QtWidgets.QScrollArea):
         busy: bool,
         plane_values: tuple[float, ...] | None,
         plane: int,
+        run_name: str,
         review: ClusterReview | None = None,
         retained: str | None = None,
     ) -> None:
         """Recorded profile, parameters and review of the selected peak's cluster.
 
-        ``retained`` is why the run kept this peak's working position instead of
-        adopting its fitted one, if it did.
+        ``run_name`` is how captions name the run (its number). ``retained`` is why the
+        run kept this peak's working position instead of adopting its fitted one, if
+        it did.
         """
         peak = self._peak
         if peak is None or self.cluster_view:
@@ -661,7 +663,7 @@ class Inspector(QtWidgets.QScrollArea):
             self.status.setText(
                 ""
                 if result is None
-                else f"Not part of run {result.run_id[:8]}: added or renamed after that fit"
+                else f"Not part of run {run_name}: added or renamed after that fit"
             )
             self.status.setVisible(result is not None)
             self.profile.show_profile(None, plane)
