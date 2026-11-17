@@ -116,6 +116,72 @@ def constraints_text(parameters: ParameterConfig, names: dict[str, str]) -> str:
     return " · ".join(parts) or "None"
 
 
+def _setting_texts(settings: PeakFitConfig, names: dict[str, str]) -> dict[Setting, str]:
+    """Each setting's value in words, as a run recorded it or the working settings hold it."""
+    fitting, clustering = settings.fitting, settings.clustering
+    noise, level = settings.noise_level, clustering.contour_level
+    excluded = settings.exclude_planes
+    constraints = constraints_text(settings.parameters, names)
+    return {
+        Setting.NOISE: formatting.setting(noise) if noise is not None else "the estimate",
+        Setting.THRESHOLD: f"level {formatting.setting(level)}"
+        if level is not None
+        else f"{formatting.setting(clustering.contour_factor)} × noise",
+        Setting.PASSES: f"a {len(fitting.steps)}-step schedule"
+        if fitting.steps
+        else formatting.count(fitting.refine_iterations, "pass", "passes"),
+        Setting.PLANES: f"planes {formatting.plane_numbers(excluded)} excluded"
+        if excluded
+        else "every plane",
+        Setting.CONSTRAINTS: "no constraints" if constraints == "None" else constraints,
+        Setting.ITERATIONS: formatting.grouped(fitting.max_iterations),
+        Setting.TOLERANCE: formatting.setting(fitting.tolerance),
+    }
+
+
+def _setting_value(setting: Setting, settings: PeakFitConfig) -> object:
+    """What decides whether a setting differs between two configurations."""
+    fitting, clustering = settings.fitting, settings.clustering
+    return {
+        Setting.NOISE: settings.noise_level,
+        Setting.THRESHOLD: (clustering.contour_factor, clustering.contour_level),
+        Setting.PASSES: (fitting.refine_iterations, fitting.steps),
+        Setting.PLANES: sorted(settings.exclude_planes),
+        Setting.CONSTRAINTS: settings.parameters,
+        Setting.ITERATIONS: fitting.max_iterations,
+        Setting.TOLERANCE: fitting.tolerance,
+    }[setting]
+
+
+def setting_differences(
+    new: PeakFitConfig,
+    old: PeakFitConfig,
+    axes: Sequence[AxisInfo],
+    names: dict[str, str],
+) -> tuple[dict[str, tuple[str, str]], dict[Setting, tuple[str, str]]]:
+    """The settings that differ between two configurations, each as (old, new) in words.
+
+    By axis label, each axis's effective model (so a common family change marks every
+    axis); then by Model page setting. The Model page marks its settings with • from
+    this, and the Run page lists a baseline run's settings against the active run's.
+    """
+    by_axis = {
+        axis.label: (
+            axis_model_text(old.fitting.axis_model(axis.label), axis.detected),
+            axis_model_text(new.fitting.axis_model(axis.label), axis.detected),
+        )
+        for axis in axes
+        if new.fitting.axis_model(axis.label) != old.fitting.axis_model(axis.label)
+    }
+    before, after = _setting_texts(old, names), _setting_texts(new, names)
+    rows = {
+        setting: (before[setting], after[setting])
+        for setting in Setting
+        if _setting_value(setting, new) != _setting_value(setting, old)
+    }
+    return by_axis, rows
+
+
 def planes_fitted(total: int, excluded: Sequence[int]) -> str:
     """``All 131 fitted``, or ``128 of 131 fitted``."""
     if not excluded:
@@ -670,49 +736,12 @@ class ModelPage(QtWidgets.QWidget):
         """What differs from the run: by axis and by row, each with the run's value."""
         if run is None:
             return {}, {}
-        recorded = run.settings
-        w, r = working.fitting, recorded.fitting
-        axes: dict[str, str] = {}
-        for row in self.axes.rows if self.axes else ():
-            label = row.axis.label
-            # Each axis's effective model, so a common family change marks every axis.
-            if w.axis_model(label) != r.axis_model(label):
-                used = axis_model_text(r.axis_model(label), row.axis.detected)
-                axes[label] = f"Run {run.run} used {used}"
-        rows: dict[Setting, str] = {}
-        if working.noise_level != recorded.noise_level:
-            rows[Setting.NOISE] = (
-                formatting.setting(recorded.noise_level)
-                if recorded.noise_level is not None
-                else "the estimate"
-            )
-        wc, rc = working.clustering, recorded.clustering
-        if (wc.contour_factor, wc.contour_level) != (rc.contour_factor, rc.contour_level):
-            rows[Setting.THRESHOLD] = (
-                f"level {formatting.setting(rc.contour_level)}"
-                if rc.contour_level is not None
-                else f"{formatting.setting(rc.contour_factor)} × noise"
-            )
-        if (w.refine_iterations, w.steps) != (r.refine_iterations, r.steps):
-            rows[Setting.PASSES] = (
-                f"a {len(r.steps)}-step schedule"
-                if r.steps
-                else formatting.count(r.refine_iterations, "pass", "passes")
-            )
-        if sorted(working.exclude_planes) != sorted(recorded.exclude_planes):
-            rows[Setting.PLANES] = (
-                f"planes {formatting.plane_numbers(recorded.exclude_planes)} excluded"
-                if recorded.exclude_planes
-                else "every plane"
-            )
-        if working.parameters != recorded.parameters:
-            used = constraints_text(recorded.parameters, self._names())
-            rows[Setting.CONSTRAINTS] = "no constraints" if used == "None" else used
-        if w.max_iterations != r.max_iterations:
-            rows[Setting.ITERATIONS] = formatting.grouped(r.max_iterations)
-        if w.tolerance != r.tolerance:
-            rows[Setting.TOLERANCE] = formatting.setting(r.tolerance)
-        return axes, rows
+        rows = [row.axis for row in self.axes.rows] if self.axes else []
+        axes, settings = setting_differences(working, run.settings, rows, self._names())
+        return (
+            {label: f"Run {run.run} used {old}" for label, (old, _new) in axes.items()},
+            {setting: old for setting, (old, _new) in settings.items()},
+        )
 
     def _axes_edited(self, fitting) -> None:
         if self._configuration is None:

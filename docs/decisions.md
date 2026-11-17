@@ -1743,3 +1743,34 @@ Short records of non‑obvious design choices and trade‑offs.
   manual noise row needed 293 px of 288; it needs 285 now (271 natively). The width
   test also runs under DejaVu Sans, as Linux renders the UI font, and names the
   widest row when it fails.
+
+## 2026-11-17: Compare the active run with any retained run; no Runs tab (#218)
+- **A baseline menu, not a tab.** The Run page's changes section reads **Changes
+  from run N ▾**; its menu lists every other completed run, newest first, with its
+  time, "parent" and "summary only". The parent stays the default, and a new active
+  run, or reopening, returns to it. The choice is view state: it is never saved and
+  changes no working peak, setting, active run, Current/Outdated, Undo or Modified
+  (`tests/test_gui_run_baseline.py` hashes all of them before and after, across save
+  and reopen). A Runs navigator tab would hide the cluster list and put a historical
+  run beside the active one; detailed inspection stays in Analysis history.
+- **Run numbers from the journal.** A run's number is its place among the journal's
+  completed runs, so it needs no storage change and survives save, reopen and
+  recovery; failed and canceled attempts get none. The Run row, the Model page's
+  "differs from run N", the baseline menu and Analysis history use it; other
+  captions still name runs by short ID.
+- **Settings first, from each run's record.** `setting_differences` is the one
+  comparison behind the Model page's • marks and the Run page's Settings rows
+  (baseline → active).
+- **Edits along the recorded chain.** A peak is "edited" against a non-parent
+  baseline only when a refit after it recorded the peak as moved or added by hand
+  (`edited_since` follows the parent links); an edit undone before a fit, or a
+  position changed only by fitting, is never one.
+- **Stricter measure comparability, for every baseline.** Measures are also withheld
+  when the fitted planes (plane values or exclusions), the effective lineshape model
+  of an axis or the constraints differ; run-level differences are named before
+  cluster-level ones (samples, varied parameters). The parent comparison is now as
+  strict.
+- **Summary-only baselines.** Settings and the recorded cluster and peak counts
+  compare; cluster changes, ▲ warnings, measures and positions are named as
+  unavailable and never reconstructed. At most one historical result is held in
+  memory, so browsing baselines does not accumulate results.

@@ -23,12 +23,18 @@ from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.axis_table import AxisInfo
-from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
+from peakfit.gui.editor.changes import (
+    ClusterChange,
+    RunChanges,
+    compare_runs,
+    edited_since,
+    run_numbers,
+)
 from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, Page, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
-from peakfit.gui.editor.model_page import RunSettings
+from peakfit.gui.editor.model_page import RunSettings, setting_differences
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
@@ -97,6 +103,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.rules = HighlightRules()  # review highlight thresholds; display only
         self._reviews: tuple[object, list] = (None, [])
         self._changes: tuple[object, RunChanges | None] = (None, None)
+        # The run the Run page compares with, as (active run ID, baseline run ID); view
+        # state only, never saved: a new active run compares with its parent again.
+        self._baseline: tuple[str, str] | None = None
+        self._settings_changes: tuple[object, list[tuple]] = (None, [])
         # Signal not explained on this plane: computed on request, kept for its key only.
         self.unexplained_threshold = DEFAULT_THRESHOLD  # k in σ_stat; display only
         # (key, regions, "pending" or the failure)
@@ -219,6 +229,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.focus_bar.regions.toggled.connect(regions.setChecked)
         regions.toggled.connect(self.focus_bar.regions.setChecked)
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c, center=True))
+        self.panel.run_page.baseline_chosen.connect(self._choose_baseline)
         self.panel.unexplained_requested.connect(self.find_unexplained)
         self.panel.region_chosen.connect(self.frame_region)
         self.navigator.step_requested.connect(
@@ -539,7 +550,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             return None
         if self._recorded is None or self._recorded[0] != result.run_id:
             settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
-            self._recorded = (result.run_id, RunSettings(result.run_id[:8], settings))
+            number = run_numbers(self.fitting.journal).get(result.run_id)
+            label = str(number) if number else result.run_id[:8]
+            self._recorded = (result.run_id, RunSettings(label, settings))
         return self._recorded[1]
 
     def _fitting_regions(self):
@@ -961,30 +974,111 @@ class EditorWorkspace(QtWidgets.QWidget):
             rows.append((f"{kind} {title}", parameter.unit, start, low, high, parameter.vary))
         return rows, "For the next fit, from the working position and model settings."
 
-    def _run_changes(self) -> tuple[str, list[tuple]]:
-        """What changed since the run this one was refitted from, as page entries."""
+    def _choose_baseline(self, identity: str) -> None:
+        """Compare the active run with another retained run; nothing else changes."""
+        result = self.fitting.result
+        if result is None:
+            return
+        self._baseline = (result.run_id, identity)
+        self.panel.run_page.show_changes(*self._run_changes())
+
+    def _run_changes(self) -> tuple[list[tuple[str, str, str]], str, list[tuple]]:
+        """The runs to compare with, the baseline chosen and its changes, as page entries.
+
+        The baseline is the active run's parent unless another retained run was chosen
+        for this active run. Every value is read from the two runs' records.
+        """
         fitting = self.fitting
         result = fitting.result
-        parent_id, parent = fitting.parent_result()
         if result is None:
-            return "", []
-        if parent_id is None:
-            return "", [("note", "First run: there is no earlier run to compare with.")]
-        title = parent_id[:8]
-        if parent is None:
-            return title, [("note", f"Reading run {parent_id[:8]}…")]
-        if isinstance(parent, str):
-            return title, [("note", f"Run {parent_id[:8]} cannot be compared: {parent}.")]
+            return [], "", []
+        numbers = run_numbers(fitting.journal)
+        parent = fitting.parent_id()
+        others = [e for e in reversed(fitting.completed_runs()) if e["run_id"] != result.run_id]
+        if not others:
+            return [], "", [("note", "First run: there is no earlier run to compare with.")]
+        choices = []
+        for entry in others:
+            identity = entry["run_id"]
+            tags = [formatting.local_time(entry.get("completed_at", ""))]
+            tags += ["parent"] if identity == parent else []
+            tags += [] if fitting.full_evidence(identity) else ["summary only"]
+            label = f"Run {numbers[identity]}"
+            choices.append((label, " · ".join([label, *tags]), identity))
+        ids = [identity for _label, _text, identity in choices]
+        chosen = self._baseline[1] if self._baseline and self._baseline[0] == result.run_id else ""
+        if chosen not in ids:
+            chosen = parent if parent in ids else ids[0]
+        entry = next(e for e in others if e["run_id"] == chosen)
+        number = numbers[chosen]
+        full = fitting.full_evidence(chosen)
+        tags = [chosen[:8], *(["parent"] if chosen == parent else [])]
+        tags += [] if full else ["summary only"]
+        entries: list[tuple] = [
+            ("row", "Baseline", " · ".join([f"Run {number}", *tags]), chosen),
+            *self._settings_entries(entry["configuration"], result),
+        ]
+        if not full:
+            return choices, chosen, entries + _summary_entries(number, entry, result)
+        baseline = fitting.run_result(chosen)
+        if baseline is None:
+            return choices, chosen, [*entries, ("note", f"Reading run {number}…")]
+        if isinstance(baseline, str):
+            return (
+                choices,
+                chosen,
+                [*entries, ("note", f"Run {number} cannot be compared: {baseline}.")],
+            )
         axes = list(self.dataset.spectra.spectral_params)
         titles = [formatting.axis_name(a) for a in axes]
-        key = (result.run_id, parent_id, self.rules)
+        key = (result.run_id, chosen, self.rules)
+        edited = edited_since(fitting.journal, result.run_id, chosen)
         if key != self._changes[0]:
-            parent_reviews = review_clusters(parent, axes, titles, self.rules)
-            changes = compare_runs(result, self.reviews(), parent, parent_reviews, axes, titles)
+            reviews = review_clusters(baseline, axes, titles, self.rules)
+            changes = compare_runs(
+                result,
+                self.reviews(),
+                baseline,
+                reviews,
+                axes,
+                titles,
+                edited=edited or frozenset(),
+            )
             self._changes = (key, changes)
         changes = self._changes[1]
         assert changes is not None
-        return title, _change_entries(changes)
+        entries += _change_entries(changes)
+        if edited is None:
+            entries.append(
+                ("note", f"Edits are not listed: run {number} is not an earlier run of this one.")
+            )
+        return choices, chosen, entries
+
+    def _settings_entries(self, recorded: str, result) -> list[tuple]:
+        """The settings that differ, baseline → active, each from that run's record."""
+        key = (recorded, result.run_id)
+        if key != self._settings_changes[0]:
+            self._settings_changes = (key, self._settings_rows(recorded, result))
+        return self._settings_changes[1]
+
+    def _settings_rows(self, recorded: str, result) -> list[tuple]:
+        old = PeakFitConfig.model_validate_json(recorded)
+        new = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
+        names = self._axis_names()
+        by_axis, rows = setting_differences(new, old, _axis_infos(self.dataset.spectra), names)
+        tip = "As each run recorded them: baseline → active"
+        if not by_axis and not rows:
+            return [("row", "Settings", "identical", tip)]
+        entries: list[tuple] = [("heading", "Settings", tip)]
+        entries += [
+            ("row", f"{names.get(label, label)} model", f"{before} → {after}", "")
+            for label, (before, after) in by_axis.items()
+        ]
+        entries += [
+            ("row", setting.value, f"{before} → {after}", "")
+            for setting, (before, after) in rows.items()
+        ]
+        return entries
 
     def set_rules(self, rules: HighlightRules) -> None:
         """Change highlight thresholds; no scientific data or run state changes."""
@@ -1043,7 +1137,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         elif result is not None:
             flagged = self.warnings.property("count") or 0
             rows += _run_rows(
-                result, current=bool(fitting.current), warned=flagged, axes=self._axis_names()
+                result,
+                current=bool(fitting.current),
+                warned=flagged,
+                axes=self._axis_names(),
+                number=run_numbers(fitting.journal).get(result.run_id),
             )
             rows += submitted_rows(result, self._axis_names())
         # With no run the rows stay empty: the toolbar already says Not fitted.
@@ -2182,7 +2280,9 @@ def _can_toggle(count: int, excluded: list[int], plane: int) -> bool:
     return count > 1
 
 
-def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> list[Row]:
+def _run_rows(
+    result, *, current: bool, warned: int, axes: dict[str, str], number: int | None = None
+) -> list[Row]:
     """The active run as label rows: identity, completeness, then when it ran."""
     clusters = result.outcome.clusters
     total = len(clusters)
@@ -2194,7 +2294,8 @@ def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> li
     rows: list[Row] = [
         Row(
             "Run",
-            f"{result.run_id[:8]} · {'Current' if current else 'Outdated'}",
+            (f"{number} · " if number else "")
+            + f"{result.run_id[:8]} · {'Current' if current else 'Outdated'}",
             tip=result.run_id,
         ),
         Row("Model", model, style="" if usable == total else "warning"),
@@ -2310,6 +2411,28 @@ POSITIONS_TIP = "Differences between fitted positions; not a measure of fit qual
 def _before_after(before: int, after: int) -> str:
     """A count across two runs, said once when it did not change."""
     return f"{after}, unchanged" if before == after else f"{before} → {after}"
+
+
+def _summary_entries(number: int, entry: dict, result) -> list[tuple]:
+    """Against a Summary-only baseline: its recorded counts, and what it no longer supports.
+
+    The journal keeps the run's clusters and peaks; its reviews, measures and fitted
+    positions of usable clusters need the pruned evidence and are never reconstructed.
+    """
+    before, after = len(entry.get("diagnostics") or ()), len(result.outcome.clusters)
+    old = {i["working_id"] for i in entry.get("identities") or ()}
+    new = {i.working_id for i in result.inputs.identities}
+    clustering = _before_after(before, after)
+    if new - old or old - new:
+        clustering += f" · peaks +{len(new - old)} −{len(old - new)}"
+    return [
+        ("row", "Clusters", clustering, ""),
+        (
+            "note",
+            f"Run {number} is kept as a summary: cluster changes, ▲ warnings, measures "
+            "and position differences need its full evidence, which is no longer retained.",
+        ),
+    ]
 
 
 def _change_entries(changes: RunChanges) -> list[tuple]:

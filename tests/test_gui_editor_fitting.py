@@ -1211,14 +1211,15 @@ def test_model_edits_mark_the_run_outdated_and_undo_restores_them(workspace, sci
     assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
     # The setting that differs from the run is marked, and the page says so once.
     assert model.titles[Setting.PASSES].text() == f"Passes {DIFFERS}"
-    assert f"{fitting.result.run_id[:8]}" in model.differs.text()
+    # Runs are named by number, as on the Run page: this is the first.
+    assert model.differs.text() == f"{DIFFERS} differs from run 1"
     assert model.titles[Setting.THRESHOLD].text() == "Threshold"
     row = model.axes.rows[0]
     other = "lorentzian" if row.family.currentData() != "lorentzian" else "sp1"
     row.family.setCurrentIndex(row.family.findData(other))
     assert fitting.configuration.fitting.axis_model(row.axis.label).family == other
     assert row.name.text().endswith(DIFFERS)
-    assert row.name.toolTip().startswith(f"Run {fitting.result.run_id[:8]} used ")
+    assert row.name.toolTip().startswith("Run 1 used ")
     assert w.undo_action.text() == "Undo settings change"
     w.history(False)
     assert row.family.currentData() != other
@@ -1949,7 +1950,7 @@ def test_the_active_run_reads_as_label_rows(workspace, scientific):
     panel = w.panel
     total = len(result.outcome.clusters)
     usable = sum(c.usable for c in result.outcome.clusters)
-    assert _review_row(panel.run_page.run_rows, "Run") == f"{result.run_id[:8]} · Current"
+    assert _review_row(panel.run_page.run_rows, "Run") == f"1 · {result.run_id[:8]} · Current"
     assert _review_cell(panel.run_page.run_rows, "Run").toolTip() == result.run_id
     assert _review_row(panel.run_page.run_rows, "Usable") == f"{usable} / {total}"
     fitted = _review_row(panel.run_page.run_rows, "Fitted")
@@ -1959,8 +1960,8 @@ def test_the_active_run_reads_as_label_rows(workspace, scientific):
     QtWidgets.QApplication.processEvents()  # lay out the new rows
     x = lambda widget: widget.mapTo(panel.analysis_page, QtCore.QPoint(0, 0)).x()  # noqa: E731
     assert x(_review_cell(panel.run_page.run_rows, "Run")) == x(panel.model_page.passes)
-    # No parent run: no changes section.
-    assert panel.run_page.changes_title.isHidden()
+    # No earlier run: no changes section.
+    assert panel.run_page.changes_heading.isHidden()
 
 
 def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
@@ -1997,9 +1998,10 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
             return completion
 
     fitting.history = [Stored(Path(), {"run_id": parent.run_id}), *fitting.history]
+    (active,) = fitting.journal
     fitting.journal = [
-        {**e, "parent_run_id": parent.run_id} if e.get("run_id") == result.run_id else e
-        for e in fitting.journal
+        {**active, "run_id": parent.run_id, "parent_run_id": None},
+        {**active, "parent_run_id": parent.run_id},
     ]
     panel = w.panel
     texts = lambda: [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]  # noqa: E731
@@ -2008,13 +2010,14 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
         w.render_fitting()
         wait_until(started.is_set)
         # The stored parent is read off Qt; the page says so meanwhile.
-        assert "Reading run parent00…" in texts()
+        assert "Reading run 1…" in texts()
     finally:
         released.set()
-    wait_until(lambda: fitting._parents.get(parent.run_id) is parent)
+    wait_until(lambda: fitting._runs_read.get(parent.run_id) is parent)
     w.render_fitting()
-    assert panel.run_page.changes_title.text() == "CHANGES FROM PARENT RUN"
-    assert "parent00" in texts()  # the run ID keeps its case, as a row
+    assert panel.run_page.changes_title.text() == "CHANGES FROM"
+    assert panel.run_page.baseline.text().startswith("Run 1")
+    assert "Run 1 · parent00 · parent" in texts()  # the run ID keeps its case, as a row
     assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
     assert not any("resolved" in t for t in texts())
     links = [

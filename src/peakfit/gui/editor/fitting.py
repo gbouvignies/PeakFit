@@ -110,8 +110,9 @@ class DatasetFitting(QtCore.QObject):
         self.preview: PreparedDatasetFit | None = None
         self.preview_error = ""
         self._preview_inputs = None
-        # Parent runs read for run-to-run changes: result, reason, or "loading".
-        self._parents: dict[str, DatasetFitResult | str] = {}
+        # Retained runs read for run-to-run changes: result, reason, or "loading".
+        # One historical result at most stays resident (specification §4).
+        self._runs_read: dict[str, DatasetFitResult | str] = {}
         self._preview_generation = 0
         self._preview_timer = QtCore.QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -358,44 +359,61 @@ class DatasetFitting(QtCore.QObject):
         self._worker.submit("fit", self._generation, prepare)
         self.state_changed.emit()
 
-    def parent_result(self) -> tuple[str | None, DatasetFitResult | str | None]:
-        """The active run's parent: (its ID, its result, a reason, or None while loading).
-
-        Stored history is loaded once off Qt and cached; nothing is refitted.
-        """
+    def parent_id(self) -> str | None:
+        """The run the active run was refitted from, as its journal entry records it."""
         result = self.result
         if result is None:
-            return None, None
+            return None
         entry = next((e for e in reversed(self.journal) if e.get("run_id") == result.run_id), None)
-        parent_id = entry.get("parent_run_id") if entry else None
-        if not parent_id:
-            return None, None
-        known = self._parents.get(parent_id)
+        return (entry.get("parent_run_id") or None) if entry else None
+
+    def completed_runs(self) -> list[dict]:
+        """The journal's completed runs, oldest first; failed or canceled attempts are not."""
+        return [e for e in self.journal if e.get("status") == "completed"]
+
+    def full_evidence(self, identity: str) -> bool:
+        """Whether a run's full evidence is retained, rather than its summary only."""
+        return any(run_id(r) == identity for r in self.history)
+
+    def run_result(self, identity: str) -> DatasetFitResult | str | None:
+        """A retained run's recorded result, why it cannot be read, or None while loading.
+
+        Stored history is loaded off Qt; nothing is refitted. Only the last result read
+        is kept, so choosing baselines one after another never accumulates results.
+        """
+        known = self._runs_read.get(identity)
         if known is None:
-            run = next((r for r in self.history if run_id(r) == parent_id), None)
+            run = next((r for r in self.history if run_id(r) == identity), None)
             if run is None:
-                known = "its recorded evidence is no longer retained"
+                known = "its full evidence is no longer retained"
             elif isinstance(run, DatasetCompletion):
                 known = run.result
             else:
-                self._parents[parent_id] = "loading"
-                self._worker.submit("parent", 0, lambda: (parent_id, _warmed(run.load())))
-                return parent_id, None
-            self._parents[parent_id] = known
-        if known == "loading":
-            return parent_id, None
-        return parent_id, known
+                # A new request replaces a pending one, which is asked for again if needed.
+                self._runs_read = {k: v for k, v in self._runs_read.items() if v != "loading"}
+                self._runs_read[identity] = "loading"
+                self._worker.submit("run", 0, lambda: (identity, _warmed(run.load())))
+                return None
+            self._keep_read(identity, known)
+        return None if known == "loading" else known
+
+    def _keep_read(self, identity: str, known: DatasetFitResult | str) -> None:
+        """Remember a run read, dropping any other historical result already held."""
+        self._runs_read = {
+            key: value for key, value in self._runs_read.items() if isinstance(value, str)
+        }
+        self._runs_read[identity] = known
 
     def _prepared(self, kind, generation, outcome) -> None:
-        if kind == "parent":
+        if kind == "run":
             if isinstance(outcome, Exception):
                 # The failing run is unknown here; mark every pending load as failed.
-                for key, value in self._parents.items():
+                for key, value in self._runs_read.items():
                     if value == "loading":
-                        self._parents[key] = f"its recorded evidence could not be read: {outcome}"
+                        self._runs_read[key] = f"its recorded evidence could not be read: {outcome}"
             else:
-                parent_id, completion = outcome
-                self._parents[parent_id] = completion.result
+                identity, completion = outcome
+                self._keep_read(identity, completion.result)
             self.state_changed.emit()
             return
         if kind == "preview":

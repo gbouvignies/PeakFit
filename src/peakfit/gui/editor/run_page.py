@@ -1,9 +1,11 @@
 """The inspector's Run page: the active run as recorded, and what to do about it.
 
 A failed attempt leads, then the run's identity and outcome counts with the warning
-action right under them, the changes from its parent run and, on request, the
-signal not explained on the current plane. Every value comes from the recorded
-outcome; the page never refits or recomputes statistics.
+action right under them, the changes from a baseline run (its parent unless another
+retained run is chosen in the section's heading) and, on request, the signal not
+explained on the current plane. Every value comes from the recorded outcome; the
+page never refits or recomputes statistics, and choosing a baseline changes nothing
+but what the changes section compares.
 """
 
 from typing import TYPE_CHECKING
@@ -80,9 +82,10 @@ def _rows() -> QtWidgets.QGridLayout:
 
 
 class RunPage(QtWidgets.QWidget):
-    """Failure, active run, changes from the parent run and unexplained signal."""
+    """Failure, active run, changes from a baseline run and unexplained signal."""
 
     next_warning = QtCore.Signal()
+    baseline_chosen = QtCore.Signal(str)  # the run ID to compare the active run with
     change_chosen = QtCore.Signal(str, bool)  # working ID, open its cluster page
     unexplained_requested = QtCore.Signal()
     region_chosen = QtCore.Signal(int)  # index in the unexplained-signal list
@@ -118,8 +121,26 @@ class RunPage(QtWidgets.QWidget):
         self.next_button = themes.command("Select next cluster with a warning")
         self.next_button.clicked.connect(self.next_warning)
         run.addWidget(self.next_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.changes_title = section(run, "Changes from parent run")
-        self.changes_title.hide()
+        # The heading names the baseline and chooses it: "CHANGES FROM  Run 3 ▾".
+        run.addSpacing(themes.SPACE_M)
+        self.changes_heading = QtWidgets.QWidget()
+        heading = QtWidgets.QHBoxLayout(self.changes_heading)
+        heading.setContentsMargins(0, 0, 0, 0)
+        heading.setSpacing(themes.SPACE_S)
+        self.changes_title = _label("CHANGES FROM", "section")
+        heading.addWidget(self.changes_title)
+        self.baseline = themes.MenuChoice(
+            "Compare with",
+            "The run the active run is compared with; nothing else changes",
+            [("", "", "")],
+        )
+        self.baseline.currentIndexChanged.connect(
+            lambda index: self.baseline_chosen.emit(self.baseline.choices[index][2])
+        )
+        heading.addWidget(self.baseline, 0, QtCore.Qt.AlignmentFlag.AlignVCenter)
+        heading.addStretch(1)
+        self.changes_heading.hide()
+        run.addWidget(self.changes_heading)
         self.changes = QtWidgets.QVBoxLayout()
         self.changes.setSpacing(2)
         run.addLayout(self.changes)
@@ -183,20 +204,29 @@ class RunPage(QtWidgets.QWidget):
     def _copy_failure_details(self) -> None:
         QtGui.QGuiApplication.clipboard().setText(self._failure_details)
 
-    def show_changes(self, parent: str, entries: list[tuple]) -> None:
-        """Show run-to-run changes; ``parent`` is the parent run's short ID, or "".
+    def show_changes(
+        self, choices: list[tuple[str, str, str]], chosen: str, entries: list[tuple]
+    ) -> None:
+        """Show run-to-run changes against the ``chosen`` baseline run.
 
-        Entries are ("row", label, value, tooltip), ("heading", text[, tooltip]),
-        ("note", text) or ("link", text, detail, working ID, opens a cluster
-        page[, warning]). Consecutive rows share one label grid.
+        ``choices`` are the runs to compare with, as (short label, menu text, run ID);
+        with no baseline chosen the heading hides. Entries are ("row", label, value,
+        tooltip), ("heading", text[, tooltip]), ("note", text) or ("link", text,
+        detail, working ID, opens a cluster page[, warning]). Consecutive rows share
+        one label grid.
         """
-        key = (parent, tuple(entries))
+        key = (tuple(choices), chosen, tuple(entries))
         if key == self._changes_key:
             return
         self._changes_key = key
-        self.changes_title.setVisible(bool(parent))
+        shown = bool(chosen) and any(c[2] == chosen for c in choices)
+        self.changes_heading.setVisible(shown)
+        if shown:
+            self.baseline.set_choices(
+                choices, next(i for i, c in enumerate(choices) if c[2] == chosen)
+            )
         clear_layout(self.changes)
-        rows: list[Row] = [Row("Parent run", parent)] if parent else []
+        rows: list[Row] = []
 
         def flush() -> None:
             if rows:
