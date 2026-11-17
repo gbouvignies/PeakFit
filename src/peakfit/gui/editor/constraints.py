@@ -360,6 +360,7 @@ class ConstraintsEditor(QtWidgets.QWidget):
         for row, draft in zip(self.rules, self._drafts, strict=True):
             if not draft.raw:
                 draft.axis, draft.kind = row.axis.currentData(), row.kind.currentData()
+                row.unit.setText(KINDS[draft.kind][1])
             draft.start, draft.low, draft.high = (
                 e.text().strip() for e in (row.start, row.low, row.high)
             )

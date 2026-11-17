@@ -92,7 +92,7 @@ def not_fitted(result: DatasetFitResult, plane: int) -> str:
     """Why the run has no model of spectrum plane ``plane`` (zero-based), or ""."""
     if plane in result.inputs.snapshot.source_plane_indices:
         return ""
-    return f"plane {plane + 1} is measured but not fitted: run {result.run_id[:8]} excluded it"
+    return f"plane {plane + 1} is measured but not fitted (run {result.run_id[:8]} excluded it)"
 
 
 def dataset_model_plane(

@@ -20,6 +20,8 @@ from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.model_page import constraints_text, planes_fitted
 from peakfit.gui.failures import log_path
 
+NBSP = "\u00a0"
+
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
 
@@ -55,7 +57,9 @@ def submitted_rows(result: DatasetFitResult, names: dict[str, str]) -> list[Row]
         rows.append(
             Row(
                 "Planes",
-                f"{planes_fitted(total, excluded)} · {formatting.plane_numbers(excluded)} excluded",
+                # Each phrase stays whole: the line breaks only at the dot.
+                f"{planes_fitted(total, excluded)} · "
+                f"{formatting.plane_numbers(excluded)}{NBSP}excluded",
                 tip="Excluded planes are measured, with no fitted amplitude",
             )
         )

@@ -300,6 +300,7 @@ def test_a_rule_on_a_parameter_the_model_lacks_is_refused(tmp_path, preview):
     page, _emitted = _page(_toml(tmp_path), preview)
     _rule(page, "F2", "eta", hold=True)  # Gaussian: no η
     row = page.constraints.rules[-1]
+    assert row.unit.text() == ""  # η has no unit; the new rule's LW had Hz
     assert "matches no parameter" in row.message.text()
     assert "matches no parameter" in page.invalid
 
