@@ -184,21 +184,58 @@ bounds, × and Phase in that order, then the next axis; every control's name say
 entry (a J outside its range, an empty range, a phase on a family without one) is
 explained under its axis, outlines the fields concerned and disables **Fit**, with
 the same reason in Fit's tooltip, until it is corrected; nothing invalid reaches
-the settings. Below the table: **Clustering**, with the statistical noise (an
-explicit value says so; the estimate's method is in the tooltip) and the threshold
-as a factor of the noise with its absolute intensity; **Fit**, with optimizer passes
-(default **two**, with the neighbor correction update between passes; an imported
-step schedule replaces the field), the planes fitted and the axis-wide and per-peak
-constraints in one line (both read-only; their controls are W4);
-and **Optimizer limits** (collapsed: solver, iteration limit, tolerance). Values use
-× 10ⁿ, never e notation; the tolerance reads 1 × 10⁻⁸ and accepts plain or
-scientific entry. Once a run exists, every setting whose working value differs from
+the settings. Below the table: **Clustering**, with the statistical noise,
+**Estimated** from the fitted planes or **Manual** (choosing Manual starts from the
+estimate as shown, and the estimate stays under the value), and the threshold, a
+**Factor** of the noise with the absolute level it gives, or an absolute **Level**
+with the factor it amounts to (choosing Level starts from the level the factor
+gave). The threshold selects the fitting regions, not only how peaks are grouped:
+the points above it, in regions around the peaks, are the points fitted, and peaks
+that share a region form one cluster. Each value reads on one line with its
+source after it as a ▾ menu (“1.192 × 10⁴ estimated ▾”, “5.00 × noise ▾”), and
+the derived value on the line under it. **Fit**, with optimizer passes (default **two**, with the neighbor
+correction update between passes; an imported step schedule replaces the field)
+and the planes **excluded**, by the plane numbers navigation shows (“1, 41–42”;
+the configuration's `exclude_planes` counts from 0), with how many are fitted and
+the numbering (“128 of 131 fitted · numbered 1–131”);
+**Constraints** (collapsed, with a one-line summary): a position window per axis,
+how far a peak may move from its start in ppm, and rules on a parameter kind
+(linewidth or η) on one axis or all, each setting a start, a range or **Hold**,
+applied in order so a later rule overrides an earlier one. A rule waits, with a
+hint, until it sets something. An imported axis-wide rule on another parameter
+(`*.F2.cs`, `*.*.phase`, `*`) is shown as written, with its start, range and Hold
+editable; an imported rule for named peaks is shown as written and must be removed
+before a desktop fit. Per-peak constraints belong to their peak; the desktop fit
+does not apply them yet, and the page says so. Then **Optimizer limits** (collapsed:
+solver, iteration limit, tolerance). Values use × 10ⁿ, never e notation, and
+accept plain or scientific entry (1.5e5, 1.5 × 10⁵); the tolerance reads
+1 × 10⁻⁸. A typed value that cannot be fitted (a noise or level that is not
+positive, an exclusion that leaves no plane or names a plane that does not exist,
+a rule whose start lies outside its range or whose range is empty, a rule that
+matches no parameter of the current model) is explained under its setting,
+outlines the field, keeps the committed value and disables **Fit** with the same
+reason, until it is corrected. The reason starts “Not applied:”, and nothing derived
+from the setting in effect (the estimate under a manual noise, the factor or level
+a threshold amounts to, the planes fitted) shows beside an entry that is not applied. Once a run exists, every setting whose working value differs from
 the one the run used is marked • (an axis on its name, a setting on its label, with
 what the run used in the tooltip), and the page says “• differs from run 5d7b4768”.
 
 Every committed settings change is one undoable edit in the same history as peak
 edits (**Undo settings change**), and marks an existing run Outdated; Undo restores
-the setting but never makes the run Current again. Before the first fit the toolbar
+the setting but never makes the run Current again.
+
+**Analysis ▸ Exclude plane N from the fit** (also on the plane strip's context
+menu) excludes the plane shown, or includes it again, as one such edit; the last
+fitted plane cannot be excluded. An excluded plane stays in plane navigation,
+which marks it **not fitted**, and stays measured: Overlay and Residual show its
+experimental contours, with “No model on this plane” (or “No residual”) in the
+header strip above the plot, never over the contours, and the spectrum and slices
+keep their place; the peak
+profiles and the Profiles view draw it as a faint dotted line with “plane N
+measured, not fitted”, never as a point. The Run page lists the settings each run
+was submitted with: its noise (a manual value as entered, an estimate as
+computed), threshold and, when it had any, its excluded planes and constraints,
+each rule on its own line. Before the first fit the toolbar
 says **Not fitted** and Run is unavailable.
 
 After every committed change to peaks or settings the Model page prepares the exact

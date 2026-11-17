@@ -295,7 +295,7 @@ class ConstraintResolver:
     def _apply_pattern_defaults(self, resolved: ResolvedConstraint, param_name: str) -> None:
         """Apply pattern-based default constraints."""
         for pattern, constraint in self.config.defaults.patterns.items():
-            if self._matches_pattern(param_name, pattern):
+            if matches_pattern(param_name, pattern):
                 resolved.merge_from(constraint, f"pattern:{pattern}")
 
     def _apply_position_window(
@@ -359,23 +359,21 @@ class ConstraintResolver:
             constraint = peak_config.parameters[short_name]
             resolved.merge_from(constraint, f"peaks.{peak_name}.{short_name}")
 
-    @staticmethod
-    def _matches_pattern(name: str, pattern: str) -> bool:
-        """Check if parameter name matches a glob pattern.
 
-        Supports:
-        - "*" matches any sequence
-        - "?" matches single character
-        - "." is treated literally
+def matches_pattern(name: str, pattern: str) -> bool:
+    """Check if parameter name matches a glob pattern.
 
-        Examples:
-        --------
-            "*.*.cs" matches "2N-H.F2.cs"
-            "*.F2.*" matches "2N-H.F2.cs", "Peak1.F2.lw"
-        """
-        # Convert glob pattern to regex
-        regex = fnmatch.translate(pattern)
-        return bool(re.match(regex, name))
+    Supports:
+    - "*" matches any sequence
+    - "?" matches single character
+    - "." is treated literally
+
+    Examples:
+    --------
+        "*.*.cs" matches "2N-H.F2.cs"
+        "*.F2.*" matches "2N-H.F2.cs", "Peak1.F2.lw"
+    """
+    return bool(re.match(fnmatch.translate(pattern), name))
 
 
 def apply_constraints(

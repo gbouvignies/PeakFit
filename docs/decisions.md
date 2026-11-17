@@ -1565,7 +1565,7 @@ Short records of non‑obvious design choices and trade‑offs.
   `source_plane_values`, and its reader requires the fitted planes to be exactly
   the spectrum's planes minus the excluded ones; a project reopen checks the same.
 - **Never automatic.** Only `exclude_planes` or `--exclude` excludes a plane; the
-  desktop fit still refuses exclusion until its controls exist (W4). An index
+  desktop fit refused exclusion until its controls existed (W4, below). An index
   outside the spectrum, or excluding every plane, is now an error instead of being
   ignored.
 - **Breaking, without a version bump.** Archive 12.0.0, fit JSON 9.0.0 and project
@@ -1689,3 +1689,57 @@ Short records of non‑obvious design choices and trade‑offs.
   them; W4 extends it to the controls it adds.
 - **Left to W4:** manual noise, an explicit clustering level, axis-wide
   constraints and plane exclusion controls.
+
+## 2026-11-17: The remaining Model settings (#216)
+- **Value first, its source beside it.** Statistical noise is Estimated or Manual,
+  and the threshold a Factor or a Level, each one setting with a choice beside its
+  value, as the issue asked. Choosing Manual or Level starts from the value shown
+  (the estimate, the level the factor gives), so the switch commits exactly what
+  the user saw and is one undoable edit; the estimate stays visible under a manual
+  value. The preparation records `estimated_noise` beside the noise it uses.
+- **Drafts until valid.** A typed noise, level, plane list, window or rule that
+  cannot be fitted is explained under its setting, outlines its field, keeps the
+  committed value and blocks Fit with the same reason; nothing invalid reaches the
+  settings, as in the per-axis table. A rule that matches no parameter of the
+  prepared model (η on a Gaussian axis) is invalid, not silently ignored as the
+  CLI would.
+- **Planes by number.** The Model page and the menu use one-based plane numbers,
+  as navigation and the Profiles reference do; the configuration keeps zero-based
+  indices. Parsing moved to `formatting.parse_planes` with `plane_numbers`.
+- **Axis-wide constraints only.** Position windows per axis and new rules
+  `*.<axis>.<kind>` for linewidth and η, in order. Positions are bounded by the
+  window, and J and phase are set in the per-axis table, so new rules leave them
+  out; an imported axis-wide rule on any parameter stays valid and editable, shown
+  as written (`gui.fitting.desktop_rule` is the one test of what the desktop fit
+  applies). Per-peak constraints stay attached to their peak (spec §7: the Peak
+  page's Parameters section) and still stop a desktop fit, as before, which the
+  page now says; their editing is not part of W4.
+- **The run's settings as submitted.** The Run page lists each run's noise (a
+  manual value as entered), threshold, excluded planes and each rule.
+- **Exclusion as a model edit.** The desktop fit prepares
+  `Spectra.excluding_planes(exclude_planes)` exactly as `load_data` does, and
+  equals `peakfit fit --exclude` bit for bit, as manual noise and an absolute level
+  equal their TOML (`tests/test_gui_model_settings.py`). The run snapshot keeps the
+  whole spectrum's shape and plane values, with the fitted planes in
+  `source_plane_indices`; views map a spectrum plane to the run's column, and an
+  excluded plane has no model, which the view says rather than failing a job. An
+  Outdated run with another exclusion stays comparable on the planes it fitted.
+- **Exact entry.** `parse_scaled("3.1 × 10⁻³")` now reads one decimal literal
+  (exactly 0.0031); it multiplied by a power of ten (0.0031000000000000003).
+- **Same config as TOML.** W3's parametrised test moved to the Model page and
+  covers every Model control.
+- **Review pass at 1280×800.** Each value now reads on one line with its source
+  after it as a ▾ menu (the app's menu-button look), “1.192 × 10⁴ estimated ▾”,
+  “5.00 × noise ▾”. Measured natively, a combo then the value on one line did not
+  fit the 166 px cell of a scrolling inspector for a manual value, a level or the
+  factor with its unit (176–197 px); value then menu fits every state (148–165 px),
+  so the stacked choice line went. Value fields size to their text, so no number is
+  shown cut. An entry that is not applied says “Not applied:” and hides what the
+  setting in effect derives (estimate, factor or level, planes fitted). The planes
+  caption states the numbering. On an excluded plane, “No model on this plane”
+  sits in the plot's header strip, never over the contours. The analysis header
+  drops its “ANALYSIS” overline: the Run | Model switch says what the page is.
+  The source menu is caption-sized, 2 px from its value: in CI's DejaVu Sans the
+  manual noise row needed 293 px of 288; it needs 285 now (271 natively). The width
+  test also runs under DejaVu Sans, as Linux renders the UI font, and names the
+  widest row when it fails.

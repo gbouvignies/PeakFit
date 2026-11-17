@@ -256,6 +256,15 @@ def test_typed_numbers_read_plain_scientific_and_scaled(text, value):
     assert formatting.parse_scaled(text) == pytest.approx(value, rel=1e-12)
 
 
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [("3.1 × 10⁻³", 0.0031), ("0.00001 × 10³", 0.01), ("−2.5 × 10⁻³", -0.0025)],
+)
+def test_a_scaled_number_reads_as_the_decimal_it_shows(text, value):
+    # Exactly the float of the decimal literal: 3.1 × 0.001 would give 0.0031000000000000003.
+    assert formatting.parse_scaled(text) == value
+
+
 @pytest.mark.parametrize("text", ["1,5", "", "× 10⁴", "abc"])
 def test_other_text_is_not_a_number(text):
     with pytest.raises(ValueError, match="could not convert"):

@@ -24,9 +24,11 @@ and unit; PeakFit never infers either.
 _Avoid_: Z-value when a more specific experiment-defined name is known
 
 **Excluded plane**:
-A plane the user explicitly leaves out of a fit, by its zero-based index. It stays
-in the measured data and in every output, marked, with no fitted amplitude; the
-fit, its noise estimate and its clusters use only the other planes. PeakFit never
+A plane the user explicitly leaves out of a fit, by its zero-based index in the
+configuration (`exclude_planes`) or its one-based plane number in the desktop
+editor. It stays in the measured data, in plane navigation, in the profiles and in
+every output, marked "measured, not fitted", with no fitted amplitude; the fit,
+its noise estimate and its clusters use only the other planes. PeakFit never
 excludes a plane on its own.
 _Avoid_: dropped, removed or masked plane
 

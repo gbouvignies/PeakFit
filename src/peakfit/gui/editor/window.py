@@ -271,6 +271,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.settings_action = self._action(
             self.analysis_menu, "Model settings", self.model_settings
         )
+        self._plane_action: QtGui.QAction | None = None
         self.fit_action.setEnabled(False)
         self.settings_action.setEnabled(False)
         self.run_action.setEnabled(False)
@@ -278,6 +279,14 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._action(help_menu, "Keyboard &shortcuts", self.shortcuts)
         for action in (self.import_action, self.values_action, self.export_action):
             action.setEnabled(False)
+
+    def show_plane_action(self, action: QtGui.QAction | None) -> None:
+        """Put the workspace's plane exclusion command in Analysis, replacing the last one."""
+        if self._plane_action is not None:
+            self.analysis_menu.removeAction(self._plane_action)
+        self._plane_action = action
+        if action is not None:
+            self.analysis_menu.addAction(action)
 
     def fit_dataset(self) -> None:
         """Run all working peaks and original planes in the current workspace."""
@@ -418,6 +427,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._export_path = None
         self.edit_menu.clear()
         self.edit_menu.addActions(workspace.actions_for_menu)
+        self.show_plane_action(workspace.exclude_plane_action)
         workspace.changed.connect(self._work_changed)
         workspace.fitting.state_changed.connect(self._work_changed)
         self.setWindowTitle(f"{dataset.path.name}[*] — PeakFit")

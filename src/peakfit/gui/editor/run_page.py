@@ -6,12 +6,70 @@ signal not explained on the current plane. Every value comes from the recorded
 outcome; the page never refits or recomputes statistics.
 """
 
+from typing import TYPE_CHECKING
+
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.constraints import ParameterConfig
+from peakfit.gui import formatting
 from peakfit.gui import theme as themes
+from peakfit.gui.editor.constraints import rule_text
 from peakfit.gui.editor.labels import InfoButton, Row, clear_layout, label_rows, section
 from peakfit.gui.editor.labels import text_label as _label
+from peakfit.gui.editor.model_page import constraints_text, planes_fitted
 from peakfit.gui.failures import log_path
+
+NBSP = "\u00a0"
+
+if TYPE_CHECKING:
+    from peakfit.gui.dataset_fit import DatasetFitResult
+
+
+def submitted_rows(result: DatasetFitResult, names: dict[str, str]) -> list[Row]:
+    """The settings a run was submitted with, exactly as recorded, as Run page rows.
+
+    Noise and threshold always; the planes and constraints when the run had any.
+    A manual noise or level shows the value entered; an estimate, as computed.
+    """
+    settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
+    clustering = settings.clustering
+    level = result.inputs.contour_level
+    rows = [
+        Row(
+            "Noise",
+            f"{formatting.setting(settings.noise_level)} · manual"
+            if settings.noise_level is not None
+            else f"{formatting.scaled(result.inputs.noise)} · estimated",
+            tip="The statistical noise this run used",
+        ),
+        Row(
+            "Threshold",
+            f"level {formatting.setting(level)}"
+            if clustering.contour_level is not None
+            else f"{formatting.setting(clustering.contour_factor)} × noise = "
+            f"{formatting.scaled(level)}",
+            tip="The clustering threshold this run used",
+        ),
+    ]
+    if excluded := settings.exclude_planes:
+        total = result.inputs.snapshot.data_shape[0]
+        rows.append(
+            Row(
+                "Planes",
+                # Each phrase stays whole: the line breaks only at the dot.
+                f"{planes_fitted(total, excluded)} · "
+                f"{formatting.plane_numbers(excluded)}{NBSP}excluded",
+                tip="Excluded planes are measured, with no fitted amplitude",
+            )
+        )
+    parameters = settings.parameters
+    if parameters != ParameterConfig():
+        rules = [rule_text(p, c) for p, c in parameters.defaults.patterns.items()]
+        rows.append(
+            Row("Constraints", constraints_text(parameters, names), detail="\n".join(rules))
+        )
+    return rows
 
 
 def _rows() -> QtWidgets.QGridLayout:

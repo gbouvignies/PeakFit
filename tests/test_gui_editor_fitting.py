@@ -43,7 +43,6 @@ from peakfit.gui.editor.profile import (
     PeakProfile,
     ProfilePlot,
     framed_range,
-    parse_planes,
     peak_profile,
 )
 from peakfit.gui.editor.spectral_geometry import MAIN_MIN
@@ -1178,11 +1177,11 @@ def test_fit_is_disabled_with_the_preparation_reason(workspace):
     w, fitting = workspace, workspace.fitting
     wait_until(lambda: fitting.prepared is not None)
     invalid = fitting.configuration.model_copy(deep=True)
-    invalid.exclude_planes = [1]
+    invalid.exclude_planes = [0, 1, 2]  # every plane: nothing left to fit
     w.configure(invalid)
     assert fitting.prepared is None
     wait_until(lambda: bool(fitting.blocked))
-    assert "exclusions are unsupported" in fitting.blocked
+    assert "Every plane is excluded" in fitting.blocked
     assert not w.fit_button.isEnabled()
     assert fitting.blocked in w.fit_button.toolTip()
     assert w.panel.model_page.blocked.isVisible()
@@ -1301,12 +1300,12 @@ def test_the_loaded_screen_says_each_thing_once(workspace):
     assert all("\n" not in row.family.currentText() for row in setup.axes.rows)
     assert all(row.family.toolTip() for row in setup.axes.rows)
     assert "e+" not in setup.noise.text() + setup.level.text()
-    # Only an explicit noise level is worth a caption; the estimate is the default.
-    explicit = bool(fitting.configuration.noise_level)
-    assert setup.noise_source.isHidden() is not explicit
-    assert setup.noise.toolTip() == (
-        "Explicit value from the fit settings" if explicit else "Estimated from all planes"
-    )
+    # The noise source is the choice beside it; a manual value replaces the estimate.
+    manual = fitting.configuration.noise_level is not None
+    assert setup.noise_mode.currentData() == ("manual" if manual else "estimated")
+    assert setup.noise_value.isHidden() is not manual
+    assert setup.noise.isHidden() is manual
+    assert setup.noise.toolTip() == "Estimated from the fitted planes"
     assert setup.passes.toolTip()
     assert setup.regions.toolTip()
 
@@ -1515,7 +1514,7 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
     assert "next fit" in w.panel.starts_note.text()
     # Without a current preparation the section says why instead of showing stale values.
     invalid = fitting.configuration.model_copy(deep=True)
-    invalid.exclude_planes = [1]
+    invalid.exclude_planes = [0, 1, 2]  # every plane: nothing left to fit
     w.configure(invalid)
     wait_until(lambda: bool(fitting.blocked))
     w._update_inspector()
@@ -1650,13 +1649,13 @@ def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(qapp, s
     [("1", (1,)), ("1-3, 5", (1, 2, 3, 5)), (" 3 ,1 ", (1, 3))],
 )
 def test_reference_planes_are_plane_numbers(text, expected):
-    assert parse_planes(text, 5) == expected
+    assert formatting.parse_planes(text, 5) == expected
 
 
 @pytest.mark.parametrize("text", ["", "0", "6", "a", "3-1"])
 def test_invalid_reference_planes_are_rejected(text):
     with pytest.raises(ValueError, match=r"plane|Planes"):
-        parse_planes(text, 5)
+        formatting.parse_planes(text, 5)
 
 
 def _withheld(series, status, cause, **extra):

@@ -33,7 +33,7 @@ from peakfit.gui.editor.spectral_geometry import (
     minimum_size,
     stored_share,
 )
-from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
+from peakfit.gui.fit_display import dataset_model_plane, normalized_residual, not_fitted
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
 from peakfit.gui.theme import FOCUS_WIDTH, LIGHT, OWN_FOCUS_FRAME, Theme, color, type_scale
 
@@ -989,6 +989,8 @@ class SpectralView(QtWidgets.QWidget):
         self._model = None
         self.plane = int(np.clip(plane, 0, self.spectra.data.shape[0] - 1))
         self.request_contours()
+        self._update_legend()  # a plane the run did not fit has no model key
+        self._update_caption()
 
     @property
     def historical(self) -> bool:
@@ -1013,6 +1015,7 @@ class SpectralView(QtWidgets.QWidget):
         self._relayout()
         self._style_traces()
         self._update_legend()
+        self._update_caption()
         self.request_contours()
 
     @property
@@ -1083,7 +1086,7 @@ class SpectralView(QtWidgets.QWidget):
             self._worker.submit("contours", self._revision, prepare_experiment)
         # Before the model: the next step's measured contours must not wait behind it.
         self._prefetch(axes, levels)
-        if mode and model_geometry is None:
+        if mode and model_geometry is None and not self._not_fitted():
             self.contour_jobs += 1
             residual_levels = self.residual_threshold / 3 * _RESIDUAL_LEVELS
 
@@ -1098,6 +1101,13 @@ class SpectralView(QtWidgets.QWidget):
                 return model, signed_geometry(model.values, axes, levels)
 
             self._worker.submit("model", self._revision, calculate)
+
+    def _not_fitted(self) -> str:
+        """Why the compared run has no model of the plane shown, or ""."""
+        result = self.comparison_result
+        if result is None or not self.comparison_mode:
+            return ""
+        return not_fitted(result, self.plane)
 
     def _prefetch(self, axes, levels) -> None:
         """Prepare the next plane's measured contours, in the direction of travel."""
@@ -1229,10 +1239,16 @@ class SpectralView(QtWidgets.QWidget):
             layer.setVisible(mode != _RESIDUAL or not model)
         self._displaying_experiment = experiment and not model
         needs_experiment = mode != _RESIDUAL or not model
-        self.contour_pending = (needs_experiment and not experiment) or bool(mode and not model)
+        # A plane the run excluded has no model to wait for: say so, at once.
+        excluded = self._not_fitted()
+        self.contour_pending = (needs_experiment and not experiment) or bool(
+            mode and not model and not excluded
+        )
         historical = f" · {self.comparison_label}" if self.comparison_label else ""
         if needs_experiment and not experiment:
             text = "Preparing contours…"
+        elif excluded:
+            text = ""  # said in the header strip, never over the contours
         elif mode and not model:
             what = "residual" if mode == _RESIDUAL else "model"
             text = f"Experimental contours · {what} pending{historical}"
@@ -1314,7 +1330,9 @@ class SpectralView(QtWidgets.QWidget):
 
         solid, dashed = "━━", "╍╍"
         run = html.escape(self.comparison_label)
-        if self.comparison_mode == _RESIDUAL:
+        if self._not_fitted():
+            items = [key(t.measured, solid, "measured +"), key(t.measured_negative, dashed, "−")]
+        elif self.comparison_mode == _RESIDUAL:
             first = self.residual_threshold
             items = [
                 key(t.residual_positive, solid, f"residual &gt; +{formatting.setting(first)}σ"),
@@ -1759,7 +1777,13 @@ class SpectralView(QtWidgets.QWidget):
         parts = []
         lanes = self._effective_sizes().lanes
         scale = f"residual ±{formatting.scaled(self.lane_sigma, 3)} σ_stat"
-        if self.comparison_mode == _RESIDUAL:
+        if self._not_fitted():
+            # The plane strip says the plane is not fitted; here, what that leaves out.
+            missing = "No residual" if self.comparison_mode == _RESIDUAL else "No model"
+            parts.append(f"{missing} on this plane")
+            if self.gain != 1:
+                parts.append(f"Slices ×{formatting.scaled(self.gain, 3)}")
+        elif self.comparison_mode == _RESIDUAL:
             parts.append(f"Slices{' and lanes' if lanes else ''}: {scale}")
         else:
             if self.gain != 1:
@@ -1789,7 +1813,7 @@ class SpectralView(QtWidgets.QWidget):
         if value is not None:
             lines.append(f"I {_unbroken(shown[0])}{_NBSP}a.u.")
         if self.comparison_mode and fitted is None:
-            lines.append("model pending")
+            lines.append("no model" if self._not_fitted() else "model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
             lines.append(f"model {_unbroken(shown[-1])}")

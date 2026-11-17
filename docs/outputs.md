@@ -216,9 +216,18 @@ outcome. Only this explicit state differs when re-exporting Current versus Outda
 
 ## Excluded planes
 
+**Plane numbering.** Every plane index in configuration, CLI options and files is
+zero-based: `exclude_planes`, `--exclude`, `source_plane_index`, `plane_index`,
+`excluded_planes` and `source_plane_indices`. The desktop GUI shows one-based plane
+numbers, as its plane navigation does, and says so beside the Planes setting:
+plane 1 there is index 0 here.
+
 Only an explicit setting excludes a plane: `exclude_planes` in the configuration,
-or `peakfit fit --exclude`, by zero-based plane index. The desktop fit uses every
-plane. An index outside the spectrum, or excluding every plane, is an error.
+or `peakfit fit --exclude`, by zero-based plane index, or the desktop Model page's
+**Planes** setting, by the one-based plane numbers navigation shows (plane 2 there
+is index 1 here). An index outside the spectrum, or excluding every plane, is an
+error. A desktop fit with excluded planes equals `peakfit fit --exclude` with the
+same planes, bit for bit (`tests/test_gui_model_settings.py`).
 
 The fit leaves an excluded plane out: its noise estimate, noise-power check,
 clusters and amplitudes use only the other planes, exactly as a fit of the
@@ -235,12 +244,16 @@ keep every plane, and every output says which planes were excluded:
 - **Detailed evidence and continuation** hold and verify the fitted planes only.
 - **`intensities.csv`** has one row per peak and plane of the spectrum.
   `source_plane_index` is the zero-based plane and `z_value` its value, which may
-  repeat. `plane_index` is the amplitude column in the archive. An excluded plane's
+  repeat. `plane_index` is the zero-based amplitude column in the archive. An excluded plane's
   row has `plane_excluded = yes` and leaves the intensity, its three errors and
   `plane_index` empty: the fit has no amplitude there. Peak- and cluster-level
   columns are filled as on the other rows.
 - **Fit JSON** lists `excluded_planes`; `z_axis.values` holds every plane's value.
 - **Report** gives the excluded planes; so do the CLI's fit summaries.
+- **Project.** A run's snapshot keeps the whole spectrum's `data_shape` and
+  `plane_values` and lists its fitted planes in `source_plane_indices`; its
+  configuration holds `exclude_planes`. Reopening refuses a run whose fitted planes
+  are not the spectrum's planes minus the outcome's excluded ones.
 
 For example, excluding plane 1 of values `[2, 0, 2]` fits planes 0 and 2, with
 amplitude columns 0 and 1 and values `[2, 2]`; `intensities.csv` has three rows per

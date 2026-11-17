@@ -15,7 +15,6 @@ from peakfit.gui.editor.axis_table import (
     AxisModelTable,
 )
 from peakfit.gui.editor.labels import LABEL_WIDTH
-from peakfit.io.config import load_config
 
 pytestmark = pytest.mark.usefixtures("qapp", "app_look")
 
@@ -237,66 +236,3 @@ def test_three_doublet_axes_fit_the_widened_inspector_at_a_large_system_font():
 
 def test_every_engine_family_has_a_name():
     assert set(FAMILY_NAMES) == set(get_args(LineshapeFamily))
-
-
-def _add_doublet(table, axis: int, j: str) -> None:
-    row = table.rows[axis]
-    row.add.click()
-    _type(row.j, j)
-
-
-def _set_bounds(table, axis: int, low: str, high: str) -> None:
-    row = table.rows[axis]
-    _type(row.low, low)
-    _type(row.high, high)
-
-
-def _hold(table, axis: int) -> None:
-    table.rows[axis].fit.setChecked(False)
-
-
-def _phase(table, axis: int) -> None:
-    table.rows[axis].phase.setChecked(True)
-
-
-def _family(table, axis: int, family: str) -> None:
-    row = table.rows[axis]
-    row.family.setCurrentIndex(row.family.findData(family))
-
-
-@pytest.mark.parametrize(
-    ("edits", "toml"),
-    [
-        pytest.param(
-            [(_add_doublet, 0, "92")], "[fitting.axes.F2]\ndoublet = { j = 92.0 }", id="doublet"
-        ),
-        pytest.param(
-            [(_add_doublet, 0, "92"), (_set_bounds, 0, "80", "100")],
-            "[fitting.axes.F2]\ndoublet = { j = 92.0, min = 80.0, max = 100.0 }",
-            id="bounds",
-        ),
-        pytest.param(
-            [(_add_doublet, 1, "7"), (_hold, 1)],
-            "[fitting.axes.F3]\ndoublet = { j = 7.0, vary = false }",
-            id="held",
-        ),
-        pytest.param([(_phase, 1)], "[fitting.axes.F3]\nphase = true", id="phase"),
-        pytest.param(
-            [(_family, 0, "sp1"), (_family, 1, "sp1")], '[fitting]\nfamily = "sp1"', id="common"
-        ),
-        pytest.param(
-            [(_family, 1, "lorentzian")],
-            '[fitting.axes.F3]\nfamily = "lorentzian"',
-            id="one-axis-family",
-        ),
-    ],
-)
-def test_each_table_edit_gives_the_engine_config_of_the_equivalent_toml(edits, toml, tmp_path):
-    table, emitted = _table()
-    for edit, *arguments in edits:
-        edit(table, *arguments)
-        if emitted:
-            table.show_model(emitted[-1])
-    path = tmp_path / "peakfit.toml"
-    path.write_text(toml + "\n")
-    assert emitted[-1] == load_config(path).fitting
