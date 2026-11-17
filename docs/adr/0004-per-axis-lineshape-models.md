@@ -64,14 +64,15 @@ per-axis summary. When a TOML gives an axis its own family, the control reads
 **Per axis** until the user picks a family. The GUI has no doublet choice before
 W4, which adds per-axis controls with J entry.
 
-**Storage.** One commit changes three formats:
-- **Scientific archive 13.0.0:**
+**Storage.** The three formats change in place, without a version bump: none has
+been released since it was introduced, so `docs/outputs.md` amends it.
+- **Scientific archive 12.0.0:**
     - its recorded configuration has `family` and `axes`;
     - each model descriptor records `family` and `doublet`;
     - reopening rebuilds the shapes from the recorded configuration and
       calibration, then checks them against the descriptors.
-- **Fit JSON 10.0.0:** its recorded configuration changes the same way.
-- **Analysis project 16.0.0:** run records drop `shape_names`. Each run's resolved
+- **Fit JSON 9.0.0:** its recorded configuration changes the same way.
+- **Analysis project 15.0.0:** run records drop `shape_names`. Each run's resolved
   models come from its recorded configuration and axes.
 
 ## Why
@@ -99,10 +100,12 @@ W4, which adds per-axis controls with J entry.
   and `phase = true`. They are never reinterpreted.
 - **Old CLI options.** `--lineshape`, `--phx` and `--phy` are refused, with the
   replacement options in the message.
-- **Old files.** Scientific archives before 13.0.0, fit JSON before 10.0.0 and
-  analysis projects before 16.0.0 are refused. For the formats written just before
-  this change (12.0.0, 9.0.0 and 15.0.0), the message names PeakFit commit
-  `e4556a0`, which opens them. Refit with this version.
+- **Old files.** Archives and projects that development builds wrote before this
+  change carry the same version numbers but record `lineshape` and `fit_phase`.
+  They are refused with one message, "written by a PeakFit development build
+  before per-axis lineshape models … refit", which names the replacement settings.
+  It never shows a raw validation error. An older fit JSON stays readable as
+  numbers: its recorded configuration is a plain record that nothing reinterprets.
 - **Python API.**
     - `get_shape_names` is replaced by `axis_lineshapes`.
     - `create_shapes` and the peak-list readers take resolved `AxisLineshape`s, not

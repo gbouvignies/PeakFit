@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
@@ -19,6 +18,7 @@ from peakfit.engine.lineshapes.create import SHAPES, create_shapes
 from peakfit.engine.scientific.completed import CompletedFit, FinalClusterSamples
 from peakfit.engine.scientific.final_outcome import FinalAnalyticalEvaluation
 from peakfit.engine.scientific.simulation import FinalModelCluster, FinalModelSnapshot
+from peakfit.io.config import stored_config
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.scientific import read_scientific
 from peakfit.shared.exceptions import require_close
@@ -56,7 +56,7 @@ def restore_geometry(
     outcome, retained_samples, records, spectral_parameters, plane_values, data_shape, configuration
 ):
     """Restore recorded shapes and exact terminal inputs; no preparation or solve."""
-    config = PeakFitConfig.model_validate(configuration)
+    config = stored_config(configuration)
     metadata = metadata_spectra(spectral_parameters, plane_values)
     lineshapes = axis_lineshapes(config.fitting, metadata)
     geometry, clusters = [], []

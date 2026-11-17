@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**13.0.0**, fit JSON **10.0.0**, analysis project **16.0.0** and MCMC record **1.1.0**.
+**12.0.0**, fit JSON **9.0.0**, analysis project **15.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -477,7 +477,7 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **16.0.0**. Earlier project formats are rejected;
+New projects use schema **15.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
@@ -486,13 +486,14 @@ A format version is bumped at most once per release. Until the version that
 introduced it is released, a format may still be amended in place; files written
 by development builds of that version can then become unreadable, and are refit.
 
-- Only scientific archive **13.0.0**, fit JSON **10.0.0** and project **16.0.0** are
+- Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
-  version". Archive 12.0.0, fit JSON 9.0.0 and project 15.0.0 record one lineshape
-  name for every axis (`[fitting] lineshape`, `fit_phase`), before per-axis
-  lineshape models ([ADR 0004](adr/0004-per-axis-lineshape-models.md)); their
-  message names PeakFit commit `e4556a0`, which opens them. Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
+  version". Per-axis lineshape models ([ADR 0004](adr/0004-per-axis-lineshape-models.md))
+  amended these unreleased formats in place: archives and projects that development
+  builds wrote before them record `[fitting] lineshape` and `fit_phase`, and are
+  refused with "written by a PeakFit development build before per-axis lineshape
+  models … refit". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
   only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
   `fit_j_coupling`, `[parameters].from_file`, `[fitting].optimizer_seed`) or run metadata (`git_commit`,
   `completion_warnings`) that no longer exist. To

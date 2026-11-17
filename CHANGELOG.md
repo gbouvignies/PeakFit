@@ -17,9 +17,9 @@ Notable user-facing and architecture changes are recorded here.
       with their replacement.
     - **Phase on a family without one** (Gaussian, Lorentzian, pseudo-Voigt) is now
       refused instead of silently ignored, including when `auto` detected it.
-    - **Files:** scientific archive 13.0.0, fit JSON 10.0.0 and analysis project
-      16.0.0. Earlier files are refused; those written just before this change name
-      PeakFit commit `e4556a0`, which opens them.
+    - **Files:** the unreleased scientific archive 12.0.0, fit JSON 9.0.0 and
+      analysis project 15.0.0 change in place. Archives and projects written by
+      development builds before this change are refused with a message to refit.
     - **GUI:** the lineshape control sets one family on every axis. The doublet
       choice is gone until per-axis controls arrive; doublets and phases from an
       imported TOML are kept and shown.

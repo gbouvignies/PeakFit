@@ -1518,6 +1518,11 @@ Short records of non‑obvious design choices and trade‑offs.
 - **J bounds (user's choice).** Without explicit bounds, [J/2, 2J] around the
   required start, over a tight ±20 %.
 - **Phase on a real family is refused**, where it was silently dropped.
+- **Formats amended in place.** Archive 12.0.0, fit JSON 9.0.0 and project 15.0.0
+  are unreleased, so they change without a bump (`docs/outputs.md`). Earlier
+  development-build archives and projects are refused through one reader of stored
+  settings (`io.config.stored_config`) with a refit message, never a raw validation
+  error.
 - **No numerical change.** Singlet fits of the bundled example (auto, each family,
   phase on one or both axes) and the old all-axes doublets reproduce the base
   commit's scientific digests exactly; the doublet-J record reruns byte for byte.

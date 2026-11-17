@@ -41,7 +41,7 @@ from peakfit.gui.project_results import (
 )
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
-from peakfit.io.scientific import BEFORE_AXIS_MODELS, read_scientific
+from peakfit.io.scientific import read_scientific
 from peakfit.shared.exceptions import ScientificIntegrityError
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
@@ -280,27 +280,39 @@ def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "16.0.0"
+    assert manifest["schema_version"] == "15.0.0"
     manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=f"Unsupported analysis version: '{re.escape(version)}'"):
         open_analysis(path)
 
 
-def test_a_project_from_before_per_axis_models_names_the_peakfit_that_opens_it(analysis, tmp_path):
-    path = save_analysis(analysis, tmp_path / "test.peakfit")
-    manifest = json.loads((path / "manifest.json").read_text())
-    configuration = json.loads(manifest["configuration"])
-    fitting = configuration["fitting"]
+def _settings_before_axis_models(configuration):
+    """Fit settings as a development build before per-axis models recorded them."""
+    settings = json.loads(configuration)
+    fitting = settings["fitting"]
     fitting["lineshape"] = fitting.pop("family")
     fitting["fit_phase"] = []
     del fitting["axes"]
-    manifest["configuration"] = json.dumps(configuration)
-    manifest["schema_version"] = "15.0.0"
+    return json.dumps(settings)
+
+
+def test_a_project_from_before_per_axis_models_is_refused_with_a_refit_message(analysis, tmp_path):
+    # Same project version: the development build recorded `lineshape`, `fit_phase`
+    # and each run's `shape_names`.
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+
+    def as_before(review):
+        snapshot = review["snapshot"]
+        snapshot["configuration"] = _settings_before_axis_models(snapshot["configuration"])
+        review["shape_names"] = ["sp2", "sp2"]
+
+    _rewrite_review(path, as_before)
+    manifest = json.loads((path / "manifest.json").read_text())
+    manifest["configuration"] = _settings_before_axis_models(manifest["configuration"])
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(
-        ValueError,
-        match=rf"'15\.0\.0'.*per-axis lineshape models; PeakFit at commit {BEFORE_AXIS_MODELS}",
+        ValueError, match=r"development build before per-axis lineshape models.*refit"
     ):
         open_analysis(path)
 
@@ -351,7 +363,7 @@ def test_a_project_without_covariance_factors_is_refused_with_a_refit_instructio
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "16.0.0"
+    assert manifest["schema_version"] == "15.0.0"
     manifest["schema_version"] = "14.0.0"
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=r"Unsupported analysis version: '14\.0\.0'.*refit"):

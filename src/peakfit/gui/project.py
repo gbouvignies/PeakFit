@@ -14,7 +14,6 @@ from uuid import uuid4
 
 import numpy as np
 
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.gui.fit_positions import DatasetCompletion, dataset_completion
 from peakfit.gui.project_results import (
@@ -25,11 +24,12 @@ from peakfit.gui.project_results import (
     verify_model,
 )
 from peakfit.gui.spectrum import Dataset, read_dataset
-from peakfit.io.scientific import opened_by, read_scientific, write_scientific
+from peakfit.io.config import stored_config
+from peakfit.io.scientific import read_scientific, write_scientific
 from peakfit.shared.exceptions import ScientificIntegrityError
 from peakfit.shared.paths import format_path
 
-VERSION = "16.0.0"
+VERSION = "15.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3
@@ -492,7 +492,6 @@ def _open_analysis(path, *, relink, progress, canceled):
         raise ValueError(
             f"Unsupported analysis version: {manifest.get('schema_version')!r} (this PeakFit "
             f"reads {VERSION}). Open the spectrum and peak list as a new analysis and refit."
-            + opened_by(manifest.get("schema_version"), "analysis project")
         )
     allowed = {
         "schema_version",
@@ -523,7 +522,7 @@ def _open_analysis(path, *, relink, progress, canceled):
         _validate_run_files(path, entry)
     runs = tuple(StoredRun(path, e) for e in entries)
     active = runs[-1].load() if runs else None
-    config = PeakFitConfig.model_validate_json(manifest["configuration"])
+    config = stored_config(manifest["configuration"])
     if active:
         snapshot = active.result.inputs.snapshot
         fingerprint = json.loads(dict(snapshot.source_files)["spectrum"])["checksum_sha256"]

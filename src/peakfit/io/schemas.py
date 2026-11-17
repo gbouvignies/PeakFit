@@ -5,9 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-from peakfit.io.scientific import opened_by
-
-OUTPUT_SCHEMA_VERSION: Literal["10.0.0"] = "10.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["9.0.0"] = "9.0.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -207,9 +205,9 @@ class NoiseModelSchema(_Schema):
 
 
 class FitSummarySchema(_Schema):
-    """Version 10.0.0 completed-fit JSON document."""
+    """Version 9.0.0 completed-fit JSON document."""
 
-    schema_version: Literal["10.0.0"]
+    schema_version: Literal["9.0.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat
@@ -227,7 +225,6 @@ class FitSummarySchema(_Schema):
             raise ValueError(
                 "Unsupported fit JSON schema version "
                 f"{value.get('schema_version')!r}; supported version is {OUTPUT_SCHEMA_VERSION!r}."
-                + opened_by(value.get("schema_version"), "fit JSON")
             )
         return value
 

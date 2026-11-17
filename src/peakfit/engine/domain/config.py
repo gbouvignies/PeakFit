@@ -98,9 +98,11 @@ def _replaced_fields(data: dict[str, Any]) -> list[str]:
         )
     if "fit_phase" in data:
         axes = data["fit_phase"] if isinstance(data["fit_phase"], list) else []
-        tables = " and ".join(f"[fitting.axes.{axis}]" for axis in axes) or "[fitting.axes.F2]"
+        tables = " and ".join(f"[fitting.axes.{axis}]" for axis in axes)
         reasons.append(
             f"'fit_phase' was replaced by a per-axis phase: write phase = true under {tables}."
+            if tables
+            else "'fit_phase' was replaced by a per-axis phase: remove it (it fitted none)."
         )
     return reasons
 

@@ -6,7 +6,6 @@ from dataclasses import asdict, replace
 import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import axis_lineshapes
 from peakfit.engine.scientific.completed import CompletedFit
@@ -15,6 +14,7 @@ from peakfit.fit.export import model_records
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import Continuation, FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
+from peakfit.io.config import stored_config
 from peakfit.io.readers.continuation import (
     UnavailableShape,
     metadata_spectra,
@@ -46,7 +46,7 @@ def restore_result(run, outcome, retained_samples):
         tuple(tuple(s) for s in raw["source_files"]),
         tuple(raw["source_plane_indices"]),
     )
-    config = PeakFitConfig.model_validate_json(snapshot.configuration)
+    config = stored_config(snapshot.configuration)
     snapshot = replace(snapshot, configuration=config.model_dump_json())
     model, clusters = restore_geometry(
         outcome,

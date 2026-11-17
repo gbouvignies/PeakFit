@@ -1,7 +1,9 @@
 """Configuration file loading and the default template."""
 
 import tomllib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from pydantic import ValidationError
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.shared.paths import format_path
@@ -33,6 +35,32 @@ def load_config(path: Path) -> PeakFitConfig:
         data = tomllib.load(f)
 
     return PeakFitConfig.model_validate(data)
+
+
+def stored_config(value: str | dict[str, Any]) -> PeakFitConfig:
+    """The fit settings recorded in a results archive or analysis project.
+
+    Settings written before per-axis lineshape models (``lineshape``, ``fit_phase``)
+    are refused with one message, never reinterpreted (ADR 0004).
+    """
+    try:
+        if isinstance(value, str):
+            return PeakFitConfig.model_validate_json(value)
+        return PeakFitConfig.model_validate(value)
+    except ValidationError as exc:
+        replaced = [
+            str(e["msg"]).removeprefix("Value error, ")
+            for e in exc.errors()
+            if "was replaced by" in str(e["msg"])
+        ]
+        if not replaced:
+            raise
+        msg = (
+            "These results were written by a PeakFit development build before per-axis "
+            "lineshape models, so this version cannot read their fit settings. Open the "
+            f"spectrum and peak list and refit. ({' '.join(replaced)})"
+        )
+        raise ValueError(msg) from exc
 
 
 def generate_default_config() -> str:

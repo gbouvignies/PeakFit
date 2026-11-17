@@ -45,8 +45,6 @@ from peakfit.gui.spectrum import read_dataset
 from peakfit.io.config import generate_default_config, load_config
 from peakfit.io.readers.continuation import load_completed
 from peakfit.io.readers.results import ResultsLoader
-from peakfit.io.schemas import FitSummarySchema
-from peakfit.io.scientific import BEFORE_AXIS_MODELS
 
 if TYPE_CHECKING:
     from peakfit.engine.lineshapes.base import ShapeBase
@@ -395,27 +393,30 @@ def _rewrite_archive(archive, mutate):
             target.writestr(name, payload)
 
 
-def test_an_archive_from_before_per_axis_models_names_the_peakfit_that_opens_it(tmp_path):
+def as_written_before_axis_models(document):
+    """An archive as a development build before per-axis models wrote it, same version."""
+    configuration = document["context"]["mapping"]["metadata"]["mapping"]["configuration"]
+    fitting = configuration["mapping"]["fitting"]["mapping"]
+    fitting["lineshape"] = fitting.pop("family")
+    fitting["fit_phase"] = []
+    del fitting["axes"]
+    for cluster in document["context"]["mapping"]["models"]:
+        for peak in cluster["mapping"]["peaks"]:
+            for shape in peak["mapping"]["shapes"]:
+                shape["mapping"]["name"] = shape["mapping"].pop("family")
+                del shape["mapping"]["doublet"]
+
+
+def test_an_archive_from_before_per_axis_models_is_refused_with_a_refit_message(tmp_path):
     _, _, _, result = completed_result([], False, True)
     directory = export_fit_result(result, tmp_path / "results")
-
-    def as_before(document):
-        document["schema_version"] = "12.0.0"
-        fitting = document["context"]["mapping"]["metadata"]["mapping"]["configuration"]
-        fitting["mapping"]["fitting"]["mapping"]["lineshape"] = "gaussian"
-
-    _rewrite_archive(directory / "scientific.npz", as_before)
+    _rewrite_archive(directory / "scientific.npz", as_written_before_axis_models)
     with pytest.raises(
         ValueError,
-        match=rf"'12\.0\.0'.*predates per-axis lineshape models; PeakFit at commit "
-        rf"{BEFORE_AXIS_MODELS} opens it",
+        match=r"development build before per-axis lineshape models.*refit.*"
+        r"'lineshape' was replaced by 'family'",
     ):
         ResultsLoader(directory).load_completed()
-
-
-def test_fit_json_from_before_per_axis_models_names_the_peakfit_that_opens_it():
-    with pytest.raises(ValueError, match=rf"'9\.0\.0'.*commit {BEFORE_AXIS_MODELS} opens it"):
-        FitSummarySchema.model_validate({"schema_version": "9.0.0"})
 
 
 # ------------------------------------------------------------------- old inputs
@@ -433,6 +434,7 @@ def test_fit_json_from_before_per_axis_models_names_the_peakfit_that_opens_it():
             r"family = \"sp1\", and on each split axis a doublet.*doublet = \{ j = 92\.0 \}"
             r".*started at 5 Hz within \[1, 10\] Hz",
         ),
+        ("fit_phase = []", r"'fit_phase' was replaced by a per-axis phase: remove it"),
         (
             'fit_phase = ["F2", "F3"]',
             r"phase = true under \[fitting\.axes\.F2\] and \[fitting\.axes\.F3\]\.",

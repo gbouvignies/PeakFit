@@ -1,4 +1,4 @@
-"""JSON 10.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 9.0.0 projection of immutable completed-fit outcomes."""
 
 import json
 import math
