@@ -38,14 +38,14 @@ bounds [start/2, 2·start]; linewidths start at the family defaults.
 
     uv run python tools/validate_large_j.py --output docs/validation/large-j.json
 
-**Confirmation (fixed after the first run, before its own; development.md).** The first
-run put two gated values within 0.5 SE of their limits: the SP1 phase's ±1.96σ
-coverage (−2.9 SE) and the low-SNR J = ½ LW misleading rate (+2.5 SE). ``--confirm``
-fits those two cases again on realizations 1000–4999 of the same seed stream, so
-they extend the first run and share none of its draws, in five blocks of 800. Each
-of the two gates passes if it holds on those 4000 realizations alone; every other
-gate is recomputed there and reported, but the first run decides them. The record
-keeps both runs.
+**Confirmation (development.md).** ``--confirm`` reads the run's record and takes
+every gate that came within 0.5 SE of its limit there. It fits those gates' cases
+again on realizations 1000–4999 of the same seed stream, so they extend the run and
+share none of its draws, in five blocks of 800. Each such gate passes if it holds on
+those 4000 realizations alone; the run decides every other gate. The record keeps
+both runs. (A first footprint design's run made the confirmation gates a fixed list;
+this rule replaced the list before the second design's confirmation, which it
+selected.)
 
     uv run python tools/validate_large_j.py --confirm \
         --output docs/validation/large-j-confirmation.json
@@ -108,14 +108,9 @@ CASES: dict[str, tuple[LineshapeFamily, float, tuple[float, float], float | None
 CALIBRATED = ("Lorentzian, one-bond coupling (J = 92 Hz)", "SP1, one-bond coupling, 10° phase")
 BELOW = ("Lorentzian, J = ½ LW", "Lorentzian, J = ½ LW, low SNR")
 NAMES = list(CASES)
-# The confirmation run: these cases, realizations FIRST to FIRST + N - 1, and the gates
-# (case, gate) it decides.
+# The confirmation run: realizations FIRST to FIRST + N - 1 of the near-limit gates' cases.
 CONFIRMATION_FIRST = 1000
 CONFIRMATION_REALIZATIONS = 4000
-CONFIRMED = (
-    ("SP1, one-bond coupling, 10° phase", "coverage_1.96sigma:phase"),
-    ("Lorentzian, J = ½ LW, low SNR", "misleading"),
-)
 # Recovered parameters: (label in the record, parameter name, factor to the reported
 # unit). Positions are reported in hertz on their axis.
 PARAMETERS = (
@@ -512,7 +507,15 @@ def confirmation_table(record: dict) -> str:
 def confirm(output: Path) -> None:
     """The confirmation run of the near-limit gates (see the docstring)."""
     first, n = CONFIRMATION_FIRST, CONFIRMATION_REALIZATIONS
-    names = list(dict.fromkeys(case for case, _ in CONFIRMED))
+    first_run = json.loads(output.with_name("large-j.json").read_text())
+    earlier = {case["case"]: case for case in first_run["cases"]}
+    confirmed = [
+        (case["case"], name)
+        for case in first_run["cases"]
+        for name, gate in case["gates"].items()
+        if gate.get("near_limit")
+    ]
+    names = list(dict.fromkeys(case for case, _ in confirmed))
     cases_ix = [NAMES.index(case) for case in names for _ in range(n)]
     index_ix = [first + index for _ in names for index in range(n)]
     with ProcessPoolExecutor(mp_context=get_context("spawn")) as pool:
@@ -521,18 +524,15 @@ def confirm(output: Path) -> None:
         case: summarize(NAMES.index(case), rows[k * n : (k + 1) * n])
         for k, case in enumerate(names)
     }
-    previous = output.with_name("large-j.json")
-    first_run = json.loads(previous.read_text()) if previous.exists() else {"cases": []}
-    earlier = {case["case"]: case for case in first_run["cases"]}
     gates = []
-    for case, name in CONFIRMED:
+    for case, name in confirmed:
         summary = summaries[case]
         consistency = summary["blocks"]["consistency"].get(name)
         gates.append(
             {
                 "case": case,
                 "gate": name,
-                "first": earlier.get(case, {}).get("gates", {}).get(name),
+                "first": earlier[case]["gates"][name],
                 "confirmation": summary["gates"][name],
                 "blocks_p": consistency["p_value"] if consistency else None,
             }
@@ -544,7 +544,7 @@ def confirm(output: Path) -> None:
             "realizations": n,
             "blocks": BLOCKS,
             "gate_se": GATE_SE,
-            "confirmed": [list(gate) for gate in CONFIRMED],
+            "confirmed": [list(gate) for gate in confirmed],
         },
         "gates": gates,
         "cases": list(summaries.values()),
