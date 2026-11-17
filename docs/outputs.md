@@ -515,7 +515,8 @@ by development builds of that version can then become unreadable, and are refit.
 
 - Only scientific archive **13.0.0**, fit JSON **10.0.0** and project **16.0.0** are
   read. Archive 12.0.0, JSON 9.0.0 and project 15.0.0 do not record excluded planes:
-  they deleted them when reading the spectrum. Earlier versions are rejected with "Unsupported scientific result
+  they deleted them when reading the spectrum. A refused archive's message also
+  names the PeakFit version that wrote it, which can still open it. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
   only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,

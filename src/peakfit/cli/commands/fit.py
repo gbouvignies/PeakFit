@@ -9,6 +9,7 @@ import typer
 from peakfit.cli.commands.fit_setup import build_fit_config, resolve_output_dir
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.config import LineshapeName  # noqa: TC001 - Typer evaluates annotations.
+from peakfit.engine.domain.spectrum import format_planes
 from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED, FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
@@ -262,7 +263,7 @@ def _show_headless_command_summary(
                     "Peak list": display_path(peaklist),
                     "Plane values": display_path(z_values) if z_values is not None else "None",
                     **(
-                        {"Excluded planes": ", ".join(str(i) for i in fit_config.exclude_planes)}
+                        {"Excluded planes": format_planes(fit_config.exclude_planes)}
                         if fit_config.exclude_planes
                         else {}
                     ),

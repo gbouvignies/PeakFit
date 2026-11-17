@@ -7,6 +7,7 @@ so the result must equal a fit of the same spectrum with those planes removed.
 
 import csv
 import json
+from pathlib import Path
 from zipfile import ZipFile
 
 import numpy as np
@@ -73,7 +74,7 @@ def _fit(directory, monkeypatch, spectra, peak_list, exclude):
         {
             "fitting": {"lineshape": "gaussian", "refine_iterations": 2},
             "clustering": {"contour_level": 0.1},
-            "output": {"formats": ["csv", "txt", "json"]},
+            "output": {"formats": ["csv", "txt", "json"], "save_simulated": True},
             "exclude_planes": exclude,
         }
     )
@@ -129,6 +130,28 @@ def test_excluding_planes_equals_removing_them(runs):
             marginal_standard_errors(fa, ea.amplitudes),
             marginal_standard_errors(fb, eb.amplitudes),
         )
+
+
+def test_simulated_predictions_cover_the_fitted_planes(runs):
+    (_, excluded), (_, removed) = runs
+    _close(np.load(excluded / "simulated.npy"), np.load(removed / "simulated.npy"))
+
+
+def test_the_validation_note_quotes_its_record():
+    """docs/validation/plane-exclusion.md quotes tools/validate_plane_exclusion.py's record."""
+    docs = Path(__file__).resolve().parents[1] / "docs/validation"
+    record = json.loads((docs / "plane-exclusion.json").read_text())
+    note = (docs / "plane-exclusion.md").read_text()
+    assert record["passed"]
+    assert record["excluded_planes"] == [0, 40, 41, 130]
+    assert all(q["max_relative"] == 0 and q["bit_identical"] for q in record["quantities"].values())
+    assert f"{record['clusters']} clusters" in note
+    digits = "".join(note.split())  # the note groups thousands with spaces
+    for noise in (record["noise_all_planes"], record["noise_fitted_planes"]):
+        assert f"{noise:.2f}" in digits
+    shift = record["noise_all_planes"] / record["noise_fitted_planes"] - 1
+    assert f"{shift:.0e}" == "6e-05"
+    assert "6 × 10⁻⁵ relative" in note
 
 
 def test_the_noise_estimate_uses_the_fitted_planes_only(spectra, runs):
@@ -265,7 +288,6 @@ def test_excluding_planes_leaves_the_measured_spectrum_whole(spectra):
     [
         ([6], "Cannot exclude plane 6: the spectrum has 6 planes, numbered 0 to 5"),
         ([0, 1, 2, 3, 4, 5], "Every plane is excluded"),
-        ([1, 1], "listed once"),
     ],
 )
 def test_impossible_exclusions_are_refused(excluded, message):

@@ -4,6 +4,7 @@ import multiprocessing
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from peakfit.engine.domain.spectrum import format_planes
 from peakfit.ui.branding import show_command_summary
 
 if TYPE_CHECKING:
@@ -108,7 +109,7 @@ def show_prefit_check(
                 {
                     "Spectrum": f"{spectrum_path.name} ({n_series} spectra, {shape_type})",
                     **(
-                        {"Excluded planes": ", ".join(str(i) for i in config.exclude_planes)}
+                        {"Excluded planes": format_planes(config.exclude_planes)}
                         if config.exclude_planes
                         else {}
                     ),

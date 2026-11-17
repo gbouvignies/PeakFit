@@ -4,6 +4,7 @@ import math
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from peakfit.engine.domain.spectrum import format_planes
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import format_float
 
@@ -15,10 +16,6 @@ if TYPE_CHECKING:
 
 _MAX_CLUSTER_ROWS = 40
 _MAX_PARAMETER_ROWS = 40
-
-
-def _planes(planes: tuple[int, ...]) -> str:
-    return ", ".join(str(i) for i in planes)
 
 
 def write_final_outcome_report(
@@ -42,7 +39,10 @@ def write_final_outcome_report(
         f"- Usable clusters: {summary.n_usable}",
         f"- Reduced chi2 population: {summary.redchi_population_size}",
         *(
-            [f"- Excluded planes (zero-based, not fitted): {_planes(outcome.excluded_planes)}"]
+            [
+                "- Excluded planes (zero-based, not fitted): "
+                + format_planes(outcome.excluded_planes)
+            ]
             if outcome.excluded_planes
             else []
         ),
