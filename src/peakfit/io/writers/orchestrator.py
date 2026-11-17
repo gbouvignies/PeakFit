@@ -69,7 +69,7 @@ def write_fit_outputs(
         final_outcome: Authoritative completed scientific result
         output_dir: Base output directory
         config: Writer configuration (uses defaults if None)
-        metadata: Operational run metadata required for JSON 10.0.0
+        metadata: Operational run metadata required for JSON 9.0.0
         z_values: Every plane's value, in spectrum order, excluded planes included
         summary: Ticket-06 run summary required for the Markdown report
 
@@ -94,7 +94,7 @@ def write_fit_outputs(
 
     if fit_json := plan.get("summary_fit"):
         if metadata is None:
-            raise ValueError("JSON 10.0.0 output requires run metadata.")
+            raise ValueError("JSON 9.0.0 output requires run metadata.")
         written_files["summary_fit"] = write_final_outcome_summary(
             final_outcome,
             metadata=metadata,

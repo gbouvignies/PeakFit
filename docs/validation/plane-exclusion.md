@@ -71,9 +71,9 @@ without exclusion, one environment (macOS, Python 3.14):
 - `outcome` and `samples` digests are identical.
 - All 1 710 array members of main's archive are present under the same names and
   byte-identical. The only new member is `context.source_plane_values`.
-- `metadata.json` differs only by `schema_version` (12.0.0 → 13.0.0), the new
-  `outcome.excluded_planes` (empty) and `context.source_plane_values`, and the input
-  paths of the two checkouts.
+- `metadata.json` differs only by the new `outcome.excluded_planes` (empty) and
+  `context.source_plane_values`, and the input paths of the two checkouts. The
+  schema version is unchanged (12.0.0, amended in place).
 - `parameters.csv`, `clusters.csv` and `shifts.csv` are byte-identical;
   `intensities.csv` is identical up to its new `plane_excluded` column (`no` on
   every row).

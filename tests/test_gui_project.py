@@ -273,7 +273,6 @@ def test_project_recording_a_removed_config_key_is_rejected_by_version(
         "12.0.0",  # spectral parameters with aq = APOD/SW (docs/lineshapes.md)
         "13.0.0",  # AIC, BIC and independent-noise log-likelihood
         "14.0.0",  # no covariance factors (profile-uncertainty §3.1)
-        "15.0.0",  # no record of excluded planes
     ],
 )
 def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
@@ -281,7 +280,7 @@ def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "16.0.0"
+    assert manifest["schema_version"] == "15.0.0"
     manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=f"Unsupported analysis version: '{re.escape(version)}'"):
@@ -334,7 +333,7 @@ def test_a_project_without_covariance_factors_is_refused_with_a_refit_instructio
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "16.0.0"
+    assert manifest["schema_version"] == "15.0.0"
     manifest["schema_version"] = "14.0.0"
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=r"Unsupported analysis version: '14\.0\.0'.*refit"):

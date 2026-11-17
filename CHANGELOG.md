@@ -15,8 +15,9 @@ Notable user-facing and architecture changes are recorded here.
       record the excluded set.
     - An index outside the spectrum's planes, or excluding every plane, is now an
       error instead of being ignored.
-    - **Breaking:** scientific archive 13.0.0, fit JSON 10.0.0 and analysis project
-      16.0.0. Earlier files are refused; refit them.
+    - **Breaking:** the unreleased scientific archive 12.0.0, fit JSON 9.0.0 and
+      analysis project 15.0.0 formats were amended in place to record excluded
+      planes. Files that development builds wrote before are refused; refit them.
 
 ### Fixed
 

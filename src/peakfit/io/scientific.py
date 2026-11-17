@@ -42,7 +42,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "13.0.0"
+VERSION = "12.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -339,6 +339,12 @@ def _read_scientific(path):
         for s in decoded["samples"]
     )
     raw = _record(decoded["outcome"], "outcome")
+    context = _record(decoded["context"], "context")
+    if "excluded_planes" not in raw or (context and "source_plane_values" not in context):
+        raise ValueError(
+            f"it was written by a development build of PeakFit, before archive {VERSION} "
+            "recorded excluded planes"
+        )
     clusters = []
     for index, record in enumerate(raw.pop("clusters")):
         c = _record(record, "cluster")
@@ -388,7 +394,6 @@ def _read_scientific(path):
         final_nonlinear_parameters=tuple(parameters),
         **raw,
     )
-    context = _record(decoded["context"], "context")
     _validate_science(outcome, samples)
     _validate_context(outcome, samples, context)
     return outcome, samples, context

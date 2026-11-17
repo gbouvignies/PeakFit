@@ -240,9 +240,9 @@ def test_compact_continuation_reads_the_fitted_planes_of_the_verified_source(
         load_completed(directory / "scientific.npz")
 
 
-def _rewrite(archive, change):
+def _rewrite(archive, change, drop=()):
     with ZipFile(archive) as source:
-        members = {name: source.read(name) for name in source.namelist()}
+        members = {name: source.read(name) for name in source.namelist() if name not in drop}
     document = json.loads(members["metadata.json"])
     change(document)
     members["metadata.json"] = json.dumps(document).encode()
@@ -264,10 +264,28 @@ def test_an_earlier_archive_is_refused_naming_the_peakfit_that_wrote_it(runs, tm
     (_, directory), _ = runs
     archive = tmp_path / "scientific.npz"
     archive.write_bytes((directory / "scientific.npz").read_bytes())
-    _rewrite(archive, lambda d: d.update(schema_version="12.0.0"))
+    _rewrite(archive, lambda d: d.update(schema_version="11.0.0"))
     with pytest.raises(
-        ValueError, match=r"Unsupported scientific result version '12\.0\.0'.*open it with PeakFit"
+        ValueError, match=r"Unsupported scientific result version '11\.0\.0'.*open it with PeakFit"
     ):
+        read_scientific(archive)
+
+
+def test_a_same_version_archive_without_excluded_planes_is_refused_with_a_refit(runs, tmp_path):
+    """An archive written before this format recorded excluded planes, as main wrote it."""
+    (_, directory), _ = runs
+    archive = tmp_path / "scientific.npz"
+    archive.write_bytes((directory / "scientific.npz").read_bytes())
+    with ZipFile(archive) as source:
+        document = json.loads(source.read("metadata.json"))
+    member = document["context"]["mapping"]["source_plane_values"]["array"] + ".npy"
+
+    def predating(document):
+        del document["outcome"]["excluded_planes"]
+        del document["context"]["mapping"]["source_plane_values"]
+
+    _rewrite(archive, predating, drop={member})
+    with pytest.raises(ValueError, match=r"development build.*Refit the dataset"):
         read_scientific(archive)
 
 

@@ -1533,5 +1533,8 @@ Short records of non‑obvious design choices and trade‑offs.
   desktop fit still refuses exclusion until its controls exist (W4). An index
   outside the spectrum, or excluding every plane, is now an error instead of being
   ignored.
-- **Breaking:** archive 13.0.0, fit JSON 10.0.0, project 16.0.0. A refused archive
-  names the PeakFit version that wrote it.
+- **Breaking, without a version bump.** Archive 12.0.0, fit JSON 9.0.0 and project
+  15.0.0 are unreleased, so they are amended in place (one bump per release,
+  `docs/outputs.md`). An archive or project written before the amendment lacks
+  `excluded_planes` and is refused as written by a development build, to be refit.
+  A refused archive of another version names the PeakFit version that wrote it.

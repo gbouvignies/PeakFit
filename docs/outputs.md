@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**13.0.0**, fit JSON **10.0.0**, analysis project **16.0.0** and MCMC record **1.1.0**.
+**12.0.0**, fit JSON **9.0.0**, analysis project **15.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -504,7 +504,7 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **16.0.0**. Earlier project formats are rejected;
+New projects use schema **15.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
@@ -513,10 +513,11 @@ A format version is bumped at most once per release. Until the version that
 introduced it is released, a format may still be amended in place; files written
 by development builds of that version can then become unreadable, and are refit.
 
-- Only scientific archive **13.0.0**, fit JSON **10.0.0** and project **16.0.0** are
-  read. Archive 12.0.0, JSON 9.0.0 and project 15.0.0 do not record excluded planes:
-  they deleted them when reading the spectrum. A refused archive's message also
-  names the PeakFit version that wrote it, which can still open it. Earlier versions are rejected with "Unsupported scientific result
+- Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
+  read. A refused archive's message also names the PeakFit version that wrote it,
+  which can still open it. These unreleased formats were amended in place to record
+  excluded planes; an archive or project a development build wrote before that is
+  refused with "written by a development build of PeakFit", and is refit. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
   only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
