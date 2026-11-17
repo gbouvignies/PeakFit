@@ -261,11 +261,6 @@ def parse_planes(text: str, count: int) -> tuple[int, ...]:
     return tuple(sorted(planes))
 
 
-def _scientific(value: float, digits: int = 2) -> str:
-    """A small or large diagnostic number as 3.3 × 10⁻⁸; zero stays 0."""
-    return formatting.scaled(value, digits)
-
-
 def withheld_reason(series: ProfileSeries) -> str:
     """Why one member's amplitudes are not shown, naming which class applies."""
     m = series.identifiability
@@ -277,12 +272,12 @@ def withheld_reason(series: ProfileSeries) -> str:
     if m.cause is Cause.NEAR_COLLINEAR:
         return (
             "reliability not established: near-collinear fitted shapes with "
-            f"{', '.join(series.partners)} (1 − |cos| = {_scientific(m.dissimilarity)})"
+            f"{', '.join(series.partners)} (1 − |cos| = {formatting.scaled(m.dissimilarity, 2)})"
         )
     if m.cause is Cause.ILL_CONDITIONED:
         return (
             "reliability not established: ill-conditioned fitted shapes (smallest to "
-            f"largest singular value {_scientific(m.condition)})"
+            f"largest singular value {formatting.scaled(m.condition, 2)})"
         )
     if m.cause is Cause.INVALID_SHAPE:
         return "reliability not established: the fitted shape cannot be assessed"
@@ -315,7 +310,7 @@ def withheld_text(profile: PeakProfile) -> str:
             parts.append(
                 " and ".join(t.assignment for t in group)
                 + ": reliability not established: near-collinear fitted shapes "
-                + f"(1 − |cos| = {_scientific(closest)})"
+                + f"(1 − |cos| = {formatting.scaled(closest, 2)})"
             )
             stated.update(id(t) for t in group)
         else:
@@ -346,13 +341,14 @@ def diagnostics_text(profile: PeakProfile) -> str:
         sigma = _sigma_range(s.errors)
         lines += [
             f"{s.assignment} · {m.status.value} ({m.cause.value})",
-            f"  recorded amplitudes {_scientific(low, 3)} to {_scientific(high, 3)} · {sigma}",
+            f"  recorded amplitudes {formatting.scaled(low, 3)} to "
+            f"{formatting.scaled(high, 3)} · {sigma}",
             f"  rank {m.rank} of {m.peaks} · smallest/largest singular value "
-            f"{_scientific(m.condition)} · null-space projection "
-            f"{_scientific(m.null_projection)} · ill-conditioned projection "
-            f"{_scientific(m.weak_projection)}"
+            f"{formatting.scaled(m.condition, 2)} · null-space projection "
+            f"{formatting.scaled(m.null_projection, 2)} · ill-conditioned projection "
+            f"{formatting.scaled(m.weak_projection, 2)}"
             + (
-                f" · 1 − |cos| to {', '.join(s.partners)} {_scientific(m.dissimilarity)}"
+                f" · 1 − |cos| to {', '.join(s.partners)} {formatting.scaled(m.dissimilarity, 2)}"
                 if s.partners
                 else ""
             ),
@@ -370,16 +366,10 @@ def _available(errors: np.ndarray) -> bool:
 def _sigma_range(errors: np.ndarray) -> str:
     """A series' profile σ for diagnostics: one value, or its range over the planes."""
     if not _available(errors):
-        return "profile σ not available"
-    low, high = float(np.min(errors)), float(np.max(errors))
-    if _scientific(low, 3) == _scientific(high, 3):
-        return f"profile σ {_scientific(low, 3)}"
-    return f"profile σ {_scientific(low, 3)} to {_scientific(high, 3)}"
-
-
-def _sigma(error: float) -> str:
-    """Name an unavailable standard error instead of formatting NaN as a value."""
-    return f"σ = {formatting.scaled(error, 3)}" if np.isfinite(error) else "σ not assessed"
+        return f"profile σ {formatting.NOT_ASSESSED}"
+    digits = formatting.SIGMA_DIGITS
+    low, high = (formatting.scaled(float(f(errors)), digits) for f in (np.min, np.max))
+    return f"profile σ {low}" if low == high else f"profile σ {low} to {high}"
 
 
 def framed_range(x: np.ndarray) -> tuple[float, float] | None:
@@ -844,7 +834,7 @@ class ProfilePlot(QtWidgets.QWidget):
         entries = [
             f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
             + (f"<b>{name}</b>" if i == 0 else name)
-            + ("" if _available(s.errors) else " · σ not available")
+            + ("" if _available(s.errors) else f" · σ {formatting.NOT_ASSESSED}")
             + (
                 f'&nbsp;<span title="{CORRELATED_SHORT}">{CORRELATED_MARK}</span>'
                 if s.flagged
@@ -888,7 +878,7 @@ class ProfilePlot(QtWidgets.QWidget):
             self.show_all.setToolTip(
                 "Off-scale observations: "
                 + "; ".join(
-                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.errors[j])}) "
+                    f"{s.assignment} {formatting.measured(s.amplitudes[j], s.errors[j]).text} "
                     f"at {formatting.plane_value(float(x[j]))} "
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden

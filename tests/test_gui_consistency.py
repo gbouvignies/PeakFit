@@ -14,6 +14,7 @@ from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor.numerical import NumericalReview, parameter_rows, peak_rows
 from peakfit.gui.editor.window import EditorWindow, menu_shortcuts, shortcut_sections
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import Dataset
@@ -124,9 +125,9 @@ def test_axis_names_are_distinct_and_identical_in_every_place(qapp, nuclei):
 
 
 # ------------------------------------------------------------------ geometry
-@pytest.mark.parametrize("width", [1160, 1280, 1920])
-def test_the_2d_plot_never_moves_between_comparison_modes(qapp, heteronuclear, width):
-    window, w = _window(qapp, heteronuclear, (width, 1000 if width == 1920 else 760))
+@pytest.mark.parametrize("size", [(1160, 720), (1280, 800), (1920, 1080)], ids=str)
+def test_the_2d_plot_never_moves_between_comparison_modes(qapp, heteronuclear, size):
+    window, w = _window(qapp, heteronuclear, size)
     c = w.canvas
     # Before the first fit no mode shows lanes, whatever the preference.
     c.set_lanes(True)
@@ -144,9 +145,10 @@ def test_the_2d_plot_never_moves_between_comparison_modes(qapp, heteronuclear, w
             qapp.processEvents()
             assert c.comparison_mode == mode
             plots[mode] = c.box.sceneBoundingRect().toRect()
+            # Once a run exists the lanes (asked for before the fit) show in every mode.
+            assert c.row_lane.isVisible()
+            assert c.column_lane.isVisible()
         assert len(set(plots.values())) == 1, (view, plots)
-        if view == "focus":
-            assert c.row_lane.isVisible()  # once a run exists, lanes in every mode
     _close(qapp, window)
 
 
@@ -271,3 +273,29 @@ def test_single_keys_on_the_spectrum_choose_the_mode_and_the_plane(qapp, heteron
     QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_R)
     assert w.canvas.comparison_mode == 1
     _close(qapp, window)
+
+
+# ------------------------------------------------------------------ numerical review
+@pytest.mark.usefixtures("qapp")
+def test_numerical_review_tables_share_the_formatter():
+    rows = parameter_rows([("p.F2.cs", 120.20348, "ppm", 0.00059, 100.0, None)])
+    _name, value, unit, sigma, low, high = rows[0]
+    assert (value.text, unit, sigma.text, low.text, high.text) == (
+        "120.20348",
+        "ppm",
+        "0.00059",
+        "100.000",
+        "–",
+    )
+    assert value.value == 120.20348  # the tooltip keeps the recorded value
+    unassessed = parameter_rows([("p.F2.lw", 15.7312, "Hz", math.nan, 0.1, 200.0)])[0]
+    assert (unassessed[1].text, unassessed[3].text) == ("15.7", formatting.NOT_ASSESSED)
+    assert [c.text for c in peak_rows([("22N-H", "id", (120.20348, 7.98585))])[0][2:]] == [
+        "120.203",
+        "7.986",
+    ]
+    table = NumericalReview.table(["Observation"], [])
+    NumericalReview.populate(table, [(3.1e9,), (1.2e9,)], ["Observation"])
+    assert table.horizontalHeaderItem(0).text() == "Observation (× 10⁹)"
+    assert [table.item(r, 0).text() for r in (0, 1)] == ["3.1", "1.2"]
+    assert table.item(0, 0).toolTip() == formatting.exact(3.1e9)

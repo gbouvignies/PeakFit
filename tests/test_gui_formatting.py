@@ -58,6 +58,8 @@ def test_sigma_rounding_into_the_next_decade_keeps_two_digits():
     assert measured(9.9996e5, 2.0).text == "(9.999600 ± 0.000020) × 10⁵"
     # The value rounds up into the next decade: the shared power moves with it.
     assert measured(9.99996e5, 0.4e5).text == "(1.000 ± 0.040) × 10⁶"
+    # Rounding to the σ's place carries 9999.97 to 10⁴: the power follows.
+    assert measured(9999.97, 30.0).text == "(1.0000 ± 0.0030) × 10⁴"
 
 
 def test_sigma_larger_than_the_value_sets_the_power():

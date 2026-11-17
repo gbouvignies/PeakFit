@@ -999,7 +999,7 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientif
     bars = [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ErrorBarItem)]
     assert bars == []
     assert np.all(np.isfinite(panel.plot.getViewBox().viewRange()))
-    assert "σ not available" in panel.legend.text()
+    assert "σ not assessed" in panel.legend.text()
     # The value is determined, so it is drawn; only its error bar is missing.
     assert not panel.withheld.isVisible()
     assert "not established (uncertainty unavailable)" in panel.diagnostics.text()
@@ -1080,7 +1080,7 @@ def test_inspector_shows_the_marginal_sigma_of_the_absolute_amplitude(workspace,
         shown = formatting.measured(evaluation.amplitudes[1, plane - 1], marginal[1, plane - 1])
         # One power of ten for the value and its σ, named with the row as a unit is.
         scale = f" ({shown.factor.replace(' ', chr(0xA0))})" if shown.factor else ""
-        assert amplitude_row() == [f"Amplitude plane {plane}{scale}", shown.value, shown.sigma]
+        assert amplitude_row() == [f"Amplitude{scale}", shown.value, shown.sigma]
     # Labelled as the uncertainty of the absolute amplitude, not of a profile.
     captions = [
         fitted.itemAt(i).widget().text()
@@ -1088,6 +1088,7 @@ def test_inspector_shows_the_marginal_sigma_of_the_absolute_amplitude(workspace,
         if isinstance(fitted.itemAt(i).widget(), QtWidgets.QLabel)
     ]
     assert any("σ of the absolute amplitude" in text for text in captions)
+    assert any(text.startswith("Plane 3 · ") for text in captions)
 
 
 def test_dense_profile_click_opens_the_nearest_plane(qapp, scientific):

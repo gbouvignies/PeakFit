@@ -596,7 +596,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
 
     def _step_plane(self, offset) -> None:
         if self.workspace:
-            self.workspace.set_plane(self.workspace.canvas.plane + 1 + offset)
+            self.workspace.step_plane(offset)
 
     def sample_dialog(self) -> None:
         """Keyboard access to a sampled coordinate without moving a working peak."""

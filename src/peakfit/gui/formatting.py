@@ -14,13 +14,13 @@ The rules:
   header (:func:`column`).
 - Each quantity has fixed decimals: ppm 3, Hz 1, χ²ᵣ 2, multiples of σ 1, correlation
   2, seconds 1 (:func:`ppm`, :func:`hz` …).
-- Plain digits between 10⁻³ and 10⁴; beyond that a power of ten, never ``e`` notation.
+- Plain digits from 10⁻² up to 10⁴; beyond that a power of ten, never ``e`` notation.
 - Times are local, with the time zone (:func:`local_time`).
 - An axis is named by its nucleus and its F-dimension, ``¹⁵N F2`` (:func:`axis_name`).
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 _PLAIN = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
-# Plain digits read well between 10⁻³ and 10⁴; beyond that values share a power of ten.
+# Plain digits read well from 10⁻² up to 10⁴ (exponents −2 to 3); beyond that a power of ten.
 _LARGE, _SMALL = 4, -3
 MINUS = "−"
 DASH = "–"  # a value that cannot be shown (non-finite)
@@ -68,6 +68,11 @@ def axis_name(axis) -> str:
     indirect appear only in help text, never in a name.
     """
     return " ".join(part for part in (nucleus(axis.nucleus, ""), axis.label) if part)
+
+
+def axis_names(axes) -> dict[str, str]:
+    """Each axis's name by the engine's label: ``{"F2": "¹⁵N F2", "F3": "¹H F3"}``."""
+    return {axis.label: axis_name(axis) for axis in axes}
 
 
 def axis_title(axis, unit: str = "ppm") -> str:
@@ -198,17 +203,14 @@ def sigma_available(sigma: float) -> bool:
 class Measured:
     """A value and its σ as shown: mantissas at one shared power of ten.
 
-    ``sigma`` is the σ mantissa, ``"0"`` for an exact value, or ``NOT_ASSESSED``.
+    ``sigma`` is the σ mantissa, ``"0"`` for an exact value, or ``NOT_ASSESSED`` when
+    ``assessed`` is false (no finite, non-negative σ was recorded).
     """
 
     value: str
     sigma: str
     power: int
-
-    @property
-    def assessed(self) -> bool:
-        """Whether a σ is shown (zero counts: the value is exact)."""
-        return self.sigma != NOT_ASSESSED
+    assessed: bool = True
 
     @property
     def factor(self) -> str:
@@ -245,26 +247,31 @@ def measured(
     them, else four significant digits. ``power`` forces the shared power of ten (a
     column's); by default it follows the larger of |value| and σ.
     """
-    if not math.isfinite(value):
-        return Measured(DASH, DASH if math.isfinite(sigma) else NOT_ASSESSED, 0)
     assessed = math.isfinite(sigma) and sigma >= 0
+    if not math.isfinite(value):
+        return Measured(DASH, DASH if assessed else NOT_ASSESSED, 0, assessed)
     if not (assessed and sigma > 0):
         error = "0" if assessed else NOT_ASSESSED
         if decimals is not None and power is None:
-            return Measured(number(value, decimals), error, 0)
+            return Measured(number(value, decimals), error, 0, assessed)
         if power is None:
             power = exponent(abs(float(f"{value:.{SIGNIFICANT - 1}e}"))) if value else 0
-        return Measured(scaled(value * 10.0**-power), error, power)
+        return Measured(scaled(value * 10.0**-power), error, power, assessed)
     if power is None:
-        power = exponent(max(abs(value), sigma))
-        # The value or σ that rounds up into the next decade moves the shared power.
-        places = _significant_decimals(sigma * 10.0**-power, SIGMA_DIGITS)
-        largest = max(abs(value), sigma) * 10.0**-power
-        if power and abs(round(largest, places)) >= 10:  # noqa: PLR2004
-            power += 1
+        largest = max(abs(value), sigma)
+        power = exponent(largest)
+        # A value or σ that rounds up into the next decade (9999.97 → 10000.0) takes
+        # the power of its rounded magnitude.
+        places = _significant_decimals(sigma * 10.0**-power, SIGMA_DIGITS) - power
+        power = exponent(abs(round(largest, places)))
     error = sigma * 10.0**-power
     places = _significant_decimals(error, SIGMA_DIGITS)
     return Measured(_fixed(value * 10.0**-power, places), _fixed(error, places), power)
+
+
+def fitted(value: float, sigma: float, unit: str, *, varied: bool = True) -> Measured:
+    """A fitted parameter: its σ when varied and assessed, else the unit's fixed decimals."""
+    return measured(value, sigma if varied else math.nan, decimals=UNIT_DECIMALS.get(unit))
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,7 +297,7 @@ def column(values: Sequence[float], sigmas: Sequence[float] | None = None) -> Co
     powers = {measured(v, s).power for v, s in pairs if math.isfinite(v)}
     if len(powers) == 1 and (power := powers.pop()):
         cells = tuple(measured(v, s, power=power) for v, s in pairs)
-        return Column(factor(power), tuple(Measured(c.value, c.sigma, 0) for c in cells))
+        return Column(factor(power), tuple(replace(c, power=0) for c in cells))
     return Column("", tuple(measured(v, s) for v, s in pairs))
 
 

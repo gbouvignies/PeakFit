@@ -350,10 +350,8 @@ class ClusterPage(QtWidgets.QWidget):
                 parameter = values.get(parameter_name(engine, axis, kind))
                 if parameter is None:
                     continue
-                shown = formatting.measured(
-                    parameter.value,
-                    parameter.standard_error if parameter.vary else math.nan,
-                    decimals=formatting.UNIT_DECIMALS.get(parameter.unit),
+                shown = formatting.fitted(
+                    parameter.value, parameter.standard_error, parameter.unit, varied=parameter.vary
                 )
                 at_bound = parameter.name in bounded
                 cell = text_label(

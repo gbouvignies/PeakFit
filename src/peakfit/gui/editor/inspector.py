@@ -265,6 +265,7 @@ class _AmplitudeRow:
     """The peak's amplitude row: its labels and what they show, plane by plane."""
 
     cells: tuple[QtWidgets.QLabel, QtWidgets.QLabel, QtWidgets.QLabel]  # title, value, σ
+    caption: QtWidgets.QLabel  # the plane and what its σ means
     planes: np.ndarray  # source plane of each amplitude column
     amplitudes: np.ndarray
     marginal: np.ndarray  # marginal σ of each amplitude
@@ -293,7 +294,7 @@ class Inspector(QtWidgets.QScrollArea):
         # than a narrowed inspector scrolls rather than being cut at its edge.
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setMinimumWidth(300)
-        self._axes = {axis.label: formatting.axis_name(axis) for axis in (x_axis, y_axis)}
+        self._axes = formatting.axis_names((x_axis, y_axis))
         self._axis_order = [x_axis.label, y_axis.label]
         body = QtWidgets.QWidget()
         body.setObjectName("inspectorBody")
@@ -911,10 +912,8 @@ class Inspector(QtWidgets.QScrollArea):
         rows = []
         for parameter in sorted(parameters, key=lambda p: order(*_dimension_and_kind(p.name))):
             dim, kind = _dimension_and_kind(parameter.name)
-            shown = formatting.measured(
-                parameter.value,
-                parameter.standard_error if parameter.vary else math.nan,
-                decimals=formatting.UNIT_DECIMALS.get(parameter.unit),
+            shown = formatting.fitted(
+                parameter.value, parameter.standard_error, parameter.unit, varied=parameter.vary
             )
             if not parameter.vary:
                 error: Cell = ("fixed", "caption", 1)
@@ -946,23 +945,15 @@ class Inspector(QtWidgets.QScrollArea):
             dtype=int,
         )
         row = self.fitted.rowCount()
-        # The title may wrap before its power of ten rather than widen the page.
-        cells = (_label("", "muted", wrap=True), _label(""), _label(""))
+        cells = (_label("", "muted"), _label(""), _label(""))
         for column, cell in enumerate(cells):
             if column:
                 cell.setAlignment(_RIGHT)
             self.fitted.addWidget(cell, row, column)
-        meaning = (
-            "± σ of the absolute amplitude on this plane (marginal σ), including the "
-            "lineshape uncertainty. Planes share that part: do not treat these σ as "
-            "independent errors of a profile."
-        )
-        caption = _label(meaning, "caption", wrap=True)
+        caption = _label("", "caption", wrap=True)
         self.fitted.addWidget(caption, row + 1, 0, 1, -1)
-        for cell in cells:
-            cell.setToolTip(meaning)
         self._amplitude = _AmplitudeRow(
-            cells, planes, evaluation.amplitudes[index], marginal[index]
+            cells, caption, planes, evaluation.amplitudes[index], marginal[index]
         )
         self._show_amplitude(plane)
 
@@ -971,9 +962,18 @@ class Inspector(QtWidgets.QScrollArea):
             return
         row = self._amplitude
         title, value, error = row.cells
+        # The plane leads the caption, so the row's name keeps one line.
+        meaning = (
+            f"Plane {plane + 1} · ± σ is the marginal σ of the absolute amplitude, "
+            "lineshape uncertainty included. Planes share that part: do not treat these "
+            "σ as independent errors of a profile."
+        )
+        row.caption.setText(meaning)
+        for cell in row.cells:
+            cell.setToolTip(meaning)
         columns = np.flatnonzero(row.planes == plane)
         if not columns.size:
-            title.setText(f"Amplitude plane {plane + 1}")
+            title.setText("Amplitude")
             value.setText("plane not fitted")
             error.setText("")
             return
@@ -981,9 +981,9 @@ class Inspector(QtWidgets.QScrollArea):
         shown = formatting.measured(float(row.amplitudes[columns[0]]), marginal)
         # The shared power of ten goes with the row's name, as a unit would.
         scale = f" ({shown.factor.replace(' ', NBSP)})" if shown.factor else ""
-        title.setText(f"Amplitude plane {plane + 1}{scale}")
+        title.setText(f"Amplitude{scale}")
         value.setText(shown.value)
-        error.setText(shown.sigma if shown.assessed else formatting.NOT_ASSESSED)
+        error.setText(shown.sigma)
 
     def _fill_review(
         self,

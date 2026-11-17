@@ -92,7 +92,7 @@ column at the sampled horizontal coordinate. Neither is a projection or sum. Sli
 are lines through the native samples, without markers or values between samples:
 measured data and, in Overlay, the total model at the same samples in common units.
 Residual lanes under each slice show the whole-spectrum residual; in Residual the
-slices show it and the lanes hide. Slice sizes are shares of the spectral view,
+slices show it too, and the lanes keep their place so the 2D plot does not move (§8). Slice sizes are shares of the spectral view,
 the row slice's of its height and the column slice's of its width, so the slices
 grow with the window and neither the 2D plot nor the slices has a fixed priority.
 Overview and cluster focus have separate defaults (22 % row / 18 % column in the

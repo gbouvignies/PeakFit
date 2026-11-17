@@ -513,6 +513,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._fit_lanes()
         self.canvas.set_comparison(result, mode, label=comparison.label)
 
+    def step_plane(self, offset: int) -> None:
+        """The previous (−1) or next (+1) plane in acquisition order."""
+        self.set_plane(self.canvas.plane + 1 + offset)  # set_plane counts from one
+
     def _choose_mode(self, mode: int) -> None:
         """E, O or R on the spectrum: the comparison button's choice, when it is enabled."""
         if self.mode_buttons[mode].isEnabled():
@@ -739,8 +743,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             ("E", partial(self._choose_mode, 0)),
             ("O", partial(self._choose_mode, 1)),
             ("R", partial(self._choose_mode, _RESIDUAL)),
-            ("[", lambda: self.set_plane(self.canvas.plane)),
-            ("]", lambda: self.set_plane(self.canvas.plane + 2)),
+            ("[", partial(self.step_plane, -1)),
+            ("]", partial(self.step_plane, 1)),
         ):
             shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.view)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -832,7 +836,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def _axis_names(self) -> dict[str, str]:
         """Each spectral axis's name (``¹⁵N F2``) by the engine's label (``F2``)."""
-        return {a.label: formatting.axis_name(a) for a in self.dataset.spectra.spectral_params}
+        return formatting.axis_names(self.dataset.spectra.spectral_params)
 
     def _starting_values(self) -> tuple[list[StartRow] | None, str]:
         """The selected peak's parameters as the current preparation would submit them."""
