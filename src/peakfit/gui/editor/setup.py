@@ -41,8 +41,13 @@ PER_AXIS = "Per axis"
 
 
 def lineshape_text(lineshape: AxisLineshape) -> str:
-    """Readable model of one axis: family, then doublet and phase when present."""
-    return _LINESHAPES.get(lineshape.family, lineshape.family) + lineshape.details
+    """Readable model of one axis: ``SP1 doublet (J 92.0 Hz in [46.0, 184.0]), phase fitted``."""
+    text = _LINESHAPES.get(lineshape.family, lineshape.family)
+    if (d := lineshape.doublet) is not None:
+        fixed = ", fixed" if not d.vary else ""
+        bounds = f"[{formatting.hz(d.min)}, {formatting.hz(d.max)}]"
+        text += f" doublet (J {formatting.hz(d.j)}\u00a0Hz in {bounds}{fixed})"
+    return f"{text}, phase fitted" if lineshape.phase else text
 
 
 def common_family(fitting: FitConfig) -> str | None:

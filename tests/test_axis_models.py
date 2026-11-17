@@ -32,13 +32,18 @@ from peakfit.engine.domain.config import (
 )
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
+from peakfit.engine.domain.spectrum import (
+    AxisLineshape,
+    Spectra,
+    SpectralParameters,
+    axis_lineshapes,
+)
 from peakfit.engine.lineshapes.create import SHAPES, create_shapes
 from peakfit.engine.lineshapes.templates import PhasedSingletBase
 from peakfit.fit.fitting import load_data
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
-from peakfit.gui.editor.setup import PER_AXIS, FitSetup
+from peakfit.gui.editor.setup import PER_AXIS, FitSetup, lineshape_text
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import read_dataset
@@ -296,6 +301,14 @@ def test_the_gui_family_applies_to_every_axis_and_keeps_doublets_and_phase(qapp,
     assert chosen.fitting == expected
     setup.show_state(chosen, [], None, "")
     assert setup.lineshape.currentData() == "lorentzian"
+
+
+def test_the_gui_names_each_axis_model_through_the_formatter():
+    doublet = AxisLineshape("F2", "sp1", Doublet(j=92.0, vary=False), phase=True)
+    assert lineshape_text(doublet) == (
+        "SP1 doublet (J 92.0\u00a0Hz in [46.0, 184.0], fixed), phase fitted"
+    )
+    assert lineshape_text(AxisLineshape("F3", "pvoigt")) == "Pseudo-Voigt"
 
 
 def test_each_axis_doublet_sets_its_own_j_start_bounds_and_freedom():
