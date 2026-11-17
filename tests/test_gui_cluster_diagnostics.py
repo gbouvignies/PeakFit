@@ -24,6 +24,7 @@ from peakfit.gui.editor.changes import compare_runs
 from peakfit.gui.editor.review import HighlightRules, ReviewMark, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -62,8 +63,8 @@ def workspace(request, qapp, scientific):
     if getattr(request, "param", None) == "coincident":
         peaks = _coincident_peaks(peaks)
     widget = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
-    widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.setup_seen = True
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     qapp.processEvents()

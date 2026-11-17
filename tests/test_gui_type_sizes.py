@@ -14,6 +14,7 @@ from peakfit.gui.editor.labels import fit_phrases
 from peakfit.gui.editor.profiles_view import ProfilesView, cluster_tiles, paint_tile
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -44,8 +45,8 @@ def fitted(qapp, scientific, large_font):
     assert themes.type_scale() is large_font  # before any widget is built
     spectra, peaks, config, result = scientific
     widget = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
-    widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.setup_seen = True
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
+    widget.fitting.model_seen = True
     themes.apply(widget, themes.LIGHT)
     widget.apply_theme(themes.LIGHT)
     widget.resize(1280, 750)

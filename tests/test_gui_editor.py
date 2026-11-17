@@ -14,7 +14,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
-from peakfit.gui.peaks import PeakEdits, WorkingPeak, export_peaks
+from peakfit.gui.peaks import WorkingEdits, WorkingPeak, export_peaks
 from peakfit.gui.spectrum import (
     display_position,
     mapping_warning,
@@ -111,7 +111,7 @@ def test_hover_preview_pinning_and_draft_are_independent(workspace):
 
 def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, qapp):
     peak = WorkingPeak.new("Exact", (117.12345678901234, 8.234567890123456))
-    workspace.edits = PeakEdits((peak, workspace.peaks[0]))
+    workspace.edits = WorkingEdits((peak, workspace.peaks[0]), workspace.edits.settings)
     workspace._refresh()
     workspace.select_peak(peak.id)
     editor = workspace.inspector
@@ -348,7 +348,7 @@ def test_async_cancel_failure_and_atomic_replacement(qapp, dataset, monkeypatch)
 
 
 def test_manual_revision_is_monotonic_and_noop_edits_preserve_provenance(dataset):
-    edits = PeakEdits(dataset.peaks)
+    edits = WorkingEdits(dataset.peaks, None)
     peak = edits.peaks[0]
     submitted = edits.peaks
     edits.update(peak.id, peak.name, peak.positions)

@@ -7,6 +7,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui.theme import SPACE_M
 
+POPOVER_WIDTH = 280  # logical px: one comfortable measure of explanation
+
 # The inspector's label column: forms, tables and review rows share this left edge
 # for their values.
 LABEL_WIDTH = 104
@@ -14,13 +16,17 @@ LABEL_WIDTH = 104
 
 @dataclass(frozen=True)
 class Row:
-    """One review row: a muted label, its value, and the value's style, caption and tooltip."""
+    """One review row: a muted label, its value, and the value's style, caption and tooltip.
+
+    ``info`` is a longer explanation behind an ⓘ button beside the value.
+    """
 
     label: str
     value: str
     style: str = ""
     detail: str = ""
     tip: str = ""
+    info: str = ""
 
 
 def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
@@ -33,7 +39,14 @@ def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
         grid.addWidget(title, line, 0, QtCore.Qt.AlignmentFlag.AlignTop)
         shown = text_label(row.value, row.style, wrap=True)
         shown.setToolTip(row.tip)
-        grid.addWidget(shown, line, 1)
+        if row.info:
+            cell = QtWidgets.QHBoxLayout()
+            cell.setSpacing(4)
+            cell.addWidget(shown, 1)
+            cell.addWidget(InfoButton(row.label, row.info), 0, QtCore.Qt.AlignmentFlag.AlignTop)
+            grid.addLayout(cell, line, 1)
+        else:
+            grid.addWidget(shown, line, 1)
         line += 1
         if row.detail:
             grid.addWidget(text_label(row.detail, "caption", wrap=True), line, 1)
@@ -219,3 +232,49 @@ def disclosure(text: str) -> QtWidgets.QToolButton:
     button.setText(f"▸  {text}")
     button.toggled.connect(lambda shown: button.setText(f"{'▾' if shown else '▸'}  {text}"))
     return button
+
+
+class InfoButton(QtWidgets.QToolButton):
+    """ⓘ: a longer explanation in a popover, opened by click, Space or Return.
+
+    The button is a Tab stop named "About <topic>"; the popover closes on Escape or a
+    click elsewhere and gives the keyboard back to the button. Screen readers get the
+    text as the button's description.
+    """
+
+    def __init__(self, topic: str, text: str = "") -> None:
+        super().__init__()
+        self.setObjectName("info")
+        self.setText("ⓘ")
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName(f"About {topic.lower()}")
+        self.setToolTip(f"About {topic.lower()}")
+        self._popover = QtWidgets.QFrame(self, QtCore.Qt.WindowType.Popup)
+        self._popover.setObjectName("popover")
+        layout = QtWidgets.QVBoxLayout(self._popover)
+        layout.setContentsMargins(SPACE_M, SPACE_M, SPACE_M, SPACE_M)
+        self.body = text_label("", "", wrap=True)
+        self.body.setFixedWidth(POPOVER_WIDTH)
+        layout.addWidget(self.body)
+        self.set_text(text)
+        self.clicked.connect(self.open_popover)
+
+    def set_text(self, text: str) -> None:
+        """Replace the explanation; the owner decides whether the button shows."""
+        self.body.setText(text)
+        self.setAccessibleDescription(text)
+
+    def open_popover(self) -> None:
+        """Show the explanation below the button, kept on the button's screen."""
+        popover = self._popover
+        popover.adjustSize()
+        anchor = self.mapToGlobal(QtCore.QPoint(0, self.height() + 2))
+        screen = (self.screen() or QtGui.QGuiApplication.primaryScreen()).availableGeometry()
+        x = max(screen.left(), min(anchor.x(), screen.right() - popover.width()))
+        popover.move(x, anchor.y())
+        popover.show()
+        popover.setFocus()
+
+    def popover_visible(self) -> bool:
+        """Whether the explanation is on screen."""
+        return self._popover.isVisible()

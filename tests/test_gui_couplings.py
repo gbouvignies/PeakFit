@@ -15,6 +15,7 @@ from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.inspector import COUPLING_TIP, coupling_caption, coupling_shown
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -52,8 +53,8 @@ def doublet_fit():
 def test_the_peak_page_shows_a_j_below_its_linewidth_as_a_qualification(qapp, doublet_fit):
     spectra, peaks, config, result = doublet_fit
     widget = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
-    widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.setup_seen = True
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     try:

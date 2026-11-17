@@ -23,6 +23,7 @@ from peakfit.gui.editor.spectral_geometry import (
 )
 from peakfit.gui.editor.spectral_view import LANE_SIGMA
 from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -39,8 +40,8 @@ def _workspace(qapp, scientific):
     spectra, peaks, config, _ = scientific
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
-    widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.setup_seen = True
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     qapp.processEvents()

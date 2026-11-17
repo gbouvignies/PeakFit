@@ -33,7 +33,6 @@ from peakfit.engine.domain.config import (
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import (
-    AxisLineshape,
     Spectra,
     SpectralParameters,
     axis_lineshapes,
@@ -43,7 +42,7 @@ from peakfit.engine.lineshapes.templates import PhasedSingletBase
 from peakfit.fit.fitting import load_data
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
-from peakfit.gui.editor.setup import PER_AXIS, FitSetup, lineshape_text
+from peakfit.gui.editor.axis_table import AxisInfo, AxisModelTable
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import read_dataset
@@ -283,32 +282,27 @@ def test_invalid_cli_lineshape_options_are_refused(options, message):
         lineshape_options(**arguments)
 
 
-def test_the_gui_family_applies_to_every_axis_and_keeps_doublets_and_phase(qapp, tmp_path):
+def test_the_gui_table_edits_one_axis_and_keeps_the_others_doublet_and_phase(qapp, tmp_path):
     del qapp
     path = tmp_path / "peakfit.toml"
     path.write_text(TOML)
     imported = load_config(path)
-    setup = FitSetup()
+    table = AxisModelTable([AxisInfo("F2", "¹⁵N F2", "sp1"), AxisInfo("F3", "¹H F3", "sp2")])
     emitted = []
-    setup.changed.connect(emitted.append)
-    setup.show_state(imported, [], None, "")
-    assert setup.lineshape.currentText() == PER_AXIS  # F3 sets its own family
-    setup.lineshape.setCurrentIndex(setup.lineshape.findData("lorentzian"))
+    table.changed.connect(emitted.append)
+    table.show_model(imported.fitting)
+    f2, f3 = table.rows
+    assert (f2.family.currentData(), f3.family.currentData()) == ("sp1", "sp2")
+    assert (f2.j.text(), f2.low.text(), f2.high.text()) == ("92.0", "80.0", "100.0")
+    assert not f3.fit.isChecked()  # F3 holds its J
+    assert not f3.low.isEnabled()
+    f2.family.setCurrentIndex(f2.family.findData("sp2"))
     (chosen,) = emitted
+    # Every axis now takes SP2: one common family, each axis keeps its doublet and phase.
     expected = imported.fitting.model_copy(deep=True)
-    expected.family = "lorentzian"
+    expected.family = "sp2"
     expected.axes["F3"] = expected.axes["F3"].model_copy(update={"family": None})
-    assert chosen.fitting == expected
-    setup.show_state(chosen, [], None, "")
-    assert setup.lineshape.currentData() == "lorentzian"
-
-
-def test_the_gui_names_each_axis_model_through_the_formatter():
-    doublet = AxisLineshape("F2", "sp1", Doublet(j=92.0, vary=False), phase=True)
-    assert lineshape_text(doublet) == (
-        "SP1 doublet (J 92.0\u00a0Hz in [46.0, 184.0], fixed), phase fitted"
-    )
-    assert lineshape_text(AxisLineshape("F3", "pvoigt")) == "Pseudo-Voigt"
+    assert chosen == expected
 
 
 def test_each_axis_doublet_sets_its_own_j_start_bounds_and_freedom():

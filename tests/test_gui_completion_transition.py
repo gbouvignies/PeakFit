@@ -9,7 +9,7 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_positions import dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
-from peakfit.gui.peaks import PeakEdits
+from peakfit.gui.peaks import WorkingEdits
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +28,7 @@ def test_atomic_transition_preserves_seeds_outcome_and_currentness(completed):
     post = replace(submitted, peaks=transition.working_peaks)
     assert transition.is_current(post, 7)
     assert not transition.is_current(submitted, 7)
-    edits = PeakEdits(transition.working_peaks, revision=transition.manual_revision)
+    edits = WorkingEdits(transition.working_peaks, None, revision=transition.manual_revision)
     assert transition.is_current(post, edits.revision)
     peak = edits.peaks[0]
     edits.update(peak.id, peak.name, (peak.positions[0] + 1e-6, peak.positions[1]))

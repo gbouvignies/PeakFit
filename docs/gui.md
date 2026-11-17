@@ -93,7 +93,7 @@ reopened analysis keeps the spectrum, then the inspector, then the navigator.
 tab lists working peaks with search; after a fit its **Clusters** tab lists the
 active run's clusters. The inspector shows the selected peak (position editor,
 amplitude profile, fitted values and cluster review) or, with nothing selected,
-the analysis: the fit setup and the active run. Hover never selects or overwrites
+the analysis, on its **Run** or **Model** page. Hover never selects or overwrites
 a draft. Selection alone never opens a hidden column. Search matches assignments
 and stable IDs. A filtered-out selection remains in the inspector and can be
 revealed in the list. Coincident markers open a chooser with
@@ -119,7 +119,7 @@ context menus delete the selected peak as one Undo entry, without confirmation;
 the peak page has no Delete button. Right-clicking a marker selects it before the
 menu opens. Native modifier selection in the list permits one-step multi-delete.
 Undo/Redo restores exact records. In a clean coordinate
-field, Cmd/Ctrl+Z invokes peak Undo; within a draft, ordinary text Undo remains
+field, Cmd/Ctrl+Z invokes Undo (peak and settings edits); within a draft, ordinary text Undo remains
 available. Undo labels identify the edit.
 
 **File → Export working peaks…** writes canonical PeakFit CSV atomically, using
@@ -131,7 +131,7 @@ prompt alike: the analysis differs from the last one saved or opened, or an edit
 still a draft. The toolbar tooltip names what differs: peaks, fit settings, the
 active run, input files, plane values, kept runs, run history or an uncommitted
 draft. Importing or replacing plane values marks it Modified even when no peaks
-changed; peak Undo does not undo a plane-value import, and peak CSV cannot carry
+changed; Undo does not undo a plane-value import, and peak CSV cannot carry
 the plane mapping. **Save analysis** records it.
 
 Peak imports retain their source fingerprints by stable peak ID. Replace drops
@@ -142,43 +142,70 @@ for undoable IDs, rather than appearing as active scientific provenance.
 
 ## Fit → compare → export
 
-The **fit setup** is part of the inspector's analysis page, shown whenever nothing
-is selected. Before the first fit it leads the page; once a run exists, the run
-review leads (active run, changes from the previous run, warning navigation and
-unexplained signal) and the setup follows it. The active run reads as label rows:
-Run (short ID and Current or Outdated, the full ID in the tooltip), Model, Converged
-and Usable as counts of clusters, Fitted (date and local time with its zone, and
-duration), and
-Warnings when any cluster has one, and Noise check when the run's noise-power check
-found a mismatch: the axes and that the errors may be miscalibrated, with what was
-found and what to do as its caption, the wording of the run line's tooltip. A
-recovery problem adds a row in the warning style. The setup's values share that column. A click on the toolbar run summary,
-or **Analysis ▸ Active run**, opens the page at the review. The summary names the
-run and whether it is Current; it gives cluster counts only when some cluster is
-unusable or not converged (always in its tooltip), and the run is named there
-only, with “Outdated” repeated where an outdated run's values are shown; the settings button, or
-**Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape family, applied
-to every axis (the resolved model per axis on one line, horizontal axis first, with a shared source
-such as “from apodization”; each axis's source is in the tooltip, and the
-pseudo-Voigt default used when no apodization is recognized is a caution; the
-control reads **Per axis** when an imported TOML gives an axis its own family, and
-doublets and fitted phases from that TOML are kept and named in the line — they
-are not editable in the GUI yet),
-clustering threshold as a factor of the statistical noise with its absolute
-intensity, optimizer passes (default **two**, with the neighbor correction update
-between passes; an imported step schedule replaces the field) and, under
-**Advanced**, iteration limit and tolerance. Statistical noise shows its value;
-an explicit value says so, and the estimate's method is in the tooltip. Values
-use × 10ⁿ, never e notation; the tolerance reads 1 × 10⁻⁸ and accepts plain or
-scientific entry. Before the first fit the toolbar says **Not
-fitted** and the page has no run section. A committed setting change marks an existing run
-Outdated; settings are not part of peak Undo.
+With nothing selected, the inspector shows the **analysis** on one of two pages,
+under the dataset's name and a **Run | Model** switch. **Model** holds the working
+fit settings and is shown before the first fit; **Run** holds the active run as
+recorded and comes forward when a run completes or an attempt fails. The switch,
+the toolbar settings summary (or **Analysis ▸ Model settings**) and a click on the
+run summary (or **Analysis ▸ Active run**) choose the page, which then stays until
+the next run or failed attempt. Run is unavailable, and says so, until there is a
+run, a failed attempt or a fit in progress.
 
-After every committed change to peaks or settings the setup prepares the exact
+The **Run** page reads as label rows: Run (short ID and Current or Outdated, the
+full ID in the tooltip), Model, Converged and Usable as counts of clusters, Fitted
+(date and local time with its zone, and duration), Warnings when any cluster has
+one, with **Select next cluster with a warning** right under the rows, and Noise
+check as a one-line verdict: **Consistent with the recorded processing**,
+**Inconclusive on …** or **Not checked** (why, behind its ⓘ), or, for a mismatch,
+the axes and that the errors may be miscalibrated in the warning style, with what
+was found and what to do behind its ⓘ, in the wording of the run line's tooltip. A recovery problem adds
+a row in the warning style. The changes from the parent run and the unexplained
+signal follow (below). The summary names the run and whether it is Current; it
+gives cluster counts only when some cluster is unusable or not converged (always
+in its tooltip), and the run is named there only, with “Outdated” repeated where an
+outdated run's values are shown.
+
+The **Model** page edits the working settings directly. Its **Lineshape model** is
+a table with one row per spectral axis, in the engine's axis order: **Axis**,
+**Family**, **J (Hz)**, **Fit J** and **Phase**. Family reads **Auto · SP2** when
+Automatic resolves to SP2 from that axis's apodization; when no apodization is
+recognized the row carries a caution under it (“No recognized apodization. Check
+that the pseudo-Voigt default suits these data, or choose a family.”), which does
+not block the fit. A single family for every axis is stored once, as
+`[fitting].family`; a family that differs from the others is stored on that axis.
+A singlet's J cell offers **+ J**: it opens the J field, with “Enter J in Hz; leave
+it empty to cancel.” under the axis, and the doublet exists once a positive J in
+Hz is entered (an empty J cancels it). Its range, by default
+[J/2, 2J], then sits on a line under the row, **J range [low] – [high] Hz**, with ×
+to remove the doublet; clearing **Fit J** holds J at its start and disables the
+range. **Phase** fits one phase per cluster on that axis and needs SP1, SP2 or No
+apodization. Tab reaches family, J, Fit J (which enables the range), the two
+bounds, × and Phase in that order, then the next axis; every control's name says which axis it changes. An invalid
+entry (a J outside its range, an empty range, a phase on a family without one) is
+explained under its axis, outlines the fields concerned and disables **Fit**, with
+the same reason in Fit's tooltip, until it is corrected; nothing invalid reaches
+the settings. Below the table: **Clustering**, with the statistical noise (an
+explicit value says so; the estimate's method is in the tooltip) and the threshold
+as a factor of the noise with its absolute intensity; **Fit**, with optimizer passes
+(default **two**, with the neighbor correction update between passes; an imported
+step schedule replaces the field), the planes fitted and the axis-wide and per-peak
+constraints in one line (both read-only; their controls are W4);
+and **Optimizer limits** (collapsed: solver, iteration limit, tolerance). Values use
+× 10ⁿ, never e notation; the tolerance reads 1 × 10⁻⁸ and accepts plain or
+scientific entry. Once a run exists, every setting whose working value differs from
+the one the run used is marked • (an axis on its name, a setting on its label, with
+what the run used in the tooltip), and the page says “• differs from run 5d7b4768”.
+
+Every committed settings change is one undoable edit in the same history as peak
+edits (**Undo settings change**), and marks an existing run Outdated; Undo restores
+the setting but never makes the run Current again. Before the first fit the toolbar
+says **Not fitted** and Run is unavailable.
+
+After every committed change to peaks or settings the Model page prepares the exact
 fitting problem off Qt, with the same preparation that Fit submits, and reports
 cluster and sample counts. Preparation never depends on selection, viewport,
 search or display contours. An obsolete preparation is hidden at once. When
-preparation fails, **Fit** is disabled and the setup and its tooltip give the
+preparation fails, **Fit** is disabled and the Model page and its tooltip give the
 reason. The member rings are the default sign of a selected peak's cluster.
 **Show sampled fitting regions** (off by default) adds a faint tint behind the
 contours, one cell per sampled point, with the selected peak's cluster slightly
@@ -189,11 +216,11 @@ viewport, comparison mode or model scope.
 Choose **Fit** in the toolbar or **Fit dataset** in the Analysis menu
 (Cmd/Ctrl+Return). Fit commits a valid draft and submits the prepared problem;
 it always covers every working peak and original plane. There is no confirmation
-dialog: the first Fit of a session whose setup has not been displayed opens it
+dialog: the first Fit of a session whose Model page has not been displayed opens it
 instead of running, and the next Fit runs. The settings summary beside **Fit**
 (lineshapes · clustering threshold · passes; "Fit settings" in windows narrower
-than 1200 px, with the summary in its tooltip) and **Analysis › Fit setup** open
-the setup. Numerical execution uses the existing disposable process outside Qt. The run line beside the
+than 1200 px, with the summary in its tooltip) and **Analysis › Model settings** open
+the Model page. Numerical execution uses the existing disposable process outside Qt. The run line beside the
 analysis name shows pass/cluster/stage and elapsed time, with **Cancel** beside **Fit**;
 the settings summary steps aside while a fit runs. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.
@@ -203,8 +230,8 @@ and working coordinates. No partial result is adopted.
 A failed fit says whether anything was kept: **Failed · no result yet** when there
 is no active run, **Failed · previous result retained** otherwise; a canceled fit
 reads **Canceled · …** the same way. A failure leads the run line in the error
-style with ▲ (“▲ Failed · previous result retained · Run …”), and the analysis page
-opens with a **Last fit attempt** section above the setup and the run review:
+style with ▲ (“▲ Failed · previous result retained · Run …”), and the Run page
+comes forward with a **Last fit attempt** section above the run:
 status, the stage that failed (Preparation, Fitting or Completion), the reason and,
 when the application logs to a file, the log path. **Copy details** puts the
 status, stage, message, dataset, active run, PeakFit, Python and Qt versions,
@@ -224,7 +251,7 @@ recorded fit is kept as it is, and the amplitude profile withholds their
 individual amplitudes as not established (below). The next fit starts them from the configured defaults;
 moving either peak makes it an ordinary edited peak.
 
-After a refit, the analysis page summarizes **Changes from parent run**, the run it was
+After a refit, the Run page summarizes **Changes from parent run**, the run it was
 refitted from (named in its first row, **Parent run**), read from both recorded runs without refitting or judging either.
 Peaks are matched by stable ID, so renamed peaks still compare.
 
@@ -261,7 +288,8 @@ Each name opens its cluster or peak; at most six clusters are listed with a coun
 the rest. A stored parent run is read off Qt; one whose evidence is no longer
 retained is named as such. The first run has nothing to compare.
 
-**Signal not explained on this plane**, also on the analysis page, lists on request
+**Signal not explained on this plane**, also on the Run page (what it is, behind its
+ⓘ), lists on request
 (**Find on plane N**) the connected regions where the current plane's
 whole-spectrum residual exceeds ±5 σ_stat; Display sets the threshold for the
 session. Positive and negative excursions are separate regions, and samples touching
@@ -341,8 +369,8 @@ convergence and usable/total clusters, so a narrow window shortens only the tail
 its tooltip keeps the full text. Clusters with a numerical warning have their own
 amber label (▲ N) that never elides. When the run's noise-power check found
 processing the header does not record, the line shows **▲ Noise check (F2)**, naming
-the axes, before the counts; the tooltip, and the Analysis page's Noise check row
-reachable without a pointer, give what was found and what to do
+the axes, before the counts; the tooltip, and the ⓘ of the Run page's Noise check
+row, reachable without a pointer, give what was found and what to do
 ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). It is a
 warning about the errors only, never about the fit.
 
@@ -390,7 +418,7 @@ cluster in **focus**: the same spectral view, reframed in place on the displayed
 member positions ± max(3 × fitted FWHM, 8 native samples), at most a quarter of the
 spectral width and within the spectrum, with residual lanes on. The frame does not
 depend on the optimizer's fitting samples; **Fitting region** in the focus bar tints
-them, together with the setup's toggle. The bar names the cluster and its run
+them, together with the Model page's toggle. The bar names the cluster and its run
 (“run 5d7b4768 · Outdated · model and residual are historical”), and every mode,
 mark, legend, pin and display setting works as in the overview, since it is the
 same view. **‹ Spectrum** or **Escape** (from the spectrum, the cluster list or the
@@ -428,7 +456,7 @@ comparison mode or the total-model scope. **N** (Shift+N backward) in the cluste
 list moves in list order to the next cluster the **Show** choice lists; with all
 clusters shown it moves to the next one with a numerical warning, and with none
 the status line says to choose a mark in Show. **Select next cluster with a
-warning** on the analysis page always moves to a warned cluster. Neither ever
+warning** on the Run page always moves to a warned cluster. Neither ever
 selects a hidden row. The
 inspector's **Cluster review** keeps three families apart: numerical warnings
 (with the engine's own text, or the members whose amplitude split is undetermined),
@@ -462,7 +490,7 @@ uncertainty (`intensity_err_marginal`), as the caption under it says, starting w
 the plane. Its power of ten is in its name, as a unit would be: Amplitude (× 10⁹).
 **Starting values and bounds** (collapsed) is the same kind of table for the next
 fit: start, lower and upper bound per parameter (“fixed” in place of the bounds),
-from the current preparation of the working position and fit setup. It stays
+from the current preparation of the working position and model settings. It stays
 separate from Fitted because it describes a different run. The values are
 read-only; while preparation runs or fails the section says so rather than
 showing old values.

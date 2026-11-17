@@ -1,0 +1,385 @@
+{
+  "body_px": 17,
+  "captures": [
+    {
+      "file": "01-model-before-fit-1160x720-light.webp",
+      "inspector": [
+        382,
+        607
+      ],
+      "viewport": [
+        382,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-model-before-fit-1160x720-dark.webp",
+      "inspector": [
+        382,
+        607
+      ],
+      "viewport": [
+        382,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-model-before-fit-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-model-before-fit-1280x800-dark.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-model-before-fit-1920x921-light.webp",
+      "inspector": [
+        418,
+        808
+      ],
+      "viewport": [
+        418,
+        808
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "01-model-before-fit-1920x1080-dark.webp",
+      "inspector": [
+        418,
+        967
+      ],
+      "viewport": [
+        418,
+        967
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "02-adding-j-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 480,
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: N F2: Enter J as a positive number of Hz.",
+      "undo": "Undo edit",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-doublet-1160x720-light.webp",
+      "inspector": [
+        382,
+        607
+      ],
+      "viewport": [
+        372,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-doublet-1160x720-dark.webp",
+      "inspector": [
+        382,
+        607
+      ],
+      "viewport": [
+        372,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-doublet-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-doublet-1280x800-dark.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-doublet-1920x921-light.webp",
+      "inspector": [
+        418,
+        808
+      ],
+      "viewport": [
+        418,
+        808
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "03-doublet-1920x1080-dark.webp",
+      "inspector": [
+        418,
+        967
+      ],
+      "viewport": [
+        418,
+        967
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "04-tab-from-j-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 487,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-invalid-range-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 531,
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: N F2: J start 92.0 Hz is outside its range 100.0–184.0 Hz. Change the start or widen the range.",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-invalid-range-1280x800-dark.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 531,
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: N F2: J start 92.0 Hz is outside its range 100.0–184.0 Hz. Change the start or widen the range.",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "05-invalid-range-1160x720-light.webp",
+      "inspector": [
+        382,
+        607
+      ],
+      "viewport": [
+        372,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 551,
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: N F2: J start 92.0 Hz is outside its range 100.0–184.0 Hz. Change the start or widen the range.",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "06-phase-without-phase-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 294,
+      "planes_bottom": 551,
+      "fit_enabled": false,
+      "fit_tooltip": "Fit unavailable: H F3: Phase needs a phased family (SP1, SP2 or No apodization); Gaussian has none. Choose one or turn the phase off.",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    },
+    {
+      "file": "07-doublet-removed-1280x800-light.webp",
+      "inspector": [
+        418,
+        687
+      ],
+      "viewport": [
+        418,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "table_width": 274,
+      "planes_bottom": 459,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "undo": "Undo settings change",
+      "run_line": "Not fitted",
+      "clipped": []
+    }
+  ]
+}
