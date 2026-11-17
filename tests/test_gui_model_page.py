@@ -22,9 +22,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.usefixtures("qapp", "app_look")
 
-AXES = [AxisInfo("F2", "¹⁵N F2", "gaussian"), AxisInfo("F3", "¹H F3", "gaussian")]
+AXES = [AxisInfo("F2", "¹⁵N F2", "sp2"), AxisInfo("F3", "¹H F3", "sp2")]
 INSPECTOR_CONTENT = 288  # logical px: a 320 px inspector less its margins at 1280×800
-BASE = '[fitting]\nfamily = "gaussian"\nrefine_iterations = 2\n'
 _WINDOWS: list[QtWidgets.QWidget] = []
 
 
@@ -46,7 +45,7 @@ def preview():
 
 def _toml(tmp_path, text: str = "") -> PeakFitConfig:
     path = tmp_path / f"peakfit-{len(list(tmp_path.iterdir()))}.toml"
-    path.write_text(text + "\n" + BASE)  # top-level keys before any table
+    path.write_text(text + "\n")
     return load_config(path)
 
 
@@ -79,6 +78,31 @@ def _type(edit: QtWidgets.QLineEdit, text: str) -> None:
 
 def _choose(combo: QtWidgets.QComboBox, data: str) -> None:
     combo.setCurrentIndex(combo.findData(data))
+
+
+def _add_doublet(page, axis: int, j: str) -> None:
+    row = page.axes.rows[axis]
+    row.add.click()
+    _type(row.j, j)
+
+
+def _set_bounds(page, axis: int, low: str, high: str) -> None:
+    row = page.axes.rows[axis]
+    _type(row.low, low)
+    _type(row.high, high)
+
+
+def _hold(page, axis: int) -> None:
+    page.axes.rows[axis].fit.setChecked(False)
+
+
+def _phase(page, axis: int) -> None:
+    page.axes.rows[axis].phase.setChecked(True)
+
+
+def _family(page, axis: int, family: str) -> None:
+    row = page.axes.rows[axis]
+    row.family.setCurrentIndex(row.family.findData(family))
 
 
 def _manual_noise(page, text):
@@ -121,6 +145,30 @@ def _rule(page, axis, kind, start="", low="", high="", hold=False):
 @pytest.mark.parametrize(
     ("edits", "toml"),
     [
+        # The per-axis table (W3).
+        pytest.param(
+            [(_add_doublet, 0, "92")], "[fitting.axes.F2]\ndoublet = { j = 92.0 }", id="doublet"
+        ),
+        pytest.param(
+            [(_add_doublet, 0, "92"), (_set_bounds, 0, "80", "100")],
+            "[fitting.axes.F2]\ndoublet = { j = 92.0, min = 80.0, max = 100.0 }",
+            id="bounds",
+        ),
+        pytest.param(
+            [(_add_doublet, 1, "7"), (_hold, 1)],
+            "[fitting.axes.F3]\ndoublet = { j = 7.0, vary = false }",
+            id="held",
+        ),
+        pytest.param([(_phase, 1)], "[fitting.axes.F3]\nphase = true", id="phase"),
+        pytest.param(
+            [(_family, 0, "sp1"), (_family, 1, "sp1")], '[fitting]\nfamily = "sp1"', id="common"
+        ),
+        pytest.param(
+            [(_family, 1, "lorentzian")],
+            '[fitting.axes.F3]\nfamily = "lorentzian"',
+            id="one-axis-family",
+        ),
+        # Clustering, planes and constraints (W4).
         pytest.param([(_manual_noise, "0.0031")], "noise_level = 0.0031", id="manual-noise"),
         pytest.param(
             [(_manual_noise, "3.1 × 10⁻³")], "noise_level = 0.0031", id="manual-noise-scaled"
@@ -155,7 +203,7 @@ def _rule(page, axis, kind, start="", low="", high="", hold=False):
         ),
     ],
 )
-def test_each_setting_gives_the_engine_config_of_the_equivalent_toml(edits, toml, tmp_path):
+def test_each_model_edit_gives_the_engine_config_of_the_equivalent_toml(edits, toml, tmp_path):
     page, emitted = _page(_toml(tmp_path))
     for edit, *arguments in edits:
         edit(page, *arguments)

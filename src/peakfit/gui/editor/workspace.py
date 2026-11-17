@@ -451,9 +451,19 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self._settings_text = f"{shapes} · {threshold} · {passes}"
         self._adapt_toolbar()
+        unusual = [
+            f"manual noise {formatting.setting(config.noise_level)}"
+            if config.noise_level is not None
+            else "",
+            f"planes {formatting.plane_numbers(config.exclude_planes)} excluded"
+            if config.exclude_planes
+            else "",
+        ]
         self.settings_button.setToolTip(
-            f"Fit settings: lineshapes {shapes} · {clustering} · {passes}. "
-            "Click to open the Model page."
+            " · ".join(
+                [f"Fit settings: lineshapes {shapes}", clustering, passes, *filter(None, unusual)]
+            )
+            + ". Click to open the Model page."
         )
 
     def show_model_page(self) -> None:

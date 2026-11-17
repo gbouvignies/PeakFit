@@ -100,5 +100,5 @@ headless = false
 
 # Optional settings
 # noise_level = 100.0  # Uncomment to set manual noise level
-# exclude_planes = []  # List of plane indices to exclude
+# exclude_planes = []  # Zero-based indices of planes to leave out of the fit
 """

@@ -22,6 +22,9 @@ optional reference-normalized profiles and a revised visual system. Sections 1�
 This revision authorizes no storage or export format change (§14).
 **Inspector revision (17 November 2026, W3):** the analysis splits into Run and
 Model pages; the per-axis lineshape model is a compact table (§2, §7).
+**Model settings (17 November 2026, W4):** manual noise, the threshold as a factor
+or an absolute level, plane exclusion and axis-wide constraints are editable on the
+Model page (§7).
 
 **Technology decision:** PySide6 + Qt Widgets + PyQtGraph, accepted by the project
 owner after hands-on evaluation and reconfirmed by the 31 October 2026 design
@@ -553,11 +556,16 @@ and 1920 px, 17 November 2026): Axis · Family · J (Hz) · Fit J · Phase. Auto
 reads with what it resolves to on that axis (“Auto · SP2”); a doublet's J range
 sits on a line under its row with × to remove it, and **+ J** adds one, existing
 once its J is entered. Invalid entries are explained under their axis and block
-Fit until corrected. Then statistical noise with its value (its method in the
-tooltip unless explicit); clustering threshold as a noise factor and as absolute
-intensity; optimizer passes (default two, cross-talk updates only between passes,
-as in the current GUI; CLI defaults are unaffected); the planes fitted; axis-wide
-and per-peak constraints in one line.
+Fit until corrected. Then statistical noise, Estimated (from the fitted planes) or
+Manual, the estimate staying visible under a manual value; clustering threshold,
+one setting chosen as a Factor of the noise (with the level it gives) or an
+absolute Level (with the factor it amounts to); optimizer passes (default two,
+cross-talk updates only between passes, as in the current GUI; CLI defaults are
+unaffected); the planes excluded, by one-based plane number, with the count fitted;
+Constraints, disclosed: a position window per axis and ordered rules on a
+parameter kind (linewidth, η) on one axis or all, each a start, a range or Hold.
+Each choice of mode or source starts from the value shown, so the switch is one
+edit with no surprise.
 **Optimizer limits** discloses solver, iteration limit and tolerance; an imported
 multi-step schedule replaces the pass field rather than competing with it. A
 setting that differs from the active run's is marked •. Per-peak starts, bounds,
@@ -565,8 +573,16 @@ position windows and fixed/vary flags live in the Peak page's Parameters section
 not in a dataset-wide table. Every committed setting change is one undoable edit,
 shared with peak edits, and marks an existing run Outdated. Supported settings
 round-trip through the engine configuration; unrepresented settings are never
-silently discarded. Manual noise, an explicit clustering level, axis-wide
-constraints and plane exclusion get their controls in W4.
+silently discarded. A typed value that cannot be fitted is explained under its
+setting, keeps the committed value and blocks Fit.
+
+**Plane exclusion** is a model edit, never automatic: the Planes field or
+Analysis ▸ Exclude plane N from the fit (and the plane strip's menu) excludes a
+plane, undoably, and the run becomes Outdated. An excluded plane stays in plane
+navigation, marked not fitted, and in the profiles as a dotted line, never a
+point; Overlay and Residual show it as measured only. The run snapshot records
+the whole spectrum and its fitted planes; a reopened project is checked against
+the recorded exclusion.
 
 **Clustering preview.** The Model page always prepares the exact fitting problem
 off Qt, with the same preparation function that Fit submits, and reports cluster
