@@ -82,14 +82,14 @@
       "clipped": []
     },
     {
-      "file": "01-model-before-fit-1920x1080-light.webp",
+      "file": "01-model-before-fit-1920x921-light.webp",
       "inspector": [
         418,
-        967
+        808
       ],
       "viewport": [
         418,
-        967
+        808
       ],
       "sideways_scroll": false,
       "page": "model",
@@ -222,14 +222,14 @@
       "clipped": []
     },
     {
-      "file": "03-doublet-1920x1080-light.webp",
+      "file": "03-doublet-1920x921-light.webp",
       "inspector": [
         418,
-        967
+        808
       ],
       "viewport": [
         418,
-        967
+        808
       ],
       "sideways_scroll": false,
       "page": "model",

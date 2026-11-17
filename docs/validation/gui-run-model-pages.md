@@ -10,8 +10,9 @@ Sizes are Qt logical pixels. The decision and the element inventory are in
 
 ## How it was run
 
-- **Code:** branch `dev/w3-layout-eval-dacf8d` at the commit that adds this record,
-  with the two-axis review fixes. PySide6/Qt 6.10.1, Fusion style.
+- **Code:** branch `dev/w3-layout-eval-dacf8d` with the two-axis review fixes,
+  rerun after merging `main` at 47e0d1b (W2c, W5 and the #229 test fix).
+  PySide6/Qt 6.10.1, Fusion style.
 - **Machine:** macOS 27.2.1 on Apple silicon, built-in Retina display, DPR 2.0.
 - **Tool:** `uv run python tools/capture_run_model_pages.py --output <dir>` (native
   Cocoa, both appearances), and again with `--body-px 17 --no-fit` for a large
@@ -36,6 +37,11 @@ Sizes are Qt logical pixels. The decision and the element inventory are in
 | Table width needed: singlets / with a doublet | 240 / 259 | 274 / 294 |
 | Sideways scrolling, clipped labels (every capture) | none | none |
 | Planes row bottom, worst case (invalid range) / fold at 1160×720 | 497 / 607 | 551 / 607 |
+
+With the ¹⁵N doublet in place, the preparation line reads 79 clusters ·
+9 803 samples per plane instead of 121 · 6 158. Since W2c a doublet's region spans
+its J range, here up to 184 Hz, which joins neighbouring clusters. The figures with
+a doublet show this; the layout is unchanged.
 
 Every Model setting down to Planes is above the fold in every capture, at every
 size and at both fonts. When an entry is invalid, Fit is disabled and its tooltip
