@@ -1,5 +1,6 @@
 """Native application shell and validated, asynchronous input replacement."""
 
+import html
 import sys
 from functools import partial
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.persistence import AnalysisActions
@@ -45,7 +47,7 @@ class OpenDatasetDialog(QtWidgets.QDialog):
                     "Optional" if not assignments_only else "Choose assignments"
                 )
             self.paths[role] = field
-            button = QtWidgets.QPushButton("Browse…")
+            button = themes.command("Browse…")
             button.clicked.connect(partial(self._browse, role))
             row.addWidget(field, 1)
             row.addWidget(button)
@@ -130,7 +132,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.loading_status.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
         )
-        self.cancel_load = QtWidgets.QPushButton("Cancel loading")
+        self.cancel_load = themes.command("Cancel loading")
         self.cancel_load.clicked.connect(self.cancel_loading)
         self.statusBar().addWidget(self.loading_status, 1)
         self.statusBar().addPermanentWidget(self.cancel_load)
@@ -155,12 +157,12 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
         layout.addSpacing(themes.SPACE_L)
-        button = QtWidgets.QPushButton("Open dataset…")
-        button.setObjectName("primary")
+        # Two commands of equal weight: the accent fill belongs to Fit alone.
+        button = themes.command("Open dataset…")
         button.setMinimumHeight(32)
         button.clicked.connect(self.open_dialog)
         layout.addWidget(button)
-        analysis_button = QtWidgets.QPushButton("Open analysis…")
+        analysis_button = themes.command("Open analysis…")
         analysis_button.setMinimumHeight(32)
         analysis_button.clicked.connect(self.open_analysis_dialog)
         layout.addWidget(analysis_button)
@@ -486,7 +488,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         dialog = QtWidgets.QMessageBox(self)
         dialog.setWindowTitle("Import validated peaks")
         dialog.setText(
-            f"{len(peaks)} peaks read. Replace {len(workspace.peaks)} working peaks "
+            f"{formatting.count(len(peaks), 'peak')} read. Replace "
+            f"{formatting.count(len(workspace.peaks), 'working peak')} "
             "or append with new identities?"
         )
         dialog.setInformativeText(", ".join(p.name for p in peaks[:6]))
@@ -499,7 +502,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             return
         workspace.import_peaks(peaks, records, append=chosen is append_button)
         self.loading_status.setText(
-            f"Imported {len(peaks)} peaks · Undo restores the previous list"
+            f"Imported {formatting.count(len(peaks), 'peak')} · Undo restores the previous list"
         )
 
     def values_dialog(self) -> None:
@@ -604,12 +607,12 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         dialog.setWindowTitle("Go to sampled coordinates")
         form = QtWidgets.QFormLayout(dialog)
         fields = []
-        for title, value in (
-            (canvas.axis_title(canvas.x_axis), canvas.ppm_x[canvas.ix]),
-            (canvas.axis_title(canvas.y_axis), canvas.ppm_y[canvas.iy]),
+        for axis, value in (
+            (canvas.x_axis, canvas.ppm_x[canvas.ix]),
+            (canvas.y_axis, canvas.ppm_y[canvas.iy]),
         ):
-            field = QtWidgets.QLineEdit(repr(float(value)))
-            form.addRow(title + " / ppm", field)
+            field = QtWidgets.QLineEdit(formatting.exact(value))
+            form.addRow(formatting.axis_title(axis), field)
             fields.append(field)
         error = QtWidgets.QLabel()
         form.addRow(error)
@@ -651,8 +654,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             strict=True,
         ):
             for bound, value in zip(("minimum", "maximum"), values, strict=True):
-                field = QtWidgets.QLineEdit(repr(float(value)))
-                form.addRow(f"{axis.nucleus or axis.label} {bound} / ppm", field)
+                field = QtWidgets.QLineEdit(formatting.exact(value))
+                form.addRow(f"{formatting.axis_name(axis)} {bound} (ppm)", field)
                 fields.append(field)
         error = QtWidgets.QLabel()
         form.addRow(error)
@@ -718,24 +721,23 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 self.lanes_action.setChecked(self.workspace.canvas.sizes.lanes)
 
     def shortcuts(self) -> None:
-        """Keep essential gestures discoverable through a normal Help command."""
-        QtWidgets.QMessageBox.information(
-            self,
-            "Keyboard shortcuts",
-            "Open: Cmd/Ctrl+O · Search: Cmd/Ctrl+F\nUndo: Cmd/Ctrl+Z · Redo: Cmd/Ctrl+Shift+Z\n"
-            "Spectrum: Cmd/Ctrl+1 · Profiles: Cmd/Ctrl+2 (Enter on a tile focuses its cluster)\n"
-            "Full spectrum: Cmd/Ctrl+0 · Plane: Ctrl+Page Up/Down\n"
-            "Focus cluster: Cmd/Ctrl+Shift+F or Enter in the cluster list · Escape returns\n"
-            "Slices: Cmd/Ctrl+Alt+arrows resize · Cmd/Ctrl+Alt+=/− scale · "
-            "Cmd/Ctrl+Shift+L residual lanes\n\n"
-            "Canvas: Space pin/unpin · A add peak · arrows step native sample\n"
-            "Canvas/list: Delete selected peak(s) · Enter/double-click edits\n"
-            "Fields: Enter commits whole group · Escape discards · Tab retains draft\n\n"
-            "Select then drag a marker to move. Drag blank space to pan; wheel zooms.\n"
-            "Drag a slice divider to resize; wheel over a slice or lane scales it, "
-            "double-click resets.\n"
-            "View provides exact sample and frequency-range fields. File exports working peaks.",
-        )
+        """Help ▸ Keyboard shortcuts: every menu key, then the keys without a menu item."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Keyboard shortcuts")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text = QtWidgets.QLabel(shortcut_table(shortcut_sections(self.menuBar())))
+        text.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        text.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidget(text)
+        scroll.setWidgetResizable(True)
+        layout.addWidget(scroll, 1)
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.resize(520, 640)
+        self._shortcuts_dialog = dialog
+        dialog.open()
 
     def _system_changed(self, _scheme) -> None:
         if self._appearance == "System":
@@ -827,3 +829,80 @@ def launch(
     elif path is not None:
         window.load(path, peaks, plane_values, swap=swap_peak_axes)
     app.exec()
+
+
+# Keys that act without a menu item, by where they act (specification §5).
+SINGLE_KEYS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "Spectrum (when it has focus)",
+        (
+            ("E · O · R", "Experimental · Overlay · Residual"),
+            ("[ · ]", "Previous · next plane"),
+            ("A", "Add peak"),
+            ("Space", "Pin or unpin the slices"),
+            ("Arrows", "Move the pinned sample one point"),
+            ("Escape", "Cancel placement or drag; leave cluster focus"),
+            ("Drag · wheel", "Pan · zoom; drag a selected marker to move it"),
+        ),
+    ),
+    (
+        "Peak and cluster lists",
+        (
+            ("Enter", "Edit the peak · focus the cluster"),
+            ("N · Shift+N", "Next · previous cluster with a numerical warning"),
+        ),
+    ),
+    (
+        "Slices",
+        (("Wheel · double-click", "Rescale a slice or lane · reset it"),),
+    ),
+    (
+        "Fields",
+        (
+            ("Enter", "Commit the whole group"),
+            ("Escape", "Discard the draft"),
+            ("Tab", "Next field, keeping the draft"),
+        ),
+    ),
+)
+
+
+def _plain(title: str) -> str:
+    return title.replace("&&", "\0").replace("&", "").replace("\0", "&")
+
+
+def menu_shortcuts(menu: QtWidgets.QMenu, prefix: str = "") -> list[tuple[str, str]]:
+    """(key, command) for every action of ``menu`` and its submenus that has a key."""
+    rows = []
+    for action in menu.actions():
+        title = prefix + _plain(action.text())
+        submenu = action.menu()
+        if isinstance(submenu, QtWidgets.QMenu):
+            rows += menu_shortcuts(submenu, f"{title} ▸ ")
+        elif keys := action.shortcuts():
+            native = QtGui.QKeySequence.SequenceFormat.NativeText
+            rows.append((" · ".join(k.toString(native) for k in keys[:2]), title))
+    return rows
+
+
+def shortcut_sections(bar: QtWidgets.QMenuBar) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Menu keys by menu, in menu order, then the single keys of the spectrum and lists."""
+    sections = []
+    for action in bar.actions():
+        menu = action.menu()
+        if isinstance(menu, QtWidgets.QMenu) and (rows := menu_shortcuts(menu)):
+            sections.append((_plain(action.text()), rows))
+    return sections + [(title, list(rows)) for title, rows in SINGLE_KEYS]
+
+
+def shortcut_table(sections: list[tuple[str, list[tuple[str, str]]]]) -> str:
+    """The sections as one rich-text table: key, then what it does."""
+    rows = []
+    for title, keys in sections:
+        rows.append(f'<tr><td colspan="2"><br><b>{html.escape(title)}</b></td></tr>')
+        rows += [
+            f'<tr><td style="padding-right:16px; white-space:nowrap">{html.escape(key)}</td>'
+            f"<td>{html.escape(command)}</td></tr>"
+            for key, command in keys
+        ]
+    return f"<table>{''.join(rows)}</table>"

@@ -21,6 +21,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.engine.algorithms.covariance_factors import ProfileCorrelation
 from peakfit.engine.diagnostics.identifiability import Cause
 from peakfit.engine.scientific.profiles import Unavailable, normalize
+from peakfit.gui import formatting
 from peakfit.gui.editor.profile import (
     CORRELATED_MARK,
     CORRELATED_SHORT,
@@ -39,6 +40,9 @@ from peakfit.gui.theme import (
     SPACE_S,
     Theme,
     TypeScale,
+    command,
+    menu_button,
+    set_menu_text,
     type_scale,
 )
 
@@ -177,12 +181,12 @@ def correlation_line(profile: PeakProfile) -> str:
 
 
 def _measures(review: ClusterReview) -> str:
-    parts = [f"χ²ᵣ {review.chi2:.2f}" if math.isfinite(review.chi2) else "χ²ᵣ –"]
+    parts = [f"χ²ᵣ {formatting.chi2(review.chi2)}"]
     if math.isfinite(review.largest_residual):
-        parts.append(f"|r|max {review.largest_residual:.1f}")
+        parts.append(f"|r|max {formatting.sigma_multiple(review.largest_residual)}")
     if not review.single:
         rho = review.correlation
-        parts.append(f"|ρ| {rho:.2f}" if math.isfinite(rho) else "|ρ| n/a")
+        parts.append(f"|ρ| {formatting.correlation(rho)}" if math.isfinite(rho) else "|ρ| n/a")
     return " · ".join(parts)
 
 
@@ -540,17 +544,16 @@ class ProfilesView(QtWidgets.QWidget):
         self.caption = QtWidgets.QLabel()
         self.caption.setObjectName("caption")
         top.addWidget(self.caption, 1)
-        self.mode = QtWidgets.QPushButton("Raw amplitudes")
-        self.mode.setObjectName("chip")
-        self.mode.setToolTip(
+        self.mode = menu_button(
+            "Raw amplitudes",
             "Profile quantity for every tile and the inspector: raw amplitudes or "
-            "normalized to reference planes"
+            "normalized to reference planes",
         )
         self.mode.clicked.connect(self._mode_menu)
         top.addWidget(self.mode)
-        self.export = QtWidgets.QPushButton("Export PDF…")
-        self.export.setObjectName("chip")
-        self.export.setToolTip("Write the tiles shown, in this order, to a PDF figure")
+        self.export = command(
+            "Export PDF…", "Write the tiles shown, in this order, to a PDF figure"
+        )
         self.export.clicked.connect(self.export_figure)
         top.addWidget(self.export)
         layout.addLayout(top)
@@ -607,7 +610,9 @@ class ProfilesView(QtWidgets.QWidget):
         """Adopt the session's profile quantity; recorded amplitudes never change."""
         self.reference = reference
         self.normalized = normalized and bool(reference)
-        self.mode.setText(f"÷ {reference_text(reference)}" if self.normalized else "Raw amplitudes")
+        set_menu_text(
+            self.mode, f"÷ {reference_text(reference)}" if self.normalized else "Raw amplitudes"
+        )
         self.list.viewport().update()
 
     def set_tiles(self, tiles: list[Tile], caption: str, empty: str) -> None:

@@ -13,7 +13,7 @@ import numpy as np
 
 from peakfit.engine.algorithms.noise import estimate_noise
 from peakfit.engine.domain.config import FitConfig
-from peakfit.gui.formatting import nucleus
+from peakfit.gui import formatting
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
@@ -61,7 +61,9 @@ def verified_source_files(
                 after_stat.st_dev,
             ):
                 raise ValueError("An input changed while hashing. Load it again.")
-            progress(f"Verified {path.name} · {before_stat.st_size / 1024**2:.1f} MiB")
+            progress(
+                f"Verified {path.name} · {formatting.mebibytes(before_stat.st_size / 1024**2)}"
+            )
             stat = path.stat()
             result[role] = json.dumps(
                 {
@@ -149,10 +151,10 @@ def mapping_warning(peaks: tuple[WorkingPeak, ...], spectra: Spectra) -> str | N
     if 2 * outside <= len(peaks):
         return None
     swapped = sum(not low <= p.positions[1 - direct] <= high for p in peaks)
-    name = nucleus(axis.nucleus, axis.label)
+    name = formatting.axis_name(axis)
     text = (
-        f"{outside} of {len(peaks)} peaks lie outside the {name} window "
-        f"({low:.2f}–{high:.2f} ppm) with this peak-axis mapping"
+        f"{outside} of {formatting.count(len(peaks), 'peak')} lie outside the {name} window "
+        f"({formatting.ppm(low)}–{formatting.ppm(high)} ppm) with this peak-axis mapping"
     )
     if swapped < outside:
         text += f"; the other mapping leaves {swapped} outside"

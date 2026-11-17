@@ -6,11 +6,33 @@ from dataclasses import replace
 import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 
+from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.engine.scientific.completed import FinalClusterSamples
+from peakfit.gui import formatting
+from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
 from peakfit.gui.project_results import reconstruct_result
+
+
+def axis_names(analysis) -> tuple[str, str]:
+    """(vertical, horizontal) axis names in peak-position order; F-numbers without a source."""
+    if analysis.dataset is not None:
+        axes = analysis.dataset.spectra.spectral_params
+        return formatting.axis_name(axes[0]), formatting.axis_name(axes[1])
+    return get_dimension_label(0), get_dimension_label(1)
+
+
+def cell_text(value) -> str:
+    """A table cell: text as it is, numbers through the shared formatter."""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, int):
+        return formatting.grouped(value)
+    if isinstance(value, float):
+        return formatting.scaled(value, 6)
+    return str(value)
 
 
 class NumericalReview(QtWidgets.QWidget):
@@ -45,7 +67,7 @@ class NumericalReview(QtWidgets.QWidget):
         explanation.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(explanation)
         actions = QtWidgets.QHBoxLayout()
-        self.relink = QtWidgets.QPushButton("Relink source…")
+        self.relink = themes.command("Relink source…")
         actions.addWidget(self.relink)
         details = QtWidgets.QToolButton()
         details.setText("Verification details")
@@ -69,8 +91,9 @@ class NumericalReview(QtWidgets.QWidget):
         layout.addWidget(failure)
         tabs = QtWidgets.QTabWidget()
         layout.addWidget(tabs, 1)
+        vertical, horizontal = axis_names(analysis)
         peaks = self.table(
-            ["Assignment", "Stable ID", "Indirect / ppm", "Direct / ppm"],
+            ["Assignment", "Stable ID", f"{vertical} (ppm)", f"{horizontal} (ppm)"],
             [(p.name, p.id, *p.positions) for p in analysis.peaks],
         )
         tabs.addTab(peaks, "Working peaks")
@@ -78,13 +101,15 @@ class NumericalReview(QtWidgets.QWidget):
         journal = {e["run_id"]: e for e in analysis.journal}
         for c in reversed(analysis.runs):
             identity = run_id(c)
-            date = journal.get(identity, {}).get("completed_at", "")
+            date = formatting.local_time(journal.get(identity, {}).get("completed_at", ""))
             self.run.addItem(f"{date} · {identity[:8]} · Full", c)
         full_ids = {run_id(c) for c in analysis.runs}
         for entry in reversed(analysis.journal):
             if entry["run_id"] not in full_ids:
                 self.run.addItem(
-                    f"{entry.get('completed_at', '')} · {entry['run_id'][:8]} · Summary only", entry
+                    f"{formatting.local_time(entry.get('completed_at', ''))} · "
+                    f"{entry['run_id'][:8]} · Summary only",
+                    entry,
                 )
         layout.insertWidget(3, self.run)
         self.keep = QtWidgets.QCheckBox("Keep full evidence")
@@ -97,7 +122,13 @@ class NumericalReview(QtWidgets.QWidget):
         )
         tabs.addTab(self.parameters, "Fitted parameters")
         self.initial = self.table(
-            ["Assignment", "Stable ID", "Initial indirect", "Initial direct"], []
+            [
+                "Assignment",
+                "Stable ID",
+                f"Initial {vertical} (ppm)",
+                f"Initial {horizontal} (ppm)",
+            ],
+            [],
         )
         tabs.addTab(self.initial, "Original starting peaks")
         self.starting_parameters = self.table(
@@ -126,8 +157,8 @@ class NumericalReview(QtWidgets.QWidget):
         sample_layout.addLayout(row)
         self.samples = self.table(
             [
-                "Indirect index",
-                "Direct index",
+                f"{vertical} index",
+                f"{horizontal} index",
                 "Observation",
                 "Terminal correction",
                 "Cluster model",
@@ -139,7 +170,7 @@ class NumericalReview(QtWidgets.QWidget):
         self.cluster.currentIndexChanged.connect(self.show_samples)
         self.plane.valueChanged.connect(self.show_samples)
         tabs.addTab(samples, "Fitting samples")
-        self.export = QtWidgets.QPushButton("Export retained run…")
+        self.export = themes.command("Export retained run…")
         bottom = QtWidgets.QHBoxLayout()
         bottom.addWidget(self.export)
         bottom.addStretch()
@@ -151,7 +182,7 @@ class NumericalReview(QtWidgets.QWidget):
 
     @staticmethod
     def table(headers, rows):
-        """Use native read-only tables with full precision and copyable cells."""
+        """Native read-only tables with copyable cells; full precision in each tooltip."""
         table = QtWidgets.QTableWidget(0, len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -164,8 +195,9 @@ class NumericalReview(QtWidgets.QWidget):
         table.setRowCount(len(rows))
         for row, values in enumerate(rows):
             for column, value in enumerate(values):
-                cell = QtWidgets.QTableWidgetItem(str(value))
-                cell.setToolTip(str(value))
+                cell = QtWidgets.QTableWidgetItem(cell_text(value))
+                exact = isinstance(value, float) and not isinstance(value, bool)
+                cell.setToolTip(formatting.exact(value) if exact else str(value))
                 table.setItem(row, column, cell)
         table.resizeColumnsToContents()
         for column in range(table.columnCount()):

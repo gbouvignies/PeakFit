@@ -72,7 +72,7 @@ CORRELATION_TIP = (
 
 def samples_caption(samples: int) -> str:
     """What χ²ᵣ is computed over."""
-    return f"Over {samples:,} fitting samples".replace(",", " ")
+    return f"Over {formatting.count(samples, 'fitting sample')}"
 
 
 def maximum_guide(samples: int) -> float:
@@ -84,9 +84,10 @@ def maximum_caption(samples: int) -> str:
     """The reference for the largest residual, with what it assumes."""
     return (
         f"Largest recorded residual on the fitting samples. Rough guide ≈ "
-        f"{maximum_guide(samples):.1f} σ for {samples:,} independent Gaussian samples; "
+        f"{formatting.sigma_multiple(maximum_guide(samples))} σ for "
+        f"{formatting.count(samples, 'independent Gaussian sample')}; "
         "not a significance threshold"
-    ).replace(",", " ")
+    )
 
 
 def review_rows(
@@ -114,9 +115,10 @@ def review_rows(
         rows.append(Row("Highlights", "none", tip="None at the current highlight thresholds"))
     if math.isfinite(review.chi2):
         samples = review.samples
-        rows.append(Row("χ²ᵣ", f"{review.chi2:.3g}", tip=samples_caption(samples)))
+        rows.append(Row("χ²ᵣ", formatting.chi2(review.chi2), tip=samples_caption(samples)))
         if math.isfinite(review.largest_residual) and samples > 1:
-            text = f"{review.largest_residual:.1f} σ (guide {maximum_guide(samples):.1f} σ)"
+            largest = formatting.sigma_multiple(review.largest_residual)
+            text = f"{largest} σ (guide {formatting.sigma_multiple(maximum_guide(samples))} σ)"
             rows.append(Row("Max residual", text, tip=maximum_caption(samples)))
     if correlation is not None:
         rows.append(correlation)
@@ -178,18 +180,17 @@ class ClusterPage(QtWidgets.QWidget):
     member_chosen = QtCore.Signal(str)
     focus_requested = QtCore.Signal()
 
-    def __init__(self, axes: list[tuple[str, str, int]]) -> None:
-        """``axes`` lists (engine axis name, display title, ppm decimals), horizontal first."""
+    def __init__(self, axes: list[tuple[str, str]]) -> None:
+        """``axes`` lists (engine axis name, display name), horizontal first."""
         super().__init__()
         self._axes = axes
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         layout.setSpacing(themes.SPACE_S)
-        self.focus_button = QtWidgets.QPushButton("Focus cluster")
-        self.focus_button.setObjectName("chip")
-        self.focus_button.setToolTip(
+        self.focus_button = themes.command(
+            "Focus cluster",
             "Frame this cluster in the spectrum; Escape returns to the view as it was "
-            "(Enter in the cluster list)"
+            "(Enter in the cluster list)",
         )
         self.focus_button.clicked.connect(self.focus_requested)
         layout.addWidget(self.focus_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
@@ -269,12 +270,11 @@ class ClusterPage(QtWidgets.QWidget):
         grid.setColumnMinimumWidth(0, _NUMBER_WIDTH)
         marked = {h.peak for h in review.highlights if h.peak}
         engines = dict(zip(review.ids, engine_names, strict=True))
-        for row, (identity, name) in enumerate(zip(review.ids, review.names, strict=True), 1):
-            grid.addWidget(text_label(str(row), "caption"), row, 0)
-            link = QtWidgets.QPushButton(name)
-            link.setObjectName("link")
-            link.setFlat(True)
-            link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        # Two header rows (axis name, then quantity and unit) above the members.
+        for number, (identity, name) in enumerate(zip(review.ids, review.names, strict=True), 1):
+            row = number + 1
+            grid.addWidget(text_label(str(number), "caption"), row, 0)
+            link = themes.link(name)
             link.setToolTip(f"Open {name}: position, profile and fitted values")
             link.setAccessibleName(f"Open peak {name}")
             if identity == selected:
@@ -309,7 +309,7 @@ class ClusterPage(QtWidgets.QWidget):
 
     def _fill_parameters(
         self, review: ClusterReview, cluster: FinalClusterOutcome, engine_names: tuple[str, ...]
-    ) -> list[tuple[str, str, str, int]]:
+    ) -> list[tuple[str, str, str]]:
         """The recorded parameters, one column each, from grid column 2."""
         grid = self.members
         values = {p.name: p for p in cluster.final_nonlinear_parameters}
@@ -321,45 +321,57 @@ class ClusterPage(QtWidgets.QWidget):
         }
         found = {tuple(name.split(".")[1:]) for name in values if name.count(".") == 2}  # noqa: PLR2004
         columns = [
-            (axis, kind, title, decimals)
-            for axis, title, decimals in self._axes
+            (axis, kind, title)
+            for axis, title in self._axes
             for kind in (
                 *_KIND_ORDER,
                 *sorted({k for a, k in found if a == axis} - set(_KIND_ORDER)),
             )
             if (axis, kind) in found
         ]
-        for column, (_axis, kind, title, _decimals) in enumerate(columns, 2):
-            heading = text_label(f"{_KINDS.get(kind, kind)} {title}", "caption")
-            heading.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-            grid.addWidget(heading, 0, column)
-        for row, engine in enumerate(engine_names, 1):
-            for column, (axis, kind, _title, decimals) in enumerate(columns, 2):
+        units = {
+            (p.name.split(".")[1], p.name.split(".")[2]): p.unit
+            for p in values.values()
+            if p.name.count(".") == 2  # noqa: PLR2004
+        }
+        right = QtCore.Qt.AlignmentFlag.AlignRight
+        for column, (axis, kind, title) in enumerate(columns, 2):
+            # The axis name once over its columns, then each quantity with its unit.
+            if column == 2 or columns[column - 3][0] != axis:  # noqa: PLR2004
+                span = sum(1 for a, _k, _t in columns if a == axis)
+                name = text_label(title, "caption")
+                name.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+                grid.addWidget(name, 0, column, 1, span)
+            unit = units.get((axis, kind), "")
+            quantity = _KINDS.get(kind, kind) + (f" ({unit})" if unit else "")
+            heading = text_label(quantity, "caption")
+            heading.setAlignment(right)
+            grid.addWidget(heading, 1, column)
+        for number, engine in enumerate(engine_names, 1):
+            for column, (axis, kind, _title) in enumerate(columns, 2):
                 parameter = values.get(parameter_name(engine, axis, kind))
                 if parameter is None:
                     continue
-                places = decimals if parameter.unit == "ppm" else 1 if parameter.unit == "Hz" else 3
-                value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
+                shown = formatting.measured(
+                    parameter.value,
+                    parameter.standard_error if parameter.vary else math.nan,
+                    decimals=formatting.UNIT_DECIMALS.get(parameter.unit),
+                )
                 at_bound = parameter.name in bounded
                 cell = text_label(
-                    formatting.number(parameter.value, places), "warning" if at_bound else ""
+                    formatting.quantity(parameter.value, parameter.unit),
+                    "warning" if at_bound else "",
                 )
-                cell.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+                cell.setAlignment(right)
                 cell.setToolTip(
-                    f"{parameter.name}: {value} ± {sigma} {parameter.unit}"
+                    f"{parameter.name}: {shown.text} {parameter.unit}"
                     if parameter.vary
-                    else f"{parameter.name}: {value} {parameter.unit} · fixed"
+                    else f"{parameter.name}: {shown.value_text} {parameter.unit} · fixed"
                 )
                 if at_bound:
                     cell.setToolTip(cell.toolTip() + " · at a recorded bound")
-                grid.addWidget(cell, row, column)
-        units = sorted({p.unit for p in values.values()})
-        show_text(
-            self.members_note,
-            "δ in ppm · LW in Hz"
-            + (f" ({', '.join(units)})" if set(units) - {"ppm", "Hz"} else "")
-            + (" · amber: at a recorded bound" if bounded else ""),
-        )
+                grid.addWidget(cell, number + 1, column)
+        show_text(self.members_note, "amber: at a recorded bound" if bounded else "")
         self.members_note.setToolTip("Recorded values; hover one for its ± σ")
         return columns
 
@@ -382,8 +394,11 @@ class ClusterPage(QtWidgets.QWidget):
         if size == 2:  # noqa: PLR2004
             # One value: a row like the review's, its qualifier underneath.
             rho = float(matrix[0, 1])
-            text = formatting.number(round(rho, 2) + 0.0, 2) if math.isfinite(rho) else "–"
-            tip = f"ρ({review.names[0]}, {review.names[1]}) = {rho:.4f} · {CORRELATION_TIP}"
+            text = formatting.correlation(rho)
+            tip = (
+                f"ρ({review.names[0]}, {review.names[1]}) = {formatting.number(rho, 4)} · "
+                f"{CORRELATION_TIP}"
+            )
             self.matrix.setHorizontalSpacing(themes.SPACE_S)
             label_rows(self.matrix, [Row("ρ", text, detail=CORRELATION_QUALIFIER, tip=tip)])
             self.matrix_note.hide()
@@ -400,14 +415,8 @@ class ClusterPage(QtWidgets.QWidget):
         for i in range(size):
             for j in range(size):
                 rho = float(matrix[i, j])
-                # Round before formatting so a tiny negative never reads "−0.00".
-                text = (
-                    "1"
-                    if i == j
-                    else formatting.number(round(rho, 2) + 0.0, 2)
-                    if math.isfinite(rho)
-                    else "–"
-                )
+                # The formatter never shows a tiny negative as "−0.00".
+                text = "1" if i == j else formatting.correlation(rho)
                 cell = text_label(text)
                 cell.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
                 cell.setMinimumWidth(40)
@@ -417,7 +426,9 @@ class ClusterPage(QtWidgets.QWidget):
                         f"background:{shade.name(QtGui.QColor.NameFormat.HexArgb)};"
                         "border-radius:3px;padding:2px 0;"
                     )
-                    cell.setToolTip(f"ρ({review.names[i]}, {review.names[j]}) = {rho:.4f}")
+                    cell.setToolTip(
+                        f"ρ({review.names[i]}, {review.names[j]}) = {formatting.number(rho, 4)}"
+                    )
                 self.matrix.addWidget(cell, i + 1, j + 1)
         self.matrix.setColumnStretch(size + 1, 1)
 

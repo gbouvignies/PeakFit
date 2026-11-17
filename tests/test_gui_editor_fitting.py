@@ -887,7 +887,9 @@ def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, 
 
 
 @pytest.mark.usefixtures("settings")
-def test_overlay_after_residual_never_enlarges_a_narrowed_window(qapp, scientific, monkeypatch):
+def test_mode_switches_never_enlarge_a_window_too_narrow_for_the_lanes(
+    qapp, scientific, monkeypatch
+):
     spectra, peaks, config, _, result = scientific
     window = EditorWindow()
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
@@ -900,33 +902,32 @@ def test_overlay_after_residual_never_enlarges_a_narrowed_window(qapp, scientifi
     qapp.processEvents()
     publish(w, result)
     c = w.canvas
-    w.set_lanes(True)
-    w.set_mode(2)  # Residual hides the lanes, lowering the view's minimum
+    w.set_lanes(False)
     floor = w.canvas.minimum()[0] + sum(p.minimumWidth() + 1 for p in (w.navigator, w.panel))
-    _resize(qapp, window, floor + 4, 720)  # narrower than Overlay with lanes needs
-    assert not w.navigator.isHidden()
-    assert not w.panel.isHidden()
-    w.set_mode(1)
-    for _ in range(3):  # let Qt apply any new minimum to the window
-        qapp.processEvents()
-        layout = window.layout()
-        assert layout is not None
-        layout.activate()
-    assert c.comparison_mode == 1
-    assert window.size() == QtCore.QSize(floor + 4, 720)
-    assert c.arrangement.main[2] >= MAIN_MIN[0]
-    assert c.arrangement.main[3] >= MAIN_MIN[1]
+    _resize(qapp, window, floor + 4, 720)  # narrower than any mode with lanes needs
+    c.set_lanes(True)  # the preference, as cluster focus sets it, without the room
+    plots = set()
+    for mode in (1, 2, 0, 1):
+        w.set_mode(mode)
+        for _ in range(3):  # let Qt apply any new minimum to the window
+            qapp.processEvents()
+            layout = window.layout()
+            assert layout is not None
+            layout.activate()
+        assert c.comparison_mode == mode
+        assert window.size() == QtCore.QSize(floor + 4, 720)
+        assert not c.row_lane.isVisible()  # the lanes gave way in every mode alike
+        plots.add(tuple(c.arrangement.main))
     assert c.sizes.lanes  # the preference is kept
-    assert not c.row_lane.isVisible()  # the lanes gave way to the window
+    assert len(plots) == 1  # and the plot never moved
+    assert c.arrangement.main[2] >= MAIN_MIN[0]
     assert "Residual lanes are hidden to fit the window" in w.error.text()
-    # Modes always switch; once the window is wide enough the lanes return.
-    w.set_mode(2)
-    w.set_mode(0)
-    assert c.comparison_mode == 0
+    # Once the window is wide enough the lanes return, in Residual as in Overlay.
     _resize(qapp, window, 1280, 800)
-    w.set_mode(1)
-    qapp.processEvents()
-    assert c.row_lane.isVisible()
+    for mode in (1, 2):
+        w.set_mode(mode)
+        qapp.processEvents()
+        assert c.row_lane.isVisible()
     window.close()
     window.deleteLater()
 
@@ -1040,14 +1041,18 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
         for p in cluster.final_nonlinear_parameters
         if p.name.startswith(cluster.peak_names[1] + ".")
     )
-    value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
+    shown = formatting.measured(
+        parameter.value,
+        parameter.standard_error,
+        decimals=formatting.UNIT_DECIMALS.get(parameter.unit),
+    )
     fitted = w.panel.fitted
     cells = [
         [fitted.itemAtPosition(row, column).widget().text() for column in (1, 2)]
         for row in range(1, fitted.rowCount())
         if fitted.itemAtPosition(row, 2) is not None
     ]
-    assert [value, sigma] in cells
+    assert [shown.value_text, shown.sigma_text] in cells
     assert w.edits.revision == 0
 
 
@@ -1072,10 +1077,10 @@ def test_inspector_shows_the_marginal_sigma_of_the_absolute_amplitude(workspace,
 
     for plane in (1, 3):
         w.set_plane(plane)
-        value, sigma = formatting.with_sigma(
-            evaluation.amplitudes[1, plane - 1], marginal[1, plane - 1]
-        )
-        assert amplitude_row() == [f"Amplitude plane {plane}", value, sigma]
+        shown = formatting.measured(evaluation.amplitudes[1, plane - 1], marginal[1, plane - 1])
+        # One power of ten for the value and its σ, named with the row as a unit is.
+        scale = f" ({shown.factor})" if shown.factor else ""
+        assert amplitude_row() == [f"Amplitude plane {plane}{scale}", shown.value, shown.sigma]
     # Labelled as the uncertainty of the absolute amplitude, not of a profile.
     captions = [
         fitted.itemAt(i).widget().text()
@@ -1537,7 +1542,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     panel.show_profile(shown, 0)
     qapp.processEvents()
     # Raw by default; nothing is normalized until a reference is chosen.
-    assert panel.mode.text() == "Raw amplitudes"
+    assert panel.mode.text() == "Raw amplitudes ▾"
     assert panel._normalized is None
     reference = int(shown.source_planes[0])
     panel.set_reference((reference,))
@@ -1547,7 +1552,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     _x, y = _selected_points(panel).getData()
     np.testing.assert_allclose(y, expected.values)
     assert y[0] == 1.0
-    assert panel.mode.text() == f"÷ plane {reference + 1}"
+    assert panel.mode.text() == f"÷ plane {reference + 1} ▾"
     assert f"A / A_ref (plane {reference + 1})" in panel.plot.getAxis("left").labelText
     assert "reference" in panel.legend.text()
     assert "±1σ of the ratio, lineshape uncertainty included" in panel.note.text()
@@ -1609,7 +1614,7 @@ def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(qapp, s
     assert panel.fallback.isVisible()
     assert panel.fallback.text().startswith("▲ Showing raw amplitudes.")
     assert "is undefined: reference amplitude is zero" in panel.fallback.text()
-    assert panel.mode.text().endswith("· not applied")
+    assert panel.mode.text().endswith("· not applied ▾")
     assert "A / A_ref" not in panel.plot.getAxis("left").labelText
     _x, y = _selected_points(panel).getData()
     np.testing.assert_array_equal(y, zeroed.series[0].amplitudes)
@@ -1657,7 +1662,7 @@ def test_a_withheld_selected_peak_says_normalization_was_not_applied(qapp, scien
     # The partner is drawn raw; the requested ratio is named as not applied, and why.
     assert panel._normalized is None
     assert panel.reference == reference
-    assert panel.mode.text() == "÷ plane 1 · not applied"
+    assert panel.mode.text() == "÷ plane 1 · not applied ▾"
     assert panel.fallback.isVisible()
     assert "withheld as unreliable" in panel.fallback.text()
     assert f"individual amplitudes of {selected.assignment} are not established" in (
@@ -1720,8 +1725,8 @@ def test_unestablished_members_are_withheld_from_the_profile_and_its_axes(qapp, 
     panel.diagnostics_toggle.setChecked(True)
     assert panel.diagnostics.isVisible()
     assert "recorded amplitudes" in panel.diagnostics.text()
-    mantissa = f"{float(np.max(inflated.amplitudes)):.2e}".split("e")[0].replace("-", "−")
-    assert f"to {mantissa}×10" in panel.diagnostics.text()
+    largest = formatting.scaled(float(np.max(inflated.amplitudes)), 3)
+    assert f"to {largest}" in panel.diagnostics.text()
     # A withheld member is never normalized; the selected peak still is.
     panel.set_reference((int(profile.source_planes[0]),))
     assert panel._normalized is not None
@@ -1740,7 +1745,7 @@ def test_unestablished_members_are_withheld_from_the_profile_and_its_axes(qapp, 
     assert not panel.show_all.isVisible()
     assert "ill-conditioned fitted shapes" in panel.withheld.text()
     panel.close()
-    assert panel.mode.text() == f"÷ plane {int(shown.source_planes[0]) + 1}"
+    assert panel.mode.text() == f"÷ plane {int(shown.source_planes[0]) + 1} ▾"
 
 
 def _page_labels(page) -> list[str]:
@@ -1867,15 +1872,20 @@ def test_the_cluster_page_lists_each_member_once(workspace, scientific):
     page = w.panel.cluster_page
     review = next(r for r in w.reviews() if r.cluster_id == cluster.cluster_id)
     grid = page.members
+    # Each axis named once over its columns, then each quantity with its unit.
+    names = {formatting.axis_name(a) for a in w.dataset.spectra.spectral_params}
+    assert grid.itemAtPosition(0, 2).widget().text() in names
+    assert grid.itemAtPosition(1, 2).widget().text() == "δ (ppm)"
+    assert grid.itemAtPosition(1, 3).widget().text() == "LW (Hz)"
     # One line per member: its number, a link to its page, then its recorded values.
-    for row, name in enumerate(review.names, 1):
-        assert grid.itemAtPosition(row, 0).widget().text() == str(row)
+    for number, name in enumerate(review.names, 1):
+        row = number + 1
+        assert grid.itemAtPosition(row, 0).widget().text() == str(number)
         link = grid.itemAtPosition(row, 1).layout().itemAt(0).widget()
         assert link.text() == name
         assert grid.itemAtPosition(row, 2).widget().toolTip().count("±") == 1
     sections = sorted(t for t in _page_labels(page) if t.isupper())
     assert sections == ["AMPLITUDE CORRELATION", "MEMBERS", "REVIEW"]  # no Parameters
-    assert page.members_note.text() == "δ in ppm · LW in Hz"
     # Provenance opens like every other disclosure, from the same left edge.
     assert page.provenance_toggle.text() == "▸  Provenance"
     left = page.about_toggle.mapTo(page, QtCore.QPoint(0, 0)).x()
@@ -2000,11 +2010,10 @@ def test_peak_page_shows_where_the_run_started(workspace, scientific):
     publish(w, result)
     peak = result.inputs.snapshot.peaks[0]
     w.select_peak(peak.id)
-    dx, dy = w.panel.editor.decimals
     x_title, y_title = (w.panel._axes[label] for label in w.panel._axis_order)
     expected = (
-        f"Started from {x_title} {peak.positions[1]:.{dx}f}, "
-        f"{y_title} {peak.positions[0]:.{dy}f} ppm"
+        f"Started from {x_title} {formatting.ppm(peak.positions[1])}, "
+        f"{y_title} {formatting.ppm(peak.positions[0])} ppm"
     )
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
     assert expected in labels
@@ -2207,7 +2216,7 @@ def test_display_dialog_uses_one_decimal_convention_and_scaled_intensities(
     assert not [text for text in shown.values() if "," in text], shown
     assert shown["Level factor"] == "1.60"
     # The first contour reads through the shared ×10ⁿ formatter.
-    assert shown["First contour"] == "6.035 ×10⁴"
+    assert shown["First contour"] == "6.035 × 10⁴"
     # Entry still accepts plain and scientific notation.
     assert c.contour_threshold == expected
 
@@ -2323,7 +2332,7 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     assert regions
     count = len(regions)
     assert panel.unexplained_title.text() == (
-        f"Plane 1 · {count} region{'s' if count != 1 else ''} beyond ±2 σ_stat"
+        f"Plane 1 · {formatting.count(count, 'region')} beyond ±2 σ_stat"
     )
     assert not panel.unexplained_button.isEnabled()
     # The new list scrolls into view below the fit setup.
@@ -2336,8 +2345,11 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     name = next(p.name for p in w.peaks if p.id == first.nearest)
     detail = links[0].parent().findChildren(QtWidgets.QLabel)
     assert any(
-        label.text().startswith(f"{first.extreme:+.1f} σ · {first.size} sample")
-        and label.text().endswith(f"{first.distance:.1f} pts from {name}")
+        label.text().startswith(
+            f"{formatting.sigma_multiple(first.extreme, signed=True)} σ · "
+            f"{formatting.count(first.size, 'sample')}"
+        )
+        and label.text().endswith(f"{formatting.number(first.distance, 1)} pts from {name}")
         for label in detail
     )
     # Choosing a region frames it and samples through its extreme; nothing is edited.
