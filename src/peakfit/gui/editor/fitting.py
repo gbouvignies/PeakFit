@@ -82,6 +82,12 @@ def comparison_mismatch(recorded: FitInputSnapshot, working: FitInputSnapshot) -
     return ""
 
 
+def _warmed(completion: DatasetCompletion) -> DatasetCompletion:
+    """A loaded run with what every view shares already computed, off the GUI thread."""
+    completion.result.warm()
+    return completion
+
+
 class DatasetFitting(QtCore.QObject):
     """One active immutable result, one fit and fresh whole-dataset preparation.
 
@@ -378,7 +384,7 @@ class DatasetFitting(QtCore.QObject):
                 known = run.result
             else:
                 self._parents[parent_id] = "loading"
-                self._worker.submit("parent", 0, lambda: (parent_id, run.load()))
+                self._worker.submit("parent", 0, lambda: (parent_id, _warmed(run.load())))
                 return parent_id, None
             self._parents[parent_id] = known
         if known == "loading":
@@ -474,6 +480,7 @@ class DatasetFitting(QtCore.QObject):
             parent_id = self._attempt_parent
 
             def complete():
+                result.warm()  # what every view shares, computed here rather than on Qt
                 completion = dataset_completion(
                     result, current, submitted_revision=submitted, manual_revision=revision
                 )
@@ -563,19 +570,16 @@ class DatasetFitting(QtCore.QObject):
     def next_marked(self, *, backward: bool = False) -> None:
         """N in the cluster list: the next cluster the Show choice lists, or a warned one."""
         w = self.workspace
-        navigator = w.navigator
-        if navigator.filter.currentData() is None:
-            if any(r.warnings for r in w.reviews()) or not w.reviews():
-                self.next_warning(backward=backward)
-            else:
-                w.status.setText(
-                    "No cluster has a numerical warning. For N to step through other marks, "
-                    "choose one in Show"
-                )
-            return
-        target = navigator.next_marked(w.selected_id, backward=backward)
+        target = w.navigator.next_marked(w.selected_id, backward=backward)
         if target is not None:
             w.select_peak(target, cluster=True, center=True)
+        elif not w.navigator.showing_all:
+            w.status.setText("The Show choice lists no cluster")
+        elif w.reviews():
+            w.status.setText(
+                "No cluster has a numerical warning. For N to step through other marks, "
+                "choose one in Show"
+            )
 
     def export(self) -> bool:
         """Export retained evidence with its currentness explicitly labeled."""

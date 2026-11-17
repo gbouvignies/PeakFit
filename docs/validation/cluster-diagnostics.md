@@ -44,5 +44,9 @@ window (1920×1080, dark); Profiles (1280×800, light).
   at a 1160×720 window, and the window grows. Specification §2 says PeakFit never
   enlarges the window. Reproduced identically on `main` with "Any highlight". The
   captures show Profiles unfiltered for that reason.
+- **The specification's bundled-dataset figures are stale.** §8 says three clusters
+  carry the uncertainty warning with \|ρ\| = 1.00 and the median χ²ᵣ is 1.97. At
+  245961a the two-pass fit has no numerical warning and a median χ²ᵣ of 1.98. The
+  cause was not investigated here, so the sentence is left for a reviewed update.
 - **Long cluster names elide at 1160×720.** With all 121 rows and the scroll bar,
   "158EN-H" reads "15…-H". The same on `main`; 1280×800 and wider show full names.

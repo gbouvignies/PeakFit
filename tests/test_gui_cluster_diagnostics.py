@@ -6,6 +6,7 @@ amplitude decomposition, the correlated-profile flag (↔) and highlights. Nothi
 recomputed for the list; it reads the same engine functions as those pages.
 """
 
+import threading
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -17,9 +18,10 @@ from PySide6 import QtCore, QtTest
 
 from peakfit.engine.algorithms.covariance_factors import profile_correlations
 from peakfit.engine.diagnostics.identifiability import Cause, amplitude_identifiability
+from peakfit.gui import run_diagnostics
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.changes import compare_runs
-from peakfit.gui.editor.review import review_clusters
+from peakfit.gui.editor.review import HighlightRules, ReviewMark, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import Dataset
@@ -198,12 +200,13 @@ def test_one_mark_rule_ranks_warning_then_correlated_profile_then_highlight(work
     publish(w, result)
     pair = _pair(result)
     review = _row(navigator, pair.cluster_id).data(0, _ROLE)
-    assert review.mark == "↔"
+    assert review.mark is ReviewMark.CORRELATED
     # Warning first, then the correlated profile, then a highlight.
-    assert replace(review, highlights=(object(),)).mark == "↔"
-    assert replace(review, correlated=()).mark == ""
+    assert replace(review, highlights=(object(),)).mark is ReviewMark.CORRELATED
+    assert replace(review, correlated=()).mark is ReviewMark.NONE
     warned = next(r for r in _reviews(_with_warning(result), w.dataset.spectra) if r.warnings)
-    assert warned.mark == "▲"
+    assert warned.mark is ReviewMark.WARNING
+    assert [m.rank for m in ReviewMark] == [0, 1, 2, 3]
 
 
 def _with_warning(result):
@@ -274,3 +277,46 @@ def test_n_with_a_warning_filter_still_visits_only_warned_rows(workspace, scient
         _press_n(navigator)
         visited.append(navigator._clusters[w.selected_id])
     assert visited == shown
+
+
+def test_n_with_a_show_choice_steps_through_its_shown_rows_in_order(workspace, scientific):
+    w, navigator = workspace, workspace.navigator
+    publish(w, scientific[-1])
+    w.set_rules(HighlightRules(0.0, 1.0, 1.0))  # every cluster highlighted
+    _choose(navigator, "Any highlight")
+    rows = [r for r in _rows(navigator) if not r.isHidden()]
+    assert len(rows) == 2
+    visited = []
+    for _ in rows:
+        _press_n(navigator)
+        visited.append(navigator._clusters[w.selected_id])
+    assert visited == rows
+    _press_n(navigator, backward=True)
+    assert navigator._clusters[w.selected_id] is rows[0]
+    # A row the choice hides is never reached.
+    rows[1].setHidden(True)
+    for _ in range(3):
+        _press_n(navigator)
+        assert navigator._clusters[w.selected_id] is rows[0]
+
+
+def test_the_run_diagnostics_are_computed_off_the_gui_thread(workspace, scientific, monkeypatch):
+    # About 0.3 s on the bundled example: publication computes them in its worker.
+    threads = []
+    original = run_diagnostics.member_diagnostics
+
+    def recorded(cluster):
+        threads.append(threading.current_thread())
+        return original(cluster)
+
+    monkeypatch.setattr("peakfit.gui.dataset_fit.member_diagnostics", recorded)
+    spectra, peaks, config, _ = scientific
+    result = _fit(spectra, peaks, config)
+    publish(workspace, result)
+    assert threads
+    assert threading.main_thread() not in threads
+    assert "diagnostics" in vars(result)
+    count = len(threads)
+    workspace.navigator.filter.setCurrentIndex(0)
+    workspace.reviews()
+    assert len(threads) == count  # views only read the cached diagnostics

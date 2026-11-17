@@ -32,7 +32,7 @@ from peakfit.engine.scientific.profiles import (
 )
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
-from peakfit.gui.editor.review import CORRELATED_MARK
+from peakfit.gui.editor.review import CORRELATED_MARK, CORRELATED_SHORT
 from peakfit.gui.theme import (
     LIGHT,
     REFERENCE_TYPE,
@@ -52,9 +52,8 @@ if TYPE_CHECKING:
 
 _MAX_ISOLATED = 2
 
-# The correlated-profile flag (profile-uncertainty §6): the same mark and words on the
-# profile, the tiles and the cluster page.
-CORRELATED_SHORT = "errors correlated across planes"
+# The correlated-profile flag (profile-uncertainty §6) takes its mark and words from
+# ``review``, so the profile, the tiles, the cluster page and the list agree.
 NOT_ASSESSED_SHORT = "correlation across planes not assessed"
 CORRELATED_LIMIT = (
     "Downstream fits that treat the per-plane errors (intensity_err) as independent can "

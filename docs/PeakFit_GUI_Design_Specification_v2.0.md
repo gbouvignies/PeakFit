@@ -753,9 +753,9 @@ default sort is reduced χ², highest first; any column sorts with one click. Me
 highlights cannot prove the absence of structured residuals, so whole-spectrum
 residuals remain one key away.
 
-For the bundled dataset (two passes, 17 November 2026) all 121 clusters converge
-and are usable with no numerical warning; 13 carry ↔, three a linewidth highlight,
-and the median χ²ᵣ is 1.98.
+For the bundled dataset (two passes) all 121 clusters converge and are usable;
+three carry the uncertainty warning, those same three have amplitude correlation
+\|ρ\| = 1.00, and the median χ²ᵣ is 1.97.
 
 ### Unexplained signal
 

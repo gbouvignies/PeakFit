@@ -10,24 +10,42 @@ Nothing here refits or recomputes statistics.
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 from statistics import median
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.algorithms.covariance_factors import profile_correlations
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.diagnostics.coincidence import collinear_pairs
-from peakfit.engine.diagnostics.identifiability import Cause, amplitude_identifiability
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import SpectralParameters
     from peakfit.gui.dataset_fit import DatasetFitResult
+    from peakfit.gui.run_diagnostics import MemberDiagnostics
 
 
-CORRELATED_MARK = "↔"  # the correlated-profile flag, wherever it is shown
+# The correlated-profile flag's mark and words, wherever it is shown.
+CORRELATED_MARK = "↔"
+CORRELATED_SHORT = "errors correlated across planes"
+CORRELATED_TITLE = f"Profile {CORRELATED_SHORT}"
+CORRELATED_CHOICE = f"{CORRELATED_MARK} Profile errors correlated"  # the Show menu's short form
+
+
+class ReviewMark(Enum):
+    """The one mark a cluster row or tile shows, in increasing rank."""
+
+    NONE = ""
+    HIGHLIGHT = "◇"
+    CORRELATED = CORRELATED_MARK
+    WARNING = "▲"
+
+    @property
+    def rank(self) -> int:
+        """Sort order: a warning first, then ↔, then a highlight."""
+        return list(ReviewMark).index(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,13 +121,13 @@ class ClusterReview:
         return len(self.ids) == 1
 
     @property
-    def mark(self) -> str:
-        """The one glyph a list row or tile shows: ▲, then ↔, then ◇, else nothing."""
+    def mark(self) -> ReviewMark:
+        """The one mark a list row or tile shows: ▲, then ↔, then ◇, else none."""
         if self.warnings:
-            return "▲"
+            return ReviewMark.WARNING
         if self.correlated:
-            return CORRELATED_MARK
-        return "◇" if self.highlights else ""
+            return ReviewMark.CORRELATED
+        return ReviewMark.HIGHLIGHT if self.highlights else ReviewMark.NONE
 
 
 WARNING_KINDS = (
@@ -122,14 +140,6 @@ WARNING_KINDS = (
     "Near-collinear shapes",
 )
 HIGHLIGHT_KINDS = ("Amplitude correlation", "Linewidth outlier")
-CORRELATED_TITLE = "Profile errors correlated across planes"
-
-# The amplitude decomposition's causes that make a member's split undetermined.
-DECOMPOSITION = {
-    Cause.NULL_SPACE: "Amplitudes not identifiable",
-    Cause.ILL_CONDITIONED: "Ill-conditioned shapes",
-    Cause.NEAR_COLLINEAR: "Near-collinear shapes",
-}
 
 
 def _parameters(cluster) -> dict[tuple[str, str, str], float]:
@@ -163,35 +173,15 @@ def _warnings(cluster) -> tuple[NumericalWarning, ...]:
     return tuple(warnings)
 
 
-def _decomposition(cluster, names: dict[str, str]) -> tuple[NumericalWarning, ...]:
-    """Members whose amplitude split the fitted shapes do not determine, by cause.
-
-    The same classification the amplitude profile uses to withhold a member;
-    ``names`` gives each engine peak name its assignment.
-    """
-    evaluation = cluster.analytical_evaluation
-    if not cluster.usable or evaluation is None:
-        return ()
-    members = amplitude_identifiability(evaluation.shapes, evaluation.amplitudes)
+def _decomposition(
+    diagnostics: MemberDiagnostics, names: dict[str, str]
+) -> tuple[NumericalWarning, ...]:
+    """One warning per decomposition kind, naming its members by assignment."""
     by_kind: dict[str, list[str]] = {}
-    for name, member in zip(cluster.peak_names, members, strict=True):
-        if member.cause in DECOMPOSITION:
-            by_kind.setdefault(DECOMPOSITION[member.cause], []).append(names.get(name, name))
+    for kind, name in diagnostics.undetermined:
+        by_kind.setdefault(kind, []).append(names.get(name, name))
     kinds = [kind for kind in WARNING_KINDS if kind in by_kind]
     return tuple(NumericalWarning(kind, ", ".join(by_kind[kind])) for kind in kinds)
-
-
-def _correlated(cluster, working: dict[str, str]) -> tuple[str, ...]:
-    """Working IDs of members whose profile errors are correlated across planes."""
-    evaluation = cluster.analytical_evaluation
-    if evaluation is None or evaluation.amplitudes.shape[1] < 2:  # noqa: PLR2004
-        return ()
-    flags = profile_correlations(evaluation.covariance_factors, evaluation.amplitudes)
-    return tuple(
-        working[name]
-        for name, flag in zip(cluster.peak_names, flags, strict=True)
-        if flag.flagged and name in working
-    )
 
 
 def correlation_matrix(cluster) -> np.ndarray | None:
@@ -270,12 +260,13 @@ def review_clusters(
                             )
                         )
         evaluation = cluster.analytical_evaluation
+        diagnostics = result.diagnostics[cluster.cluster_id]
         reviews.append(
             ClusterReview(
                 cluster.cluster_id,
                 tuple(identities[n].working_id for n in names),
                 tuple(identities[n].assignment for n in names),
-                _warnings(cluster) + _decomposition(cluster, assignments),
+                _warnings(cluster) + _decomposition(diagnostics, assignments),
                 float(evaluation.statistics.reduced_chi_squared) if evaluation else math.nan,
                 evaluation.largest_recorded_residual if evaluation else math.nan,
                 int(evaluation.statistics.n_observations) if evaluation else 0,
@@ -294,7 +285,7 @@ def review_clusters(
                         else ()
                     )
                 ),
-                _correlated(cluster, working_ids),
+                tuple(working_ids[n] for n in diagnostics.correlated if n in working_ids),
             )
         )
     return reviews

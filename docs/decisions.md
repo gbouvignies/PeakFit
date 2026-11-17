@@ -1585,10 +1585,14 @@ Short records of non‑obvious design choices and trade‑offs.
   engine warnings and highlights. What it could not reach, on the bundled example,
   was the correlated-profile flag (13 of 121 clusters, none with ▲ or ◇) and the
   amplitude decomposition, both shown only inside a cluster's pages.
-- **Decomposition is a numerical warning.** It is an objective classification of
-  the recorded shapes, computed like At bound from recorded values, and the run
-  comparison already marked it ▲. The toolbar and run-comparison warning counts now
-  include it.
+- **Decomposition is a numerical warning** (a default the user may override before
+  merge). It is an objective classification of the recorded shapes, computed like
+  At bound from recorded values, and the run comparison already marked it ▲. The
+  toolbar and run-comparison warning counts now include it, and the cluster and peak
+  pages list it under Warnings, beside the existing Collinear row.
+- **Off the GUI thread.** The decomposition and ↔ take about 0.3 s per run on the
+  example, so `DatasetFitResult.diagnostics` keeps them per run, computed by the
+  workers that publish a fit, load a parent run or open a project.
 - **↔ is not a warning.** It states a limit of independent per-plane error bars,
   not of the data (GLOSSARY), so it has its own subdued mark and Show choice, ranked
   after ▲ and before ◇.

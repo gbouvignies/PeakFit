@@ -354,8 +354,7 @@ column shows one mark, its tooltip naming every item. An amber ▲ is a numerica
 warning: unusable, not converged, uncertainty unreliable, a varied parameter at a
 recorded bound, or an amplitude split the fitted shapes do not determine
 (**Amplitudes not identifiable**, **Ill-conditioned shapes** or **Near-collinear
-shapes**, naming the members; the classification that withholds them from the
-amplitude profile). Otherwise a subdued ↔ marks profile errors correlated across
+shapes**, naming the members, whom the amplitude profile also withholds). Otherwise a subdued ↔ marks profile errors correlated across
 planes (the correlated-profile flag, a limit of independent error bars, not a
 warning), and else a subdued ◇ a highlight. Profiles tiles show the same mark.
 Every one of these is also on the cluster and peak pages; the list lets you find
@@ -432,7 +431,8 @@ the status line says to choose a mark in Show. **Select next cluster with a
 warning** on the analysis page always moves to a warned cluster. Neither ever
 selects a hidden row. The
 inspector's **Cluster review** keeps three families apart: numerical warnings
-(with the engine's own text), highlights (with their rule), and measures, as label
+(with the engine's own text, or the members whose amplitude split is undetermined),
+highlights (with their rule), and measures, as label
 rows: **Warnings** and **Highlights** (“none” when empty), **χ²ᵣ** (its sample count
 in the tooltip), **Max residual** with its guide √(2 ln N), the typical largest of
 N independent Gaussian values (a rough guide, not a threshold: correlated noise

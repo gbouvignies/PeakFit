@@ -8,11 +8,13 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.review import (
+    CORRELATED_CHOICE,
     CORRELATED_MARK,
     CORRELATED_TITLE,
     HIGHLIGHT_KINDS,
     WARNING_KINDS,
     HighlightRules,
+    ReviewMark,
 )
 
 if TYPE_CHECKING:
@@ -285,9 +287,8 @@ class Navigator(QtWidgets.QWidget):
         if isinstance(delegate, PeakRowDelegate):
             delegate.secondary = QtGui.QColor(theme.secondary)
         for item in self._clusters.values():
-            item.setForeground(
-                0, QtGui.QBrush(self._warning if item.text(0) == "▲" else self._subdued)
-            )
+            warned = item.data(0, _ID).mark is ReviewMark.WARNING
+            item.setForeground(0, QtGui.QBrush(self._warning if warned else self._subdued))
         if self._hovered in self._items:
             self._items[self._hovered].setBackground(QtGui.QBrush(self._wash))
 
@@ -382,8 +383,7 @@ class Navigator(QtWidgets.QWidget):
         # A limit of the error bars, not a warning: its own choice, when any cluster has it.
         correlated = sum(bool(r.correlated) for r in reviews)
         if correlated:
-            title = f"{CORRELATED_MARK} Profile errors correlated ({correlated})"
-            options.append((title, ("correlated", None)))
+            options.append((f"{CORRELATED_CHOICE} ({correlated})", ("correlated", None)))
         with QtCore.QSignalBlocker(self.filter):
             self.filter.clear()
             for text, data in options:
@@ -470,11 +470,16 @@ class Navigator(QtWidgets.QWidget):
         """First member of the next (or previous) shown cluster with a numerical warning."""
         return self._next(selected, backward, lambda review: bool(review.warnings))
 
+    @property
+    def showing_all(self) -> bool:
+        """Whether the Show choice lists every cluster."""
+        return self.filter.currentData() is None
+
     def next_marked(self, selected: str | None, *, backward: bool = False) -> str | None:
         """What N reaches: any cluster a Show choice lists; with all shown, a warned one."""
-        if self.filter.currentData() is not None:
-            return self._next(selected, backward, lambda _review: True)
-        return self.next_warned(selected, backward=backward)
+        if self.showing_all:
+            return self.next_warned(selected, backward=backward)
+        return self._next(selected, backward, lambda _review: True)
 
     def _next(self, selected: str | None, backward: bool, wanted) -> str | None:
         """First member of the next (or previous) shown cluster that ``wanted`` accepts."""
@@ -497,7 +502,7 @@ class Navigator(QtWidgets.QWidget):
         names = review.names
         warned = bool(review.warnings)
         mark = review.mark
-        item.setText(0, mark)
+        item.setText(0, mark.value)
         members = dict(zip(review.ids, names, strict=True))
         correlated = (
             [f"{CORRELATED_TITLE}: {', '.join(members[i] for i in review.correlated)}"]
@@ -537,7 +542,7 @@ class Navigator(QtWidgets.QWidget):
             item.setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
-        item.setData(0, _SORT, str(("", "◇", CORRELATED_MARK, "▲").index(mark)))
+        item.setData(0, _SORT, str(mark.rank))
         item.setData(1, _SORT, " ".join(names))
         for column, value in ((2, float(len(names))), (3, chi2), (4, largest), (5, rho)):
             item.setData(column, _SORT, value if math.isfinite(value) else -1.0)
