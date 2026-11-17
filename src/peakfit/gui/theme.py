@@ -446,6 +446,19 @@ class MenuChoice(QtWidgets.QPushButton):
         self.clicked.connect(self._open)
         self._show()
 
+    @property
+    def choices(self) -> list[tuple[str, str, object]]:
+        """The (short label, menu text, data) of every choice, in menu order."""
+        return list(self._choices)
+
+    def set_choices(self, choices: Sequence[tuple[str, str, object]], index: int = 0) -> None:
+        """Replace the choices and choose one, without emitting ``currentIndexChanged``."""
+        if not choices:
+            raise ValueError("A menu choice needs at least one choice.")
+        self._choices = list(choices)
+        self._index = min(max(index, 0), len(self._choices) - 1)
+        self._show()
+
     def currentData(self) -> object:  # noqa: N802
         """The current choice's data."""
         return self._choices[self._index][2]

@@ -202,9 +202,7 @@ def test_changing_the_exclusion_marks_the_run_outdated_and_the_planes_row(worksp
     model = w.panel.model_page
     w._update_inspector()
     assert model.titles[Setting.PLANES].text() == f"Planes {DIFFERS}"
-    assert model.titles[Setting.PLANES].toolTip() == (
-        f"Run {result.run_id[:8]} used planes 2 excluded"
-    )
+    assert model.titles[Setting.PLANES].toolTip() == ("Run 1 used planes 2 excluded")
     # The Outdated run stays comparable on the planes it fitted.
     assert w.fitting.comparison.result is result
     assert w.fitting.comparison.historical

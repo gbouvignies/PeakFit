@@ -12,6 +12,7 @@ from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
+from peakfit.gui.editor.changes import completed, run_numbers
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
 from peakfit.gui.project_results import reconstruct_result
@@ -148,9 +149,12 @@ class NumericalReview(QtWidgets.QWidget):
         details.setVisible(bool(analysis.reason))
         actions.addWidget(details)
         actions.addStretch()
+        numbers = run_numbers(analysis.journal)
         if analysis.completion:
+            active = numbers.get(run_id(analysis.completion))
             status = QtWidgets.QLabel(
-                ("Current" if analysis.current else "Outdated")
+                (f"Active run {active} · " if active else "Active run · ")
+                + ("Current" if analysis.current else "Outdated")
                 + " numerical evidence · "
                 + ("Source unverified" if analysis.dataset is None else "Source verified")
             )
@@ -172,16 +176,24 @@ class NumericalReview(QtWidgets.QWidget):
         tabs.addTab(peaks, "Working peaks")
         self.run = QtWidgets.QComboBox()
         journal = {e["run_id"]: e for e in analysis.journal}
+
+        # Named as on the Run page: "Run 3 · <time> · <short ID> · Full".
+        def named(identity: str) -> str:
+            return f"Run {numbers[identity]} · " if identity in numbers else ""
+
         for c in reversed(analysis.runs):
             identity = run_id(c)
             date = formatting.local_time(journal.get(identity, {}).get("completed_at", ""))
-            self.run.addItem(f"{date} · {identity[:8]} · Full", c)
+            self.run.addItem(f"{named(identity)}{date} · {identity[:8]} · Full", c)
         full_ids = {run_id(c) for c in analysis.runs}
         for entry in reversed(analysis.journal):
-            if entry["run_id"] not in full_ids:
+            identity = entry["run_id"]
+            if identity not in full_ids:
+                status = str(entry.get("status", ""))
+                kind = "Summary only" if completed(entry) else f"{status.capitalize()} attempt"
                 self.run.addItem(
-                    f"{formatting.local_time(entry.get('completed_at', ''))} · "
-                    f"{entry['run_id'][:8]} · Summary only",
+                    f"{named(identity)}{formatting.local_time(entry.get('completed_at', ''))} · "
+                    f"{identity[:8]} · {kind}",
                     entry,
                 )
         layout.insertWidget(3, self.run)
