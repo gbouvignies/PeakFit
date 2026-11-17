@@ -1,0 +1,69 @@
+{
+  "excluded": [
+    0,
+    40,
+    41,
+    130
+  ],
+  "clusters": 122,
+  "gate": "bit-identical",
+  "passed": true,
+  "quantities": {
+    "noise": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "global chi_squared": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "global reduced_chi_squared": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "global n_observations": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "global degrees_of_freedom": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "parameter value": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "parameter standard_error": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "parameter min": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "parameter max": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "parameter vary": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "amplitudes": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "amplitude_standard_errors": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "amplitude_covariance": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    },
+    "cluster chi_squared": {
+      "max_relative": 0.0,
+      "bit_identical": true
+    }
+  }
+}
