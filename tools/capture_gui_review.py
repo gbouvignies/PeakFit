@@ -22,9 +22,11 @@ the note that quotes it.
 """
 
 import argparse
+import faulthandler
 import json
 import platform
 import subprocess
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,7 @@ from validate_gui_layout import (
     ROOT,
     Session,
     arm_watchdog,
+    clipped_labels,
     peak_page_measures,
     steady,
     window_record,
@@ -44,11 +47,12 @@ from validate_gui_layout import (
 
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.failures import install_log
+from peakfit.gui.theme import type_scale
 
 SIZE = "1280x800"
 SIZES = ("1160x720", "1280x800", "1440x900", "1920x1080")
 PEAK = "53N-H"  # a two-member cluster's peak: the reviewed peak page
-MOVED = "22N-H"  # moved to make the run Outdated, then refitted
+MOVED = CLUSTER  # the four-member cluster's peak, moved to make the run Outdated
 MOVE_PPM = 0.02  # in the direct (¹H) dimension
 MAX_WIDTH = 1600  # px; wider grabs are downscaled, keeping the aspect ratio
 QUALITY = 82  # WebP
@@ -62,9 +66,9 @@ FIGURES = (
     "dialog-display.webp",
     "overview.webp",
     "page-analysis-unexplained.webp",
-    "peak-53N-H.webp",
-    "page-peak-53N-H.webp",
-    "page-cluster-22N-H.webp",
+    f"peak-{PEAK}.webp",
+    f"page-peak-{PEAK}.webp",
+    f"page-cluster-{CLUSTER}.webp",
     "focus-overlay.webp",
     "focus-residual-dark.webp",
     "profiles.webp",
@@ -73,6 +77,12 @@ FIGURES = (
     "outdated-peak.webp",
     "page-analysis-refit.webp",
 )
+
+
+def window_size(size: str) -> tuple[int, int]:
+    """Width and height of a ``WxH`` size."""
+    width, height = (int(v) for v in size.split("x"))
+    return width, height
 
 
 def git_state() -> dict[str, object]:
@@ -135,33 +145,37 @@ class ReviewSession(Session):
         self._save(name, widget or self.window)
 
     def _save(self, name: str, widget: QtWidgets.QWidget) -> None:
-        image = widget.grab().toImage()
-        if image.width() > MAX_WIDTH:
+        image = widget.grab()
+        if image.width() > MAX_WIDTH:  # device pixels
             image = image.scaledToWidth(
                 MAX_WIDTH, QtCore.Qt.TransformationMode.SmoothTransformation
             )
         file = f"{name}.webp"
-        if not image.save(str(self.output / file), b"WEBP", QUALITY):
+        if not image.save(str(self.output / file), "WEBP", QUALITY):
             raise RuntimeError(f"Qt could not write {file}; is the WebP image plugin installed?")
         self.figures[file] = {
             "window": window_record(self.window),
             "widget": [widget.width(), widget.height()],
             "image": [image.width(), image.height()],
+            "clipped": clipped_labels(self.window),
         }
         arm_watchdog(self.stall)
 
     def page(self, name: str) -> int:
         """Save the inspector's whole scrolling page; its height in logical px."""
-        settle(300)
         body = self.w.panel.widget()
+        height = steady(body.height)  # deferred rows can still be growing the page
         self.figure(name, body)
-        return body.height()
+        return height
 
     def dialog(self, name: str, show, ready=lambda _dialog: True) -> list[int]:
         """Open a modal dialog with ``show``, save it once ``ready``, close it; its size."""
         size: list[int] = []
+        returned = False
 
         def poll() -> None:
+            if returned:  # ``show`` came back without a modal dialog
+                return
             dialog = QtWidgets.QApplication.activeModalWidget()
             if dialog is None or not ready(dialog):
                 QtCore.QTimer.singleShot(50, poll)
@@ -176,16 +190,17 @@ class ReviewSession(Session):
 
         QtCore.QTimer.singleShot(0, poll)
         show()
+        returned = True
         if not size:
             raise RuntimeError(f"No modal dialog was captured for {name}")
         return size
 
     def setup_top(self) -> int | None:
         """Where the fit setup starts on the analysis page, in inspector content px."""
-        block = self.w.panel.setup_block
+        block, body = self.w.panel.setup_block, self.w.panel.widget()
         if not block.isVisible():
             return None
-        return block.mapTo(self.w.panel.widget(), QtCore.QPoint(0, 0)).y()
+        return steady(lambda: block.mapTo(body, QtCore.QPoint(0, 0)).y())
 
     def noise_lines(self) -> list[int]:
         """Lines of each visible inspector label that contains the noise-check finding.
@@ -198,7 +213,7 @@ class ReviewSession(Session):
         return lines_of(self.w.panel.widget(), finding[1:60]) if finding else []
 
     def run_line(self) -> str:
-        """The toolbar's run summary."""
+        """The toolbar's run summary (the separate "Modified" label is not part of it)."""
         return self.w.summary.text()
 
 
@@ -218,6 +233,10 @@ def before_fit(s: ReviewSession, record: dict[str, Any]) -> None:
     w.show_fit_setup()
     wait_until(lambda: w.fitting.prepared is not None, timeout=120)
     s.figure("fit-setup")
+    record["dataset_size"] = {
+        "peaks": len(w.peaks),
+        "planes": int(w.dataset.spectra.data.shape[0]),
+    }
     record["preparation"] = w.panel.setup.preparation.text()
     w.panel.setup.advanced_toggle.setChecked(True)
     s.page("page-fit-setup")
@@ -322,8 +341,7 @@ def window_sizes(s: ReviewSession, record: dict[str, Any]) -> None:
     """The overview at each window size; the 1160×720 one is a figure."""
     w, sizes = s.w, []
     for size in SIZES:
-        width, height = (int(v) for v in size.split("x"))
-        s.window.resize(width, height)
+        s.window.resize(*window_size(size))
         settle(600)
         w.show_analysis_page()
         if size == "1160x720":
@@ -337,8 +355,9 @@ def window_sizes(s: ReviewSession, record: dict[str, Any]) -> None:
             }
         )
     record["sizes"] = sizes
-    width, height = (int(v) for v in SIZE.split("x"))
-    s.window.resize(width, height)
+    screen = s.window.screen().size()
+    record["screen"] = [screen.width(), screen.height()]
+    s.window.resize(*window_size(SIZE))
     settle(600)
 
 
@@ -371,8 +390,7 @@ def run(output: Path) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     install_log(output / "peakfit.log")  # as launch does
     s = ReviewSession(output)
-    width, height = (int(v) for v in SIZE.split("x"))
-    s.window.resize(width, height)
+    s.window.resize(*window_size(SIZE))
     s.window.apply_appearance("Light")
     settle(300)
     states: dict[str, Any] = {}
@@ -382,8 +400,8 @@ def run(output: Path) -> dict[str, Any]:
     after_fit(s, states)
     window_sizes(s, states)
     outdated_and_refit(s, states)
-    missing = set(FIGURES) - set(s.figures)
-    assert not missing, f"figures not written: {sorted(missing)}"
+    faulthandler.cancel_dump_traceback_later()
+    assert set(s.figures) == set(FIGURES), sorted(set(s.figures) ^ set(FIGURES))
     record = {
         "tool": "tools/capture_gui_review.py",
         **git_state(),
@@ -391,6 +409,7 @@ def run(output: Path) -> dict[str, Any]:
         "platform": platform.platform(),
         "qt_platform": QtGui.QGuiApplication.platformName(),
         "units": "Qt logical pixels unless named; image sizes are file pixels",
+        "type_scale": asdict(type_scale()),
         **states,
         "figures": {name: s.figures[name] for name in FIGURES},
     }
@@ -414,10 +433,12 @@ def table(record: dict[str, Any]) -> str:
     unexplained, refit = record["unexplained"], record["refit"]
     strongest = unexplained["strongest"]
     where = ", ".join(f"{axis} {ppm}" for axis, ppm in strongest["ppm"].items())
-    # The changed cluster's review and measures; the full list is in the record.
+    # What changed between the runs; the full list is in the record. A one-line
+    # value follows its label, which is the text before it.
+    texts = refit["changes"]
     changes = " · ".join(
-        line
-        for text in refit["changes"]
+        f"{texts[index - 1]} {line}" if index and "\n" not in text else line
+        for index, text in enumerate(texts)
         for line in text.split("\n")
         if "now reported" in line or "→" in line
     )
@@ -427,7 +448,12 @@ def table(record: dict[str, Any]) -> str:
         for s in record["sizes"]
     )
     rows = [
-        ("M1", "Preparation before the first fit", record["preparation"]),
+        (
+            "M1",
+            "Dataset; preparation before the first fit",
+            f"{record['dataset_size']['peaks']} peaks · {record['dataset_size']['planes']} "
+            f"planes; {record['preparation']}",
+        ),
         ("M2", "Failed first fit: run line", record["failure"]["run_line"]),
         ("M3", "Run line after the fit", overview["run_line"]),
         (
@@ -479,6 +505,12 @@ def table(record: dict[str, Any]) -> str:
             f"{refit['page_height']}, {refit['setup_top']} / {refit['viewport_height']} px",
         ),
         ("M15", "Window sizes (logical): inspector width, overview plot", sizes),
+        ("M16", "Screen (logical)", _size(record["screen"])),
+        (
+            "M17",
+            "Type scale: body, small, caption",
+            "{body}, {small}, {caption} px".format(**record["type_scale"]),
+        ),
     ]
     lines = ["| | Measurement | Value |", "| --- | --- | --- |"]
     lines += [f"| {key} | {_cell(name)} | {_cell(value)} |" for key, name, value in rows]

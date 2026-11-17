@@ -15,7 +15,7 @@ Figures are cited as Fig. N and measurements as Mn; both are listed at the end.
   `docs/gui-design.md`, `GLOSSARY.md`, spec #178 and the
   [audit follow-up validation](gui-audit-followup.md).
 - **Driving the real window** on the bundled `02-advanced-fitting` CEST dataset
-  (166 peaks, 131 planes) with `tools/validate_gui_layout.py` and a script on its
+  (M1) with `tools/validate_gui_layout.py` and a script on its
   `Session`, now `tools/capture_gui_review.py`. The states: the fit setup, a
   simulated failed first fit, the GUI's own two-pass fit, the overview, peak and
   cluster pages, cluster focus in Overlay and Residual, Profiles, the
@@ -28,9 +28,9 @@ Figures are cited as Fig. N and measurements as Mn; both are listed at the end.
 **Evidence.** [gui-product-review/](gui-product-review/) holds the cited figures
 and `measurements.json`. `tools/capture_gui_review.py` wrote them in one run at
 `6a5dc18` on a native macOS window: Cocoa, DPR 2.0, Apple silicon, one built-in
-display 982 logical px tall. That run repeats the review session's states, so
-run IDs differ from the ones the review saw. The display caps the window's height,
-so the 1920×1080 window has the recorded height in M15. Sizes are Qt logical
+display (M16). That run repeats the review session's states, so run IDs differ
+from the ones the review saw. The display caps the window's height, so the
+1920×1080 window has the recorded height in M15. Sizes are Qt logical
 pixels; inspector positions are in its content coordinates, as in the audit
 follow-up.
 
@@ -146,19 +146,25 @@ follow-up.
 - **One quantity, two encodings.** Residual contours and lanes are vermilion and
   teal. Residual-mode slices draw the same residual in the neutral foreground
   (Fig. 12).
-- **The corner readout is noisy:** six significant figures and mixed exponents
-  over four lines, floating over the slice corner (Fig. 6).
+- **The corner readout is noisy:** full precision and mixed exponents over several
+  lines, floating over the slice corner (Fig. 6).
 - **Peak and cluster pages disagree.** The section is "Cluster review" on one and
   "Review" on the other, with different rows. The members table lacks amplitude ±
   σ, the main result (Fig. 10).
-- **Small defects:** "▲ 1 clusters"; the legend breaks a name mid-word; Profiles
-  tile headers truncate measures that the list beside them already shows; fit times
-  are in UTC.
+- **The peak page repeats itself** (Fig. 8). After a fit its three full-width edit
+  fields repeat the fitted position at lower precision, and the profile note takes
+  three lines for the bars' meaning, the noise check and off-scale points.
+- **Small defects:** "▲ 1 clusters"; the legend breaks a name mid-word and leaves
+  its negative entry unnamed; Profiles tile headers truncate measures that the list
+  beside them already shows; fit times are in UTC; the comparison selector changes
+  width when a checked button turns bold; the status strip stays empty at 1280 px
+  and wider.
 
 **Information architecture and naming**
 
-- **The run line is a sentence of five states** (M3, Fig. 6). "Modified" follows
-  every fit, because the run is unsaved, which dilutes the word.
+- **The run line strings several states into one sentence** (M3, Fig. 6). The
+  "Modified" label before it follows every fit, because the run is unsaved, which
+  dilutes the word.
 - **Unexplained signal is valuable and buried** (M11, Fig. 7). The strongest
   regions are most likely unpicked side-chain NH₂ peaks: the most actionable finding
   a fit produces. The inspector lists a few of them. There is no way to see the
@@ -184,13 +190,13 @@ follow-up.
   N/Shift+N, [ ], Save and Escape to leave focus, and writes "Cmd/Ctrl" instead of
   the platform's glyphs.
 - **The toolbar changes shape** with mode and width. Profiles hides the comparison
-  and canvas tools, so Fit and the chip shift left. Below 1200 px the chip becomes
-  "Fit settings".
+  and canvas tools, so Fit and the chip shift left. In a narrow window the chip
+  becomes "Fit settings" (`gui/editor/workspace.py:486`).
 - **The inspector's measure is narrow for prose and does not grow.** Extra window
   width goes to the spectrum (M15, Fig. 14).
 - **Qualifiers that change a value's meaning** ("conditional on lineshapes", "not
-  established") use the 11 px caption style. The 13 px body follows the macOS
-  system font and suits a dense desktop tool.
+  established") use the caption style, the smallest size (M17). The body size
+  follows the macOS system font and suits a dense desktop tool.
 
 ## Feature inventory: what the GUI cannot reach
 
@@ -240,9 +246,9 @@ label at the inspector's width.
 
 | | Measurement | Value |
 | --- | --- | --- |
-| M1 | Preparation before the first fit | 121 clusters · 6 158 samples per plane |
+| M1 | Dataset; preparation before the first fit | 166 peaks · 131 planes; 121 clusters · 6 158 samples per plane |
 | M2 | Failed first fit: run line | ▲ Failed · no result yet |
-| M3 | Run line after the fit | Run ae20f910 · Current · ▲ Noise check (F2) · all 121 clusters usable |
+| M3 | Run line after the fit | Run 11f05f4b · Current · ▲ Noise check (F2) · all 121 clusters usable |
 | M4 | Fit setup top / inspector viewport, after the fit | 626 / 687 px |
 | M5 | Lines of the labels with the noise-check finding: Analysis, peak, cluster page | 18, 37, 39 |
 | M6 | 53N-H Fitted table top, bottom / viewport | 616, 724 / 687 px |
@@ -251,10 +257,12 @@ label at the inspector's width.
 | M9 | Whole pages, disclosures open: peak 53N-H, cluster 22N-H | 1989, 1916 px |
 | M10 | Focus 22N-H: 2D plot, Overlay → Residual | 384×350 → 428×394 |
 | M11 | Unexplained signal on plane 1: regions, rows listed, strongest (σ_stat, ppm) | 125, 8, +33.2 at F3 7.593, F2 111.79 |
-| M12 | Run line after moving 22N-H | Run ae20f910 · Outdated · ▲ Noise check (F2) · all 121 clusters usable |
-| M13 | Changes from parent run after the refit | ▲ Near-collinear shapes now reported · ▲ Uncertainty unreliable now reported · ◇ Amplitude correlation now reported · ◇ Linewidth outlier now reported · χ²ᵣ 3.04 → 5.04 · \|r\|max 9.2 → 10.7 σ · \|ρ\| 0.41 → 1.00 · 0 → 1 |
+| M12 | Run line after moving 22N-H | Run 11f05f4b · Outdated · ▲ Noise check (F2) · all 121 clusters usable |
+| M13 | Changes from parent run after the refit | ▲ Near-collinear shapes now reported · ▲ Uncertainty unreliable now reported · ◇ Amplitude correlation now reported · ◇ Linewidth outlier now reported · χ²ᵣ 3.04 → 5.04 · \|r\|max 9.2 → 10.7 σ · \|ρ\| 0.41 → 1.00 · With ▲ warnings 0 → 1 |
 | M14 | After the refit: Analysis page height, fit setup top / viewport | 1349, 1063 / 687 px |
 | M15 | Window sizes (logical): inspector width, overview plot | 1160×720: inspector 314, plot 394×404; 1280×800: inspector 320, plot 482×468; 1440×900: inspector 320, plot 614×546; 1920×921: inspector 320, plot 1008×562 |
+| M16 | Screen (logical) | 1512×982 |
+| M17 | Type scale: body, small, caption | 13, 12, 11 px |
 
 ## Figures
 

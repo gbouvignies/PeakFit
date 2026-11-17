@@ -64,7 +64,7 @@ def test_the_note_quotes_the_record(tool, record, note) -> None:
 
 def test_the_note_cites_every_kept_figure_and_nothing_else(tool, record, note) -> None:
     cited = set(re.findall(r"\(gui-product-review/([\w.-]+\.webp)\)", note))
-    kept = {path.name for path in FOLDER.iterdir()}
+    kept = {path.name for path in FOLDER.iterdir() if not path.name.startswith(".")}
     assert cited == set(tool.FIGURES)
     assert kept == {*tool.FIGURES, RECORD.name}
     assert list(record["figures"]) == list(tool.FIGURES)

@@ -6,6 +6,17 @@
   "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
   "qt_platform": "cocoa",
   "units": "Qt logical pixels unless named; image sizes are file pixels",
+  "type_scale": {
+    "body": 13,
+    "small": 12,
+    "caption": 11,
+    "title": 15,
+    "display": 30
+  },
+  "dataset_size": {
+    "peaks": 166,
+    "planes": 131
+  },
   "preparation": "121 clusters · 6 158 samples per plane",
   "display_dialog": [
     386,
@@ -16,7 +27,7 @@
     "run_line": "▲ Failed · no result yet"
   },
   "overview": {
-    "run_line": "Run ae20f910 · Current · ▲ Noise check (F2) · all 121 clusters usable",
+    "run_line": "Run 11f05f4b · Current · ▲ Noise check (F2) · all 121 clusters usable",
     "spectral": {
       "plot": [
         482,
@@ -187,6 +198,10 @@
       ]
     }
   ],
+  "screen": [
+    1512,
+    982
+  ],
   "history_dialog": [
     1000,
     700
@@ -194,13 +209,13 @@
   "outdated": {
     "peak": "22N-H",
     "moved_ppm": 0.02,
-    "run_line": "Run ae20f910 · Outdated · ▲ Noise check (F2) · all 121 clusters usable"
+    "run_line": "Run 11f05f4b · Outdated · ▲ Noise check (F2) · all 121 clusters usable"
   },
   "refit": {
-    "run_line": "Run 61fdcbfd · Current · ▲ Noise check (F2) · all 121 clusters usable",
+    "run_line": "Run 020f52cf · Current · ▲ Noise check (F2) · all 121 clusters usable",
     "changes": [
       "Parent run",
-      "ae20f910",
+      "11f05f4b",
       "Changed clusters",
       "22N-H +3",
       "▲ Near-collinear shapes now reported\n▲ Uncertainty unreliable now reported\n◇ Amplitude correlation now reported\n◇ Linewidth outlier now reported\nEdited: 22N-H\nχ²ᵣ 3.04 → 5.04 · |r|max 9.2 → 10.7 σ · |ρ| 0.41 → 1.00",
@@ -244,7 +259,8 @@
       "image": [
         1240,
         480
-      ]
+      ],
+      "clipped": []
     },
     "dialog-shortcuts.webp": {
       "window": {
@@ -264,7 +280,8 @@
       "image": [
         840,
         954
-      ]
+      ],
+      "clipped": []
     },
     "fit-setup.webp": {
       "window": {
@@ -284,7 +301,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "page-fit-setup.webp": {
       "window": {
@@ -304,7 +322,8 @@
       "image": [
         640,
         1374
-      ]
+      ],
+      "clipped": []
     },
     "dialog-display.webp": {
       "window": {
@@ -324,7 +343,8 @@
       "image": [
         772,
         814
-      ]
+      ],
+      "clipped": []
     },
     "overview.webp": {
       "window": {
@@ -344,7 +364,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "page-analysis-unexplained.webp": {
       "window": {
@@ -364,7 +385,8 @@
       "image": [
         620,
         2360
-      ]
+      ],
+      "clipped": []
     },
     "peak-53N-H.webp": {
       "window": {
@@ -384,7 +406,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "page-peak-53N-H.webp": {
       "window": {
@@ -404,7 +427,8 @@
       "image": [
         632,
         3978
-      ]
+      ],
+      "clipped": []
     },
     "page-cluster-22N-H.webp": {
       "window": {
@@ -424,7 +448,8 @@
       "image": [
         620,
         3832
-      ]
+      ],
+      "clipped": []
     },
     "focus-overlay.webp": {
       "window": {
@@ -444,7 +469,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "focus-residual-dark.webp": {
       "window": {
@@ -464,7 +490,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "profiles.webp": {
       "window": {
@@ -484,7 +511,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "overview-1160x720.webp": {
       "window": {
@@ -504,7 +532,8 @@
       "image": [
         1600,
         993
-      ]
+      ],
+      "clipped": []
     },
     "dialog-history.webp": {
       "window": {
@@ -524,7 +553,8 @@
       "image": [
         1600,
         1120
-      ]
+      ],
+      "clipped": []
     },
     "outdated-peak.webp": {
       "window": {
@@ -544,7 +574,8 @@
       "image": [
         1600,
         1000
-      ]
+      ],
+      "clipped": []
     },
     "page-analysis-refit.webp": {
       "window": {
@@ -564,6 +595,19 @@
       "image": [
         620,
         2698
+      ],
+      "clipped": [
+        {
+          "text": "Run 020f52cf · Current · ▲ Noise check (F2) · all 121 clusters usable",
+          "size": [
+            276,
+            15
+          ],
+          "needed": [
+            389,
+            15
+          ]
+        }
       ]
     }
   }
