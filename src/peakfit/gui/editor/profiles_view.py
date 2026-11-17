@@ -22,6 +22,7 @@ from peakfit.engine.algorithms.covariance_factors import ProfileCorrelation
 from peakfit.engine.diagnostics.identifiability import Cause
 from peakfit.engine.scientific.profiles import Unavailable, normalize
 from peakfit.gui import formatting
+from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.profile import (
     CORRELATED_MARK,
     CORRELATED_SHORT,
@@ -541,7 +542,8 @@ class ProfilesView(QtWidgets.QWidget):
         layout.setSpacing(SPACE_S)
         top = QtWidgets.QHBoxLayout()
         top.setSpacing(6)
-        self.caption = QtWidgets.QLabel()
+        # The caption names any cluster-list filter; elided, it never widens the window.
+        self.caption = ElidedLabel()
         self.caption.setObjectName("caption")
         top.addWidget(self.caption, 1)
         self.mode = menu_button(

@@ -520,19 +520,6 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy])
 
 
-@pytest.fixture
-def settings(tmp_path):
-    """Keep application preferences out of the developer's own settings."""
-    QtCore.QSettings.setDefaultFormat(QtCore.QSettings.Format.IniFormat)
-    QtCore.QSettings.setPath(
-        QtCore.QSettings.Format.IniFormat, QtCore.QSettings.Scope.UserScope, str(tmp_path)
-    )
-    QtCore.QSettings().clear()
-    yield QtCore.QSettings()
-    QtCore.QSettings().clear()
-    QtCore.QSettings.setDefaultFormat(QtCore.QSettings.Format.NativeFormat)
-
-
 def _warned(result):
     """Attach an engine-style uncertainty warning to the first usable cluster."""
     cluster, *rest = result.outcome.clusters

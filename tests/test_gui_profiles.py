@@ -27,6 +27,7 @@ from peakfit.gui.editor.profiles_view import (
     tile_grid,
 )
 from peakfit.gui.editor.review import HighlightRules, review_clusters
+from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.spectrum import Dataset
 
@@ -167,6 +168,39 @@ def test_a_filter_narrows_the_tiles_and_says_so(workspace, scientific):
         assert w.profiles.caption.text().startswith(f"{len(shown)} of {total} clusters")
     if not shown:
         assert w.profiles.empty.isVisible()
+
+
+@pytest.mark.usefixtures("settings")
+def test_a_filtered_profiles_view_never_widens_the_window(qapp, scientific, monkeypatch):
+    """The caption names the cluster-list filter; however long, it never widens the
+    window or takes width from the navigator or the inspector (spec §2)."""
+    spectra, peaks, config, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1160, 720)
+    window.show()
+    window.install_dataset(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    publish(w, result)
+    w.navigator.filter.setCurrentIndex(w.navigator.filter.count() - 1)
+    qapp.processEvents()
+    minimum, size = window.minimumWidth(), window.size()
+    navigator, _spectral, inspector = w.splitter.sizes()
+    show_profiles(w)
+    chosen = w.navigator.filter_text()
+    assert chosen
+    assert chosen in w.profiles.caption.text()
+    for _ in range(3):  # let every layout request settle
+        qapp.processEvents()
+    assert window.minimumWidth() <= minimum
+    assert window.size() == size
+    assert w.splitter.sizes()[0] == navigator
+    assert w.splitter.sizes()[2] == inspector
+    window.close()
+    window.deleteLater()
+    QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
 
 
 def test_activating_a_tile_opens_its_cluster_in_focus(workspace, scientific):
