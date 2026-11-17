@@ -17,6 +17,7 @@ from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.numerical import NumericalReview, parameter_rows, peak_rows
 from peakfit.gui.editor.window import EditorWindow, menu_shortcuts, shortcut_sections
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
@@ -50,8 +51,8 @@ def _window(qapp, scientific, size=(1280, 800)):
     window.install_dataset(Dataset(Path("consistency.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.configuration = config.model_copy(deep=True)
-    w.fitting.setup_seen = True
+    w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
+    w.fitting.model_seen = True
     qapp.processEvents()
     return window, w
 
@@ -73,7 +74,13 @@ def _close(qapp, window) -> None:
 
 
 def _texts(root: QtWidgets.QWidget) -> list[str]:
-    """Every visible label and button text, rich text reduced to plain."""
+    """Every visible label and button text, rich text reduced to plain.
+
+    Qt shows a widget added to an already visible layout through a queued call, so
+    rows a page has just filled appear on the next pass of the event loop. Deliver
+    those first: the texts are what the window shows, not a half-delivered state.
+    """
+    QtCore.QCoreApplication.processEvents()
     found = []
     for widget in root.findChildren(QtWidgets.QWidget):
         if not widget.isVisible():
@@ -82,6 +89,17 @@ def _texts(root: QtWidgets.QWidget) -> list[str]:
             plain = re.sub(r"<[^>]+>", "", widget.text()).replace("&nbsp;", " ")
             found.append(plain.replace(" ", " "))
     return found
+
+
+def _peak_page_state(w) -> str:
+    """What a failure needs to name its cause: panel, page, selection and Fitted rows."""
+    panel = w.panel
+    rows = [panel.fitted.itemAt(i).widget() for i in range(panel.fitted.count())]
+    return (
+        f"inspector visible {panel.isVisible()}, peak page {panel.peak_page.isVisible()}, "
+        f"selected {w.selected_id}, Fitted title {panel.fitted_title.isVisible()}, "
+        f"Fitted rows {[(r.text(), r.isVisible()) for r in rows if r is not None][:4]}"
+    )
 
 
 # ------------------------------------------------------------------ axis names
@@ -102,18 +120,21 @@ def test_axis_names_are_distinct_and_identical_in_every_place(qapp, nuclei):
     # The plot axes, the editor, the peak list and the fitted rows all use the name.
     assert c.bottom_axis.labelText == f"{x_name} (ppm)"
     assert c.left_axis.labelText == f"{y_name} (ppm)"
+    # Let the published run's contours settle first: then nothing else spins the event
+    # loop after the selection, which is when timing used to hide the bug below.
+    wait_until(lambda: not c.contour_pending)
     w.select_peak(w.peaks[FOCUS].id)
     wait_until(lambda: not c.contour_pending)
     texts = _texts(window)
     for name in names:
         assert f"{name} (ppm)" in texts  # editor field and peak-list heading
-        assert f"δ {name} (ppm)" in texts  # fitted row
+        assert f"δ {name} (ppm)" in texts, _peak_page_state(w)  # fitted row
     w.select_peak(w.peaks[FOCUS].id, cluster=True)
     qapp.processEvents()
     texts += _texts(window)
     assert set(names) <= set(texts)  # the members table names each axis once
     w.select_peak(None)
-    w.show_fit_setup()
+    w.show_model_page()
     texts += _texts(window)
     texts.append(c.view.accessibleDescription())
     # Wherever an F-dimension is mentioned, it is one of the axis names, whole.
@@ -247,7 +268,7 @@ def test_the_shortcuts_list_names_every_key(qapp, heteronuclear):
         menu = action.menu()
         if isinstance(menu, QtWidgets.QMenu):
             assert {c for _k, c in menu_shortcuts(menu)} <= listed
-    assert {"Fit dataset", "Save analysis", "Undo peak edit", "Focus cluster"} <= listed
+    assert {"Fit dataset", "Save analysis", "Undo edit", "Focus cluster"} <= listed
     keys = {key for rows in sections.values() for key, _command in rows}
     assert {"E · O · R", "[ · ]", "N · Shift+N", "A", "Space", "Escape"} <= keys
     _close(qapp, window)

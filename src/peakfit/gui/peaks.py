@@ -1,4 +1,4 @@
-"""Editable peak coordinates, independent of Qt and fitting objects."""
+"""Editable peak coordinates and the working-input history, independent of Qt and fitting."""
 
 import csv
 import math
@@ -35,19 +35,28 @@ class WorkingPeak:
         return cls(uuid4().hex, name, positions)
 
 
-class PeakEdits:
-    """A small linear history of immutable working peak collections."""
+class WorkingEdits[S]:
+    """One linear history of the working inputs: peak collections and fit settings.
 
-    def __init__(self, peaks: tuple[WorkingPeak, ...] = (), *, revision: int = 0) -> None:
-        self._history = [peaks]
+    Peak edits and settings edits share one Undo. ``S`` is the settings value, compared
+    by equality; this module never interprets it.
+    """
+
+    def __init__(self, peaks: tuple[WorkingPeak, ...], settings: S, *, revision: int = 0) -> None:
+        self._history: list[tuple[tuple[WorkingPeak, ...], S]] = [(peaks, settings)]
         self._index = 0
         self.revision = revision
-        self._labels = ["peak edit"]
+        self._labels = ["edit"]
 
     @property
     def peaks(self) -> tuple[WorkingPeak, ...]:
         """Return the committed working coordinates."""
-        return self._history[self._index]
+        return self._history[self._index][0]
+
+    @property
+    def settings(self) -> S:
+        """Return the committed working fit settings."""
+        return self._history[self._index][1]
 
     @property
     def can_undo(self) -> bool:
@@ -62,42 +71,47 @@ class PeakEdits:
     def accept_completion(self, peaks: tuple[WorkingPeak, ...]) -> None:
         """Atomically adopt verified run positions without a manual revision or Undo.
 
-        The caller publishes DatasetCompletion in the same event delivery; the
-        analysis stays Modified until it is saved.
+        The settings stay as submitted. The caller publishes DatasetCompletion in the
+        same event delivery; the analysis stays Modified until it is saved.
         """
         if tuple(p.id for p in peaks) != tuple(p.id for p in self.peaks):
             raise ValueError("Completion must preserve ordered stable peak identities.")
-        self._history = [peaks]
-        self._labels = ["peak edit"]
+        self._history = [(peaks, self.settings)]
+        self._labels = ["edit"]
         self._index = 0
 
     @property
     def undo_label(self) -> str:
         """Describe the scientific edit that Undo would restore."""
-        return self._labels[self._index] if self.can_undo else "peak edit"
+        return self._labels[self._index] if self.can_undo else "edit"
 
     @property
     def redo_label(self) -> str:
         """Describe the scientific edit that Redo would replay."""
-        return self._labels[self._index + 1] if self.can_redo else "peak edit"
+        return self._labels[self._index + 1] if self.can_redo else "edit"
 
     def replace_all(self, peaks: tuple[WorkingPeak, ...], label: str = "import peaks") -> None:
         """Replace or append a validated import as a single undoable scientific edit."""
         if len({p.id for p in peaks}) != len(peaks):
             raise ValueError("Working peak IDs must be unique.")
-        self._commit(peaks, label)
+        self._commit(peaks, self.settings, label)
+
+    def configure(self, settings: S, label: str = "settings change") -> None:
+        """Commit edited fit settings as one undoable scientific edit."""
+        self._commit(self.peaks, settings, label)
 
     def delete_many(self, identities: set[str]) -> None:
         """Delete a list selection atomically; names need not be unique."""
         self._commit(
             tuple(p for p in self.peaks if p.id not in identities),
+            self.settings,
             f"delete {len(identities)} peaks" if len(identities) != 1 else "delete peak",
         )
 
-    def _commit(self, peaks: tuple[WorkingPeak, ...], label: str = "peak edit") -> None:
-        if peaks != self.peaks:
+    def _commit(self, peaks: tuple[WorkingPeak, ...], settings: S, label: str) -> None:
+        if (peaks, settings) != self._history[self._index]:
             del self._history[self._index + 1 :]
-            self._history.append(peaks)
+            self._history.append((peaks, settings))
             del self._labels[self._index + 1 :]
             self._labels.append(label)
             self._index += 1
@@ -110,7 +124,7 @@ class PeakEdits:
         while f"Peak {number}" in names:
             number += 1
         peak = WorkingPeak.new(f"Peak {number}", positions)
-        self._commit((*self.peaks, peak), f"add {peak.name}")
+        self._commit((*self.peaks, peak), self.settings, f"add {peak.name}")
         return peak
 
     def update(self, peak_id: str, name: str, positions: tuple[float, float]) -> None:
@@ -119,7 +133,9 @@ class PeakEdits:
         updated = replace(peak, name=name, positions=positions)
         label = "move" if peak.name == name else "edit"
         self._commit(
-            tuple(updated if p.id == peak_id else p for p in self.peaks), f"{label} {name}"
+            tuple(updated if p.id == peak_id else p for p in self.peaks),
+            self.settings,
+            f"{label} {name}",
         )
 
     def delete(self, peak_id: str) -> None:
@@ -127,13 +143,13 @@ class PeakEdits:
         self.delete_many({peak_id})
 
     def undo(self) -> None:
-        """Restore the previous committed collection."""
+        """Restore the previous committed peaks and settings."""
         if self.can_undo:
             self._index -= 1
             self.revision += 1
 
     def redo(self) -> None:
-        """Restore the next committed collection."""
+        """Restore the next committed peaks and settings."""
         if self.can_redo:
             self._index += 1
             self.revision += 1

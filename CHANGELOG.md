@@ -40,6 +40,17 @@ Notable user-facing and architecture changes are recorded here.
       analysis project 15.0.0 formats were amended in place to record excluded
       planes. Files that development builds wrote before are refused; refit them.
 
+- The desktop cluster list finds every per-cluster diagnostic the cluster and peak
+  pages show, without opening each cluster.
+    - An amplitude split the fitted shapes do not determine (amplitudes not
+      identifiable, ill-conditioned or near-collinear shapes) is now a ▲
+      numerical warning in the list, its Show menu and the toolbar count, as the
+      run comparison already reported it.
+    - Profile errors correlated across planes get a ↔ mark and a Show choice; they
+      remain a limit of the error bars, not a warning.
+    - N / Shift+N step through the clusters the Show choice lists; with all
+      clusters shown they still visit warned clusters only.
+
 
 ### Fixed
 
@@ -57,6 +68,21 @@ Notable user-facing and architecture changes are recorded here.
       σ(J) is 10–16 % too small (±1σ covers about 62 %).
 - A varied parameter whose lineshape returns no derivative now stops the fit with
   an error, instead of being left unfitted.
+- A doublet's fitting region now holds both components of a large splitting, such
+  as a ¹⁵N ¹J of 92 Hz. Before, a splitting wider than about three points left the
+  components outside the region, so the fit used only the noise around the
+  multiplet centre (`docs/validation/large-j.md`).
+    - The region spans cs ± J_max/2 on the doublet's axis, J_max being J's upper
+      bound after `[parameters]` rules. Singlets and small couplings are unchanged,
+      bit for bit.
+    - A fitted J below its linewidth is qualified "below LW" on the peak page and in
+      the report, with its ρ(J, LW) and ρ(J, phase). The report gains a J Couplings
+      section when the fit has doublets.
+    - **Known limitations:** fitted linewidths are biased upward by contour-selected
+      fitting regions, singlets included (+0.19 Hz, about 0.65 of the scatter, for an
+      SP1 ¹H line at SNR 50; [#226](https://github.com/gbouvignies/PeakFit/issues/226)). At low SNR, about 1 % of unresolved
+      doublets land on a narrow resolved doublet with a confident, wrong σ(J); use
+      MCMC there.
 
 ### Changed
 

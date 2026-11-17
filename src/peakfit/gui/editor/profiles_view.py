@@ -34,6 +34,7 @@ from peakfit.gui.editor.profile import (
     quantity_menu,
     reference_text,
 )
+from peakfit.gui.editor.review import ReviewMark
 from peakfit.gui.theme import (
     LIGHT,
     REFERENCE_TYPE,
@@ -273,10 +274,10 @@ def _header(painter, inner: QtCore.QRectF, tile: Tile, style: Style) -> float:
     height = style.sizes.small + 6
     row = QtCore.QRectF(inner.left(), inner.top(), inner.width(), height)
     x = row.left()
-    if review.warnings or review.highlights:
-        mark = "▲" if review.warnings else "◇"
-        _text(painter, row, mark, theme.warning if review.warnings else theme.secondary, small)
-        x += QtGui.QFontMetrics(small).horizontalAdvance(mark) + 5
+    if (mark := review.mark) is not ReviewMark.NONE:  # the cluster list's mark
+        warned = mark is ReviewMark.WARNING
+        _text(painter, row, mark.value, theme.warning if warned else theme.secondary, small)
+        x += QtGui.QFontMetrics(small).horizontalAdvance(mark.value) + 5
     count = len(review.names)
     name = (review.names[0] if review.names else "") + (f"  +{count - 1}" if count > 1 else "")
     measures = _measures(review)

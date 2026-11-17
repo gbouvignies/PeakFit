@@ -20,6 +20,8 @@ review measures and heuristics, integrated fit setup with clustering preview,
 optional reference-normalized profiles and a revised visual system. Sections 1–3,
 5–10 and 12–14 change; scientific state, persistence and MCMC contracts do not.
 This revision authorizes no storage or export format change (§14).
+**Inspector revision (17 November 2026, W3):** the analysis splits into Run and
+Model pages; the per-axis lineshape model is a compact table (§2, §7).
 
 **Technology decision:** PySide6 + Qt Widgets + PyQtGraph, accepted by the project
 owner after hands-on evaluation and reconfirmed by the 31 October 2026 design
@@ -80,7 +82,7 @@ sits beyond it.
 
 | Area | Permanent responsibility |
 | --- | --- |
-| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin slices, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
+| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the Model page (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin slices, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
 | Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
 | Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). After a fit, the **Profiles** toggle in the toolbar can show the Profiles view here instead (below). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
@@ -124,10 +126,19 @@ lanes; below it, hiding a panel is the remedy, not smaller text.
 
 The inspector shows one page, chosen by selection and never by hover:
 
-- **Analysis (no selection):** before the first fit, the fit setup (§7); afterwards
-  the working settings, the active run's summary, warning counts and changes from
-  its parent run. Reachable at any time by clearing selection (Escape on the canvas),
-  from the toolbar settings summary or from Analysis → Fit settings.
+- **Analysis (no selection):** two pages behind a **Run | Model** switch (revision
+  17 November 2026, W3). **Model** is shown before the first fit: the working
+  settings (§7). **Run** comes forward when a run completes or an attempt fails:
+  the last failed attempt, the active run's identity and outcome counts with the
+  warning action under them, the noise check as a one-line verdict in every state
+  (consistent, inconclusive, not checked, or ▲ a mismatch), the changes
+  from its parent run and the unexplained signal. The chosen page stays until the
+  next run or failed attempt; Run is unavailable, and says so, until there is a
+  run, a failed attempt or a fit in progress. Reachable at any time by clearing
+  selection (Escape on the canvas), from the toolbar settings summary (Model), the
+  run summary (Run) or **Analysis ▸ Model settings / Active run**. Longer
+  explanations sit behind a keyboard-reachable ⓘ popover, each written once;
+  qualifications and actionable warnings stay visible.
 - **Peak:** a header with the cluster size, the identity and **Review cluster ›**
   on the identity's line; the working-position editor (group commit, §5), with no
   Delete button (the Delete key, Edit menu and context menus delete); an expandable
@@ -166,12 +177,12 @@ The mockups below are drawn at 1280×800 from the bundled dataset and a real
 two-pass fit: real contours, positions, amplitudes, covariances and fitting regions.
 They are compositions, not production screenshots or new fit evidence.
 
-### A. Before the first fit: establish peaks and fit setup
+### A. Before the first fit: establish peaks and the model
 
 ![Before the first fit: Peaks navigator, cluster preview on the spectrum and fit setup in the inspector](images/gui-v2.1-before-fit.webp)
 
 The navigator shows Peaks. The spectrum shows experimental contours with visible
-markers. With nothing selected, the inspector shows the fit setup, which prepares
+markers. With nothing selected, the inspector shows the Model page, which prepares
 the exact fitting problem in the background and reports its cluster and sample
 counts (§7). Sampled fitting regions are drawn on the spectrum only on request;
 the mockup shows that optional display. Only Experimental is available; Overlay
@@ -535,25 +546,29 @@ make an outdated run current; recording it is a deferred storage decision (§14)
 viewport, focus and display mode. Scientific settings are always visible and
 explicit; a modal confirmation dialog does not gate fitting.
 
-**Fit setup.** Before the first fit the inspector's Analysis page is the fit setup
-and is shown by default: resolved lineshape per axis on one line with its source
-(for example “H SP2 · N SP2 · from apodization”; per-axis sources in the tooltip),
-under a family control that applies to every axis and reads **Per axis** when an
-imported configuration gives an axis its own family (per-axis controls: W4);
-statistical noise with its value (its method in the tooltip unless explicit);
-clustering threshold as a noise factor and as absolute intensity; optimizer
-passes (default two, cross-talk updates only between passes, as in the current GUI;
-CLI defaults are unaffected). **Advanced** discloses solver, iteration limit,
-tolerance and an imported multi-step schedule, which replaces the pass field rather
-than competing with it. Phase/coupling controls appear only for models that need
-them. Per-peak starts, bounds, position windows and fixed/vary flags live in the
-Peak page's Parameters section, not in a dataset-wide table. Setting edits are
-working-input drafts with the same group-commit rules as coordinates; a committed
-change marks an existing run Outdated. Supported settings round-trip through the
-engine configuration; unrepresented settings are never silently discarded. v2
-provides no plane-exclusion workflow; every source plane is fitted.
+**Fit setup.** The inspector's Model page holds the working settings and is shown
+before the first fit. The **lineshape model** is a compact table, one row per
+spectral axis (chosen over stacked per-axis groups after prototypes at 1160, 1280
+and 1920 px, 17 November 2026): Axis · Family · J (Hz) · Fit J · Phase. Automatic
+reads with what it resolves to on that axis (“Auto · SP2”); a doublet's J range
+sits on a line under its row with × to remove it, and **+ J** adds one, existing
+once its J is entered. Invalid entries are explained under their axis and block
+Fit until corrected. Then statistical noise with its value (its method in the
+tooltip unless explicit); clustering threshold as a noise factor and as absolute
+intensity; optimizer passes (default two, cross-talk updates only between passes,
+as in the current GUI; CLI defaults are unaffected); the planes fitted; axis-wide
+and per-peak constraints in one line.
+**Optimizer limits** discloses solver, iteration limit and tolerance; an imported
+multi-step schedule replaces the pass field rather than competing with it. A
+setting that differs from the active run's is marked •. Per-peak starts, bounds,
+position windows and fixed/vary flags live in the Peak page's Parameters section,
+not in a dataset-wide table. Every committed setting change is one undoable edit,
+shared with peak edits, and marks an existing run Outdated. Supported settings
+round-trip through the engine configuration; unrepresented settings are never
+silently discarded. Manual noise, an explicit clustering level, axis-wide
+constraints and plane exclusion get their controls in W4.
 
-**Clustering preview.** The fit setup always prepares the exact fitting problem
+**Clustering preview.** The Model page always prepares the exact fitting problem
 off Qt, with the same preparation function that Fit submits, and reports cluster
 and sample counts and any omitted or ambiguous peaks with reasons. It depends only
 on working peaks, scientific settings and source data, never on display contour
@@ -569,11 +584,11 @@ recorded ones while it is Current, labeled “Recorded in run N”, and otherwis
 the current preparation's, labeled “Preview for current settings”.
 
 **Running.** **Fit** (toolbar, Cmd/Ctrl+Return) commits valid drafts and submits
-the prepared snapshot that the setup describes; the executed snapshot is the
+the prepared snapshot that the Model page describes; the executed snapshot is the
 reviewed one. Safeguards replace the confirmation dialog: the first Fit of an
-analysis whose setup has not been displayed in this session reveals the Analysis
-page instead of running, and the next Fit runs; Fit is disabled, with the reason
-in the setup, when an automatic lineshape conflicts with processing metadata,
+analysis whose Model page has not been displayed in this session reveals it
+instead of running, and the next Fit runs; Fit is disabled, with the reason
+on the Model page, when an automatic lineshape conflicts with processing metadata,
 when bounds are invalid, when statistical noise is not finite
 and positive, or when preparation reports newly omitted or ambiguous peaks. No peak
 is silently omitted. An automatic lineshape that falls back to the default model
@@ -583,12 +598,9 @@ statistical noise, starts, bounds or run readiness.
 
 **Discoverability after fitting.** The toolbar always shows a compact summary of
 the working settings (for example “SP2 × SP2 · clusters ≥ 5 σ · 2 passes”) that
-opens the Analysis page at the fit setup; the run summary beside it opens the
-Analysis page at the active run's review (also **Analysis ▸ Active run**). Before
-the first fit the setup leads the page; once a run exists, the review leads
-(active run, changes from the previous run, warning navigation, unexplained
-signal) and the setup follows it. When working settings differ from the active
-run's, both say so. Settings are never reachable only through a menu or a button
+opens the Model page; the run summary beside it opens the Run page (also
+**Analysis ▸ Active run**). When working settings differ from the active run's,
+the Model page marks each one and the run reads Outdated. Settings are never reachable only through a menu or a button
 chevron.
 
 During fitting, keep pan/zoom, plane navigation and read-only inspection available.
@@ -715,7 +727,8 @@ raster. No local-fit residual is presented as a total-model residual.
 
 There is no overall quality score, ranking formula or pass/fail verdict, in the UI
 or in exports. Review items belong to three families, kept visually and textually
-separate. Each item states its value, definition and source. Unavailable values say
+separate, and the correlated-profile flag, a limit of the error bars, stays apart
+from all three. Each item states its value, definition and source. Unavailable values say
 Unavailable with a reason, never zero; inapplicable items say so (for example a
 correlation for a one-peak cluster).
 
@@ -725,25 +738,29 @@ correlation for a one-peak cluster).
 | | Not converged | Usable non-converged classification with its termination message. |
 | | Uncertainty unreliable | The engine's recorded uncertainty warning. One message covers several causes today; recording them separately is a deferred storage decision (§14). |
 | | At bound | A varied recorded parameter within 10⁻⁶ of its range from a recorded bound; the parameter is named. |
+| | Amplitudes not identifiable · Ill-conditioned shapes · Near-collinear shapes | The engine's amplitude decomposition of the recorded fitted shapes (`amplitude_identifiability`) found members whose split the data do not determine; the members are named. The same classification withholds them from the amplitude profile. |
+| Error-bar limit (engine-computed, not a warning) | Correlated-profile flag ↔ | A member's errors are correlated across planes beyond the validated tolerance (`profile_correlations`, `correlated_profile`): independent per-plane error bars do not describe its profile's uncertainty. A limit of that approximation, not of the data. |
 | Review measure (descriptive number) | χ²ᵣ | Recorded statistic on corrected fitting samples; relative to the statistical-noise estimate, so it inherits that estimate's accuracy. An elevated value does not by itself mean a wrong assignment. |
 | | Largest recorded residual | Maximum \|normalized recorded residual\| in σ, shown with the sample count. Read it against that count: the largest of 10⁴ independent standard-normal values is typically about 4 σ. |
 | | Amplitude correlation | Largest \|ρ\| between members from the recorded amplitude covariance (one matrix per cluster, shared by all planes); the full matrix is on the cluster page. It is conditional on the fitted lineshape parameters. Unavailable when the recorded covariance is unavailable; not applicable for one-peak clusters. A small residual with \|ρ\| near 1 means the decomposition is not determined by the data. |
 | Heuristic (descriptive, adjustable threshold) | Linewidth outlier | Fitted linewidth relative to the run's median for that axis over usable peaks; default highlight outside 0.5–2×. |
 
 Numerical warnings appear as a warning glyph with text on every affected row and
-page; the toolbar summary counts only these. Measures are sortable navigator
+page; the toolbar summary counts only these. A cluster list row and a Profiles tile
+show one mark: ▲, else ↔, else ◇, with every item in the tooltip. Measures are sortable navigator
 columns. Optional highlight thresholds on measures and all heuristics use a
 subdued glyph labeled with the rule (“\|ρ\| ≥ 0.9”, “LW 0.43 × median”) and never
 the warning colour. Thresholds are application display preferences, shown with
 each highlight; changing them changes no scientific data or run state, and their
 definitions are versioned with this document. Thresholds are session-only; saving
 them with a project would be a storage decision (§14). A **Show** menu above the
-cluster list filters it: all clusters, “Any warning”, “Any highlight”, and each
-warning type and highlight rule present, each with its count; a menu rather than
-chips keeps every option and count legible in the narrow navigator. Warning
-navigation (**N**, or the analysis page's “Select next cluster with a warning”)
-moves in list order through the warned clusters the filter shows and never selects
-a hidden one; when the filter shows none it says so and keeps the selection. The
+cluster list filters it: all clusters, “Any warning”, “Any highlight”, each
+warning type and highlight rule present, and ↔ when present, each with its count; a menu rather than
+chips keeps every option and count legible in the narrow navigator. **N** /
+**Shift+N** move in list order through the clusters the Show choice lists; with all
+clusters shown they move through the warned ones, as does the Run page's
+“Select next cluster with a warning”. Navigation never selects a hidden row; when
+there is nothing to reach it says so and keeps the selection. The
 default sort is reduced χ², highest first; any column sorts with one click. Measures and
 highlights cannot prove the absence of structured residuals, so whole-spectrum
 residuals remain one key away.
@@ -754,7 +771,7 @@ three carry the uncertainty warning, those same three have amplitude correlation
 
 ### Unexplained signal
 
-**Signal not explained on this plane** is a read-only list on the Analysis page,
+**Signal not explained on this plane** is a read-only list on the Run page,
 computed on request from the whole-spectrum residual of the current plane: connected
 regions beyond +k or beyond −k σ_stat (default k = 5, a session display preference in
 Display), with location, extreme value, size in samples and distance to the nearest

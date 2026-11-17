@@ -15,6 +15,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.fitting import FailureStage
+from peakfit.gui.editor.inspector import Page
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.failures import (
@@ -25,6 +26,7 @@ from peakfit.gui.failures import (
     install_log,
     raise_child_failure,
 )
+from peakfit.gui.peaks import WorkingEdits
 from peakfit.gui.project_process import project_operation
 from peakfit.gui.spectrum import Dataset
 
@@ -129,8 +131,8 @@ def workspace(qapp, scientific):
     spectra, peaks, config, _ = scientific
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
-    widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.setup_seen = True
+    widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     qapp.processEvents()
@@ -223,7 +225,10 @@ def test_the_run_line_shows_a_failure_first_in_the_error_role(
 
 
 def _analysis_sections(panel):
-    layout = panel._analysis_layout
+    """The Run page's sections on show, in page order; empty while Model is shown."""
+    if panel.run_page.isHidden():
+        return []
+    layout = panel.run_page.layout()
     widgets = (layout.itemAt(i).widget() for i in range(layout.count()))
     return [w for w in widgets if w is not None and not w.isHidden()]
 
@@ -233,31 +238,39 @@ def _row_values(grid: QtWidgets.QGridLayout) -> dict[str, str]:
     for row in range(grid.rowCount()):
         label, value = (grid.itemAtPosition(row, c) for c in (0, 1))
         if label is not None and value is not None:
-            title, shown = label.widget(), value.widget()
+            title = label.widget()
+            # A value with an ⓘ shares its cell with the button: the label comes first.
+            cell = value.layout()
+            shown = value.widget() or (cell.itemAt(0).widget() if cell else None)  # ty: ignore[possibly-missing-attribute]
             assert isinstance(title, QtWidgets.QLabel)
             assert isinstance(shown, QtWidgets.QLabel)
             values[title.text()] = shown.text()
     return values
 
 
-def test_the_failure_is_the_first_section_of_the_analysis_page(workspace, scientific, monkeypatch):
+def test_the_failure_is_the_first_section_of_the_run_page(workspace, scientific, monkeypatch):
     panel = workspace.panel
-    assert panel.failure_block not in _analysis_sections(panel)
+    assert panel.run_page.failure_block not in _analysis_sections(panel)
+    assert not panel.run_tab.isEnabled()  # nothing to show on Run before an attempt
     _failed_fit(workspace, monkeypatch)
-    assert _analysis_sections(panel)[0] is panel.failure_block
-    rows = _row_values(panel.failure_rows)
+    # A failed first attempt brings the Run page forward, the failure leading it.
+    assert panel.page is Page.RUN
+    assert _analysis_sections(panel)[0] is panel.run_page.failure_block
+    rows = _row_values(panel.run_page.failure_rows)
     assert rows["Status"] == "▲ Failed · no result yet"
     assert rows["Stage"] == "Fitting"
     assert "Unexpected KeyError: 'runs'." in rows["Reason"]
 
     _publish(workspace, scientific[3])
-    assert panel.failure_block not in _analysis_sections(panel)
+    assert panel.run_page.failure_block not in _analysis_sections(panel)
     _failed_fit(workspace, monkeypatch)
     sections = _analysis_sections(panel)
-    assert sections[:2] == [panel.failure_block, panel.review_block]
-    assert _row_values(panel.failure_rows)["Status"] == "▲ Failed · previous result retained"
+    assert sections[:2] == [panel.run_page.failure_block, panel.run_page.run_block]
+    assert (
+        _row_values(panel.run_page.failure_rows)["Status"] == "▲ Failed · previous result retained"
+    )
     # The failure is no longer repeated among the active run's rows.
-    assert not any(label.startswith("Failed") for label in _row_values(panel.run_rows))
+    assert not any(label.startswith("Failed") for label in _row_values(panel.run_page.run_rows))
 
 
 @pytest.fixture
@@ -273,7 +286,7 @@ def test_copy_details_and_the_log_file_report_a_failure_without_a_terminal(
 ):
     _failed_fit(workspace, monkeypatch)
     panel = workspace.panel
-    assert _row_values(panel.failure_rows)["Log"] == str(log_file)
+    assert _row_values(panel.run_page.failure_rows)["Log"] == str(log_file)
     logged = log_file.read_text(encoding="utf-8")
     assert "Dataset fit failed" in logged
     assert "Traceback (most recent call last)" in logged
@@ -282,7 +295,7 @@ def test_copy_details_and_the_log_file_report_a_failure_without_a_terminal(
     assert "KeyError: 'runs'" in capsys.readouterr().err
 
     QtGui.QGuiApplication.clipboard().clear()
-    QtTest.QTest.mouseClick(panel.copy_details, QtCore.Qt.MouseButton.LeftButton)
+    QtTest.QTest.mouseClick(panel.run_page.copy_details, QtCore.Qt.MouseButton.LeftButton)
     copied = QtGui.QGuiApplication.clipboard().text()
     assert "Status: ▲ Failed · no result yet" in copied
     assert "Stage: Fitting" in copied

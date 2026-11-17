@@ -8,9 +8,13 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.review import (
+    CORRELATED_CHOICE,
+    CORRELATED_MARK,
+    CORRELATED_TITLE,
     HIGHLIGHT_KINDS,
     WARNING_KINDS,
     HighlightRules,
+    ReviewMark,
 )
 
 if TYPE_CHECKING:
@@ -118,7 +122,7 @@ class Navigator(QtWidgets.QWidget):
     focus_requested = QtCore.Signal(str)  # a member of the cluster to focus
     hovered = QtCore.Signal(object)
     edit_requested = QtCore.Signal()
-    next_warning = QtCore.Signal(bool)  # backward: Shift+N
+    step_requested = QtCore.Signal(bool)  # N, or Shift+N for backward
     order_changed = QtCore.Signal()  # cluster sort or filter changed
 
     def __init__(self, x_title: str, y_title: str) -> None:
@@ -241,7 +245,11 @@ class Navigator(QtWidgets.QWidget):
             self.tree.headerItem().setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
-        self.tree.headerItem().setToolTip(0, "▲ numerical warning · ◇ highlight")
+        self.tree.headerItem().setToolTip(
+            0,
+            f"▲ numerical warning · {CORRELATED_MARK} profile errors correlated across planes"
+            " · ◇ highlight",
+        )
         self.tree.headerItem().setToolTip(2, "Members fitted together")
         self.tree.headerItem().setToolTip(3, "Reduced χ² on corrected fitting samples")
         self.tree.headerItem().setToolTip(
@@ -279,9 +287,8 @@ class Navigator(QtWidgets.QWidget):
         if isinstance(delegate, PeakRowDelegate):
             delegate.secondary = QtGui.QColor(theme.secondary)
         for item in self._clusters.values():
-            item.setForeground(
-                0, QtGui.QBrush(self._warning if item.text(0) == "▲" else self._subdued)
-            )
+            warned = item.data(0, _ID).mark is ReviewMark.WARNING
+            item.setForeground(0, QtGui.QBrush(self._warning if warned else self._subdued))
         if self._hovered in self._items:
             self._items[self._hovered].setBackground(QtGui.QBrush(self._wash))
 
@@ -373,6 +380,10 @@ class Navigator(QtWidgets.QWidget):
                 count = sum(kind in found(r) for r in reviews)
                 if count:
                     options.append((f"   {self._kind_title(kind)} ({count})", (family, kind)))
+        # A limit of the error bars, not a warning: its own choice, when any cluster has it.
+        correlated = sum(bool(r.correlated) for r in reviews)
+        if correlated:
+            options.append((f"{CORRELATED_CHOICE} ({correlated})", ("correlated", None)))
         with QtCore.QSignalBlocker(self.filter):
             self.filter.clear()
             for text, data in options:
@@ -400,31 +411,46 @@ class Navigator(QtWidgets.QWidget):
             if item is None:
                 continue
             review = item.data(0, _ID)
-            if choice is None:
-                visible = True
-            else:
-                family, kind = choice
-                kinds = (
-                    [w.kind for w in review.warnings]
-                    if family == "warning"
-                    else [h.kind for h in review.highlights]
-                )
-                visible = bool(kinds) if kind is None else kind in kinds
-            item.setHidden(not visible)
-            shown += visible
+            item.setHidden(not self._chosen(review, choice))
+            shown += not item.isHidden()
         total = self.tree.topLevelItemCount()
         warned = sum(bool(r.warnings) for r in self._reviews)
         # The tab gives the total: count only a filter and any warnings.
         parts = [f"{shown} of {formatting.count(total, 'cluster')}"] if shown != total else []
         if warned:
-            parts.append(f"▲ {warned} · N: next ▲")
+            parts.append(f"▲ {warned}")
+        if choice is not None and shown:
+            parts.append("N: next")
+            tip = (
+                "N in the list selects the next cluster the Show choice lists, Shift+N the previous"
+            )
+        elif warned:
+            parts.append("N: next ▲")
+            tip = (
+                f"{formatting.count(warned, 'cluster')} with a numerical warning; N in the list "
+                "selects the next one, Shift+N the previous"
+            )
+        else:
+            tip = ""
         self.cluster_count.setText(" · ".join(parts))
         self.cluster_count.setVisible(bool(parts))
-        self.cluster_count.setToolTip(
-            f"{formatting.count(warned, 'cluster')} with a numerical warning; N in the list "
-            "selects the next one, Shift+N the previous"
-        )
+        self.cluster_count.setToolTip(tip)
         self.order_changed.emit()
+
+    @staticmethod
+    def _chosen(review: ClusterReview, choice) -> bool:
+        """Whether the Show choice (None, or a family and an optional kind) lists a cluster."""
+        if choice is None:
+            return True
+        family, kind = choice
+        if family == "correlated":
+            return bool(review.correlated)
+        kinds = (
+            [w.kind for w in review.warnings]
+            if family == "warning"
+            else [h.kind for h in review.highlights]
+        )
+        return bool(kinds) if kind is None else kind in kinds
 
     def shown_reviews(self) -> list[ClusterReview]:
         """The clusters the list shows, in its current sort order."""
@@ -442,12 +468,27 @@ class Navigator(QtWidgets.QWidget):
 
     def next_warned(self, selected: str | None, *, backward: bool = False) -> str | None:
         """First member of the next (or previous) shown cluster with a numerical warning."""
+        return self._next(selected, backward, lambda review: bool(review.warnings))
+
+    @property
+    def showing_all(self) -> bool:
+        """Whether the Show choice lists every cluster."""
+        return self.filter.currentData() is None
+
+    def next_marked(self, selected: str | None, *, backward: bool = False) -> str | None:
+        """What N reaches: any cluster a Show choice lists; with all shown, a warned one."""
+        if self.showing_all:
+            return self.next_warned(selected, backward=backward)
+        return self._next(selected, backward, lambda _review: True)
+
+    def _next(self, selected: str | None, backward: bool, wanted) -> str | None:
+        """First member of the next (or previous) shown cluster that ``wanted`` accepts."""
         rows = [
             item
             for index in range(self.tree.topLevelItemCount())
             if (item := self.tree.topLevelItem(index)) is not None
             and not item.isHidden()
-            and item.data(0, _ID).warnings
+            and wanted(item.data(0, _ID))
         ]
         if not rows:
             return None
@@ -460,12 +501,25 @@ class Navigator(QtWidgets.QWidget):
         item = _ClusterItem()
         names = review.names
         warned = bool(review.warnings)
-        item.setText(0, "▲" if warned else "◇" if review.highlights else "")
-        tips = [f"▲ {w.kind}" for w in review.warnings] + [f"◇ {h.rule}" for h in review.highlights]
+        mark = review.mark
+        item.setText(0, mark.value)
+        members = dict(zip(review.ids, names, strict=True))
+        correlated = (
+            [f"{CORRELATED_TITLE}: {', '.join(members[i] for i in review.correlated)}"]
+            if review.correlated
+            else []
+        )
+        tips = (
+            [f"▲ {w.kind}" for w in review.warnings]
+            + [f"{CORRELATED_MARK} {line}" for line in correlated]
+            + [f"◇ {h.rule}" for h in review.highlights]
+        )
         item.setToolTip(0, "\n".join(tips) or "No numerical warning or highlight")
-        spoken = [f"Numerical warning: {w.kind}" for w in review.warnings] + [
-            f"Highlight: {h.rule}" for h in review.highlights
-        ]
+        spoken = (
+            [f"Numerical warning: {w.kind}" for w in review.warnings]
+            + correlated
+            + [f"Highlight: {h.rule}" for h in review.highlights]
+        )
         item.setData(
             0,
             QtCore.Qt.ItemDataRole.AccessibleTextRole,
@@ -488,7 +542,7 @@ class Navigator(QtWidgets.QWidget):
             item.setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
-        item.setData(0, _SORT, f"{2 if warned else 1 if review.highlights else 0}")
+        item.setData(0, _SORT, str(mark.rank))
         item.setData(1, _SORT, " ".join(names))
         for column, value in ((2, float(len(names))), (3, chi2), (4, largest), (5, rho)):
             item.setData(column, _SORT, value if math.isfinite(value) else -1.0)
@@ -617,7 +671,7 @@ class Navigator(QtWidgets.QWidget):
         ):
             shift = event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier
             if event.key() == QtCore.Qt.Key.Key_N:
-                self.next_warning.emit(shift)
+                self.step_requested.emit(shift)
                 return True
             if shift:
                 return super().eventFilter(watched, event)

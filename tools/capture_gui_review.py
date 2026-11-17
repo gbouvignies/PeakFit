@@ -8,7 +8,7 @@ with ``QT_QPA_PLATFORM=offscreen``)::
 
 It opens the real window on the bundled ``02-advanced-fitting`` dataset through
 ``validate_gui_layout.Session`` and walks the review's states once, at 1280×800
-light unless a state says otherwise: the dialogs, the fit setup, a simulated
+light unless a state says otherwise: the dialogs, the Model page, a simulated
 failed first fit, the GUI's two-pass fit, the overview, the unexplained-signal
 list, the peak and cluster pages with every disclosure open, cluster focus in
 Overlay and Residual, Profiles, window sizes from 1160×720 to 1920×1080, the
@@ -196,8 +196,8 @@ class ReviewSession(Session):
         return size
 
     def setup_top(self) -> int | None:
-        """Where the fit setup starts on the analysis page, in inspector content px."""
-        block, body = self.w.panel.setup_block, self.w.panel.widget()
+        """Where the Model page's settings start, in inspector content px; None off it."""
+        block, body = self.w.panel.model_page, self.w.panel.widget()
         if not block.isVisible():
             return None
         return steady(lambda: block.mapTo(body, QtCore.QPoint(0, 0)).y())
@@ -205,7 +205,7 @@ class ReviewSession(Session):
     def noise_lines(self) -> list[int]:
         """Lines of each visible inspector label that contains the noise-check finding.
 
-        The Analysis page shows the finding as written; reports and explanations
+        The Run page's ⓘ holds the finding as written; reports and explanations
         quote it after a prefix, with its first letter lowercased, hence ``[1:]``.
         """
         result = self.w.fitting.result
@@ -226,35 +226,35 @@ def history_ready(dialog: QtWidgets.QWidget) -> bool:
 
 
 def before_fit(s: ReviewSession, record: dict[str, Any]) -> None:
-    """Dialogs, the fit setup and a failed first fit."""
+    """Dialogs, the Model page and a failed first fit."""
     win, w = s.window, s.w
     s.dialog("dialog-open-dataset", win.open_dialog)
     s.dialog("dialog-shortcuts", win.shortcuts)
-    w.show_fit_setup()
+    w.show_model_page()
     wait_until(lambda: w.fitting.prepared is not None, timeout=120)
     s.figure("fit-setup")
     record["dataset_size"] = {
         "peaks": len(w.peaks),
         "planes": int(w.dataset.spectra.data.shape[0]),
     }
-    record["preparation"] = w.panel.setup.preparation.text()
-    w.panel.setup.advanced_toggle.setChecked(True)
+    record["preparation"] = w.panel.model_page.preparation.text()
+    w.panel.model_page.limits_toggle.setChecked(True)
     s.page("page-fit-setup")
-    w.panel.setup.advanced_toggle.setChecked(False)
+    w.panel.model_page.limits_toggle.setChecked(False)
     record["display_dialog"] = s.dialog("dialog-display", w.display_dialog)
-    # A first fit that fails: nothing is retained, which the analysis page must say.
+    # A first fit that fails: nothing is retained, which the Run page must say.
     w.fitting._finished(0, RuntimeError(FAILURE))
-    w.show_analysis_page()
+    w.show_run_page()
     settle(300)
     record["failure"] = {"attempt": w.fitting.attempt, "run_line": s.run_line()}
-    w.show_fit_setup()
+    w.show_model_page()
 
 
 def after_fit(s: ReviewSession, record: dict[str, Any]) -> None:
     """Overview, unexplained signal, peak and cluster pages, focus and Profiles."""
     w = s.w
     w.show_view(profiles=False)
-    w.show_analysis_page()
+    w.show_run_page()
     settle(300)
     s.figure("overview")
     record["overview"] = {
@@ -274,8 +274,8 @@ def after_fit(s: ReviewSession, record: dict[str, Any]) -> None:
         "plane": canvas.plane + 1,
         "threshold": w.unexplained_threshold,
         "regions": len(regions),
-        "listed": sum(1 for text in layout_texts(w.panel.unexplained) if "σ ·" in text),
-        "title": w.panel.unexplained_title.text(),
+        "listed": sum(1 for text in layout_texts(w.panel.run_page.unexplained) if "σ ·" in text),
+        "title": w.panel.run_page.unexplained_title.text(),
         "strongest": {
             "extreme": round(strongest.extreme, 1),
             "ppm": {
@@ -343,7 +343,7 @@ def window_sizes(s: ReviewSession, record: dict[str, Any]) -> None:
     for size in SIZES:
         s.window.resize(*window_size(size))
         settle(600)
-        w.show_analysis_page()
+        w.show_run_page()
         if size == "1160x720":
             s.figure(f"overview-{size}")
         sizes.append(
@@ -374,11 +374,11 @@ def outdated_and_refit(s: ReviewSession, record: dict[str, Any]) -> None:
     s.figure("outdated-peak")
     record["outdated"] = {"peak": MOVED, "moved_ppm": MOVE_PPM, "run_line": s.run_line()}
     s.fit()
-    w.show_analysis_page()
+    w.show_run_page()
     settle(1500)
     record["refit"] = {
         "run_line": s.run_line(),
-        "changes": layout_texts(w.panel.changes),
+        "changes": layout_texts(w.panel.run_page.changes),
         "viewport_height": w.panel.viewport().height(),
         "setup_top": s.setup_top(),
         "page_height": s.page("page-analysis-refit"),
@@ -395,7 +395,7 @@ def run(output: Path) -> dict[str, Any]:
     settle(300)
     states: dict[str, Any] = {}
     before_fit(s, states)
-    s.w.show_fit_setup()
+    s.w.show_model_page()
     s.fit()
     after_fit(s, states)
     window_sizes(s, states)

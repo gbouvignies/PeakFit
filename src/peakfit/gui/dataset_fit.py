@@ -15,10 +15,12 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
+from peakfit.gui.run_diagnostics import member_diagnostics
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
+    from peakfit.engine.diagnostics.couplings import CouplingQualification
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.engine.scientific.final_outcome import (
         FinalClusterOutcome,
@@ -26,6 +28,7 @@ if TYPE_CHECKING:
         FinalParameter,
     )
     from peakfit.gui.fitting import PeakIdentity, PreparedDatasetFit
+    from peakfit.gui.run_diagnostics import MemberDiagnostics
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +53,7 @@ class RunIndex:
     by_engine: Mapping[str, PeakIdentity]
     cluster_of: Mapping[str, FinalClusterOutcome]  # keyed by engine name
     parameters: Mapping[str, FinalParameter]  # every recorded nonlinear parameter, by name
+    couplings: Mapping[str, CouplingQualification]  # every recorded J's qualification
 
     @classmethod
     def build(cls, result: DatasetFitResult) -> RunIndex:
@@ -61,6 +65,7 @@ class RunIndex:
             {i.engine_name: i for i in identities},
             {name: c for c in clusters for name in c.peak_names},
             {p.name: p for c in clusters for p in c.final_nonlinear_parameters},
+            result.completed_fit.couplings(),
         )
 
     def find(self, working_id: str) -> tuple[str, FinalClusterOutcome] | None:
@@ -107,6 +112,20 @@ class DatasetFitResult:
     def index(self) -> RunIndex:
         """Identities, clusters and fitted values, built once for every view to share."""
         return RunIndex.build(self)
+
+    @cached_property
+    def diagnostics(self) -> Mapping[int, MemberDiagnostics]:
+        """Each cluster's amplitude decomposition and correlated-profile flags, by ID.
+
+        About 0.3 s on the bundled example, so every worker that hands a run to Qt
+        reads it first (``warm``); views then only look it up.
+        """
+        return {c.cluster_id: member_diagnostics(c) for c in self.outcome.clusters}
+
+    def warm(self) -> DatasetFitResult:
+        """Compute what every view of this run shares; call it off the GUI thread."""
+        _ = self.index, self.diagnostics
+        return self
 
 
 def compute_dataset_fit(

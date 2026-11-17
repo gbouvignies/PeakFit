@@ -89,6 +89,17 @@ A J coupling too small against the linewidth, at the data's signal-to-noise
 ratio, for a first-order σ: σ(J)/J exceeds the reliability limit (0.1). Its σ
 and the cluster's profile σ are withheld.
 
+**Below linewidth**:
+The qualification of a fitted J smaller than its peak's fitted linewidth on the same
+axis: the components overlap at half height, so J and the linewidth are determined
+together. It comes with ρ(J, LW) and, where fitted, ρ(J, phase), unless σ(J) is
+withheld. A qualification of the value, not a numerical warning.
+
+**Peak footprint**:
+The points of each spectral axis that a peak's components can reach, marked when
+clustering so that its segment holds them: a singlet's centre point; a doublet's every
+point from cs − J_max/2 to cs + J_max/2, with J_max the J upper bound the fit uses.
+
 **Fitting parameter**:
 A named model quantity that may be fixed, constrained, varied, or computed
 during a fit.
@@ -181,8 +192,11 @@ models at every native point, divided by the statistical noise. It includes poin
 outside fitting samples and is used for display and to locate unexplained signal.
 
 **Numerical warning**:
-An objective, engine-recorded condition of a cluster outcome: unusable, not
-converged, unreliable uncertainty, or a varied parameter at a bound.
+An objective condition of a cluster outcome, recorded by the engine or derived by
+its diagnostics from recorded values: unusable, not converged, unreliable
+uncertainty, a varied parameter at a bound, or an amplitude split the fitted shapes
+do not determine (not identifiable, ill-conditioned or near-collinear shapes). The
+correlated-profile flag is not one: it is a limit of the error bars.
 
 **At bound**:
 The review warning for a varied parameter whose distance from its nearest bound is

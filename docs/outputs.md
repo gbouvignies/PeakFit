@@ -17,7 +17,10 @@ results/
   tables/shifts.csv                 # when chemical shifts are available
 ```
 
-The default formats are `csv` and `txt` (the short Markdown report). The archive
+The default formats are `csv` and `txt` (the short Markdown report). When the fit
+has doublets, the report's **J Couplings** section lists each J with its error,
+whether it is below its linewidth, and its recorded ρ(J, LW) and ρ(J, phase)
+([large J](validation/large-j.md)). The archive
 is mandatory. It contains small structured metadata and named typed NPY arrays
 in a deflate-level-1 ZIP, with `kind: peakfit_scientific_result` and
 `evidence: results`. No pickle or dense-array JSON is written by default.
@@ -29,7 +32,10 @@ Retain exactly:
 - Per usable cluster, the **covariance factors** (`analytical_evaluation.covariance_factors`,
   [profile-uncertainty §3.1](profile-uncertainty.md)): the tensors M E_m
   (`shape_gain`) and σ²M R P⊥ E_m H⁻¹ (`cross_gain`), each L × L × n_θ, and σ²C_θ
-  (`parameter_covariance`, n_θ × n_θ), or all three `null` where withheld. Their
+  (`parameter_covariance`, n_θ × n_θ), or all three `null` where withheld. θ is the
+  cluster's free nonlinear parameters (varied, not at an active bound) in the order its
+  shapes create them (`lineshape_order` of the recorded model geometry), not the
+  recorded parameters' sorted order. Their
   conditional block is the stored amplitude covariance, kept once. With the amplitudes
   they rebuild the amplitude covariance between any two planes
   (`covariance_between_planes`) without the spectrum or a refit.

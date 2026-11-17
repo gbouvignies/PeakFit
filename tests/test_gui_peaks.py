@@ -6,7 +6,7 @@ import nmrglue as ng
 import numpy as np
 import pytest
 
-from peakfit.gui.peaks import PeakEdits, WorkingPeak, export_peaks
+from peakfit.gui.peaks import WorkingEdits, WorkingPeak, export_peaks
 from peakfit.gui.spectrum import (
     contour_geometry,
     display_position,
@@ -21,7 +21,7 @@ DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" 
 def test_edit_history_keeps_identity_and_validates_atomically() -> None:
     peak = WorkingPeak.new("duplicate", (120.1234567890123, 8.23456789012345))
     other = WorkingPeak.new(peak.name, peak.positions)
-    edits = PeakEdits((peak, other))
+    edits = WorkingEdits((peak, other), None)
     with pytest.raises(ValueError, match="finite"):
         edits.update(peak.id, "renamed", (float("nan"), 8.0))
     assert edits.peaks == (peak, other)

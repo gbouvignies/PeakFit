@@ -119,7 +119,7 @@ def main() -> None:  # noqa: PLR0915
     w = window.workspace
     assert w is not None
     c = w.canvas
-    w.fitting.setup_seen = True
+    w.fitting.model_seen = True
     wait_until(lambda: w.fitting.prepared is not None, timeout=60)
     start = perf_counter()
     w.fitting.fit()

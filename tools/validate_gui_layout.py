@@ -39,7 +39,7 @@ APPEARANCES = ("Light", "Dark")
 PEAKS = ("158EN-H", "53N-H", "22N-H")
 CLUSTER = "22N-H"
 REFERENCE = (0,)  # the off-resonance reference plane of the CEST series
-PASSES = 2  # the default fit setup
+PASSES = 2  # the default model settings
 FAILURE = "Validation tool: simulated worker failure on a first fit"
 STALL = 300.0  # seconds one state may take before the watchdog ends the run
 FIT_STALL = 900.0  # the real two-pass fit of the whole dataset
@@ -264,15 +264,15 @@ class Session:
         arm_watchdog(self.stall)
 
     def before_fit(self, size: str, appearance: str) -> None:
-        """Loaded, unfitted: the inspector opens at the fit setup."""
-        self.w.show_fit_setup()
+        """Loaded, unfitted: the inspector opens at the Model page."""
+        self.w.show_model_page()
         self.capture("fit-setup", size, appearance, spectral=self.spectral())
 
     def failure(self, size: str, appearance: str) -> None:
-        """The Analysis page after a failed fit."""
-        self.w.show_analysis_page()
+        """The Run page after a failed fit."""
+        self.w.show_run_page()
         # Label and value texts of the failure rows, in reading order.
-        rows = self.w.panel.failure_rows
+        rows = self.w.panel.run_page.failure_rows
         items = (rows.itemAt(i) for i in range(rows.count()))
         shown = (item.widget() for item in items if item is not None)
         texts = [w.text() for w in shown if isinstance(w, QtWidgets.QLabel)]
@@ -286,7 +286,7 @@ class Session:
         """Overview, peak and cluster pages, cluster focus and Profiles after the fit."""
         w = self.w
         w.show_view(profiles=False)
-        w.show_analysis_page()
+        w.show_run_page()
         noise = noise_check_text(self.window)
         self.capture("overview", size, appearance, spectral=self.spectral(), noise_check=noise)
         if noise:
@@ -367,7 +367,7 @@ def run(output: Path, sizes, appearances, stall: float = STALL) -> list[dict[str
     # A first fit that fails: nothing is retained, which the failure state must say.
     session.w.fitting._finished(0, RuntimeError(FAILURE))
     session.each(sizes, appearances, session.failure)
-    session.w.show_fit_setup()
+    session.w.show_model_page()
     session.fit()
     session.each(sizes, appearances, session.fitted_states)
     walk = session.keyboard_walk()

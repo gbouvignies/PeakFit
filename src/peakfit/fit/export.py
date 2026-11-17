@@ -137,6 +137,7 @@ def write_completed_outputs(
             metadata=metadata,
             z_values=source_values,
             summary=RunSummary.from_outcome(completed.outcome),
+            couplings=completed.couplings(),
         )
     )
     if save_simulated:

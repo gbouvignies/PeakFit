@@ -266,9 +266,11 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.run_action = self._action(
             self.analysis_menu,
             "Active run",
-            lambda: self.workspace and self.workspace.show_analysis_page(),
+            lambda: self.workspace and self.workspace.show_run_page(),
         )
-        self.settings_action = self._action(self.analysis_menu, "Fit setup", self.fit_setup)
+        self.settings_action = self._action(
+            self.analysis_menu, "Model settings", self.model_settings
+        )
         self.fit_action.setEnabled(False)
         self.settings_action.setEnabled(False)
         self.run_action.setEnabled(False)
@@ -282,10 +284,10 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         if self.workspace and not self._busy:
             self.workspace.fitting.fit()
 
-    def fit_setup(self) -> None:
-        """Open the inspector at the fit setup."""
+    def model_settings(self) -> None:
+        """Open the inspector at the Model page."""
         if self.workspace:
-            self.workspace.show_fit_setup()
+            self.workspace.show_model_page()
 
     def export_fit_dialog(self) -> bool:
         """Export the retained scientific run using the canonical writers."""

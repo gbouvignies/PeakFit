@@ -9,8 +9,10 @@ from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import format_float
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
+    from peakfit.engine.diagnostics.couplings import CouplingQualification
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome, FinalFitOutcome
     from peakfit.engine.scientific.summary import RunSummary
 
@@ -23,8 +25,12 @@ def write_final_outcome_report(
     path: Path,
     summary: RunSummary,
     config: WriterConfig | None = None,
+    couplings: Mapping[str, CouplingQualification] | None = None,
 ) -> Path:
-    """Write a bounded report directly from immutable final outcomes."""
+    """Write a bounded report directly from immutable final outcomes.
+
+    ``couplings`` (``CompletedFit.couplings``) add a section on the fitted J values.
+    """
     cfg = config or WriterConfig()
     path.parent.mkdir(parents=True, exist_ok=True)
     summary_lines = [
@@ -99,9 +105,46 @@ def write_final_outcome_report(
     else:
         parameters.append("No usable final parameters to display.")
 
-    report = "\n\n".join(("\n".join(summary_lines), "\n".join(clusters), "\n".join(parameters)))
+    sections = [summary_lines, clusters, parameters]
+    if couplings:
+        sections.append(_coupling_section(outcome, couplings, cfg))
+    report = "\n\n".join("\n".join(section) for section in sections)
     path.write_text(report + "\n")
     return path
+
+
+def _coupling_section(
+    outcome: FinalFitOutcome,
+    couplings: Mapping[str, CouplingQualification],
+    config: WriterConfig,
+) -> list[str]:
+    parameters = {p.name: p for p in outcome.final_nonlinear_parameters}
+    rows = []
+    for name, qualification in couplings.items():
+        coupling = parameters[name]
+        rho = (qualification.linewidth_correlation, qualification.phase_correlation)
+        rows.append(
+            f"| {name} | {_format_final_value(coupling.value, config)} | "
+            f"{_format_final_value(coupling.standard_error, config)} | "
+            f"{'yes' if qualification.below_linewidth else 'no'} | "
+            + " | ".join(
+                "N/A" if value is None else _format_final_value(value, config) for value in rho
+            )
+            + " |"
+        )
+    return [
+        "## J Couplings",
+        "",
+        "Below LW: J is smaller than the fitted linewidth on its axis, so J and that "
+        "linewidth are determined together, not separately. ρ is first-order, from the "
+        "recorded lineshape covariance; N/A where it is withheld (with σ(J)) or the partner "
+        "is fixed or at a bound.",
+        "",
+        "| Parameter | J (Hz) | Error | Below LW | ρ(J, LW) | ρ(J, phase) |",
+        "| --- | ---: | ---: | --- | ---: | ---: |",
+        *rows[:_MAX_PARAMETER_ROWS],
+        *_omitted_note(len(rows), min(len(rows), _MAX_PARAMETER_ROWS), "couplings"),
+    ]
 
 
 def _cluster_row(cluster: FinalClusterOutcome) -> str:
