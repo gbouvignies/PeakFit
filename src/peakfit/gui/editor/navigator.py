@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.review import (
     HIGHLIGHT_KINDS,
@@ -26,6 +27,7 @@ class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
     """Draw one flat native list row with aligned coordinate columns."""
 
     secondary = QtGui.QColor(themes.LIGHT.secondary)  # coordinate text
+    heading_width = 0  # room the column headings need, so rows align with them
 
     def paint(self, painter, option, index) -> None:
         """Keep native focus/selection and expose full row text to accessibility."""
@@ -40,7 +42,7 @@ class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
         )
         name, x, y = text.rsplit("\t", 2)
         rect = styled.rect.adjusted(themes.SPACE_M, 0, -themes.SPACE_S, 0)
-        width = column_width(styled.fontMetrics)
+        width = max(column_width(styled.fontMetrics), self.heading_width)
         painter.save()
         painter.setFont(styled.font)
         painter.setPen(styled.palette.color(QtGui.QPalette.ColorRole.Text))
@@ -69,7 +71,32 @@ class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
 
 def column_width(metrics: QtGui.QFontMetrics) -> int:
     """Room for one coordinate column, shared by the rows and their headings."""
-    return max(64, metrics.horizontalAdvance("−123.1234") + themes.SPACE_S)
+    return max(64, metrics.horizontalAdvance("−123.123") + themes.SPACE_S)
+
+
+def coordinate_headings(
+    titles: tuple[str, str], delegate: PeakRowDelegate, rows: QtWidgets.QWidget
+) -> QtWidgets.QHBoxLayout:
+    """Assignment and coordinate headings, the columns wide enough for both rows and titles."""
+    headings = QtWidgets.QHBoxLayout()
+    headings.setContentsMargins(themes.SPACE_M, 0, themes.SPACE_S + 10, 0)
+    headings.setSpacing(0)
+    assignment = QtWidgets.QLabel("Assignment")
+    assignment.setObjectName("caption")
+    headings.addWidget(assignment, 1)
+    # The caption size comes from the stylesheet; measure the font it will use.
+    font = QtGui.QFont(rows.font())
+    font.setPixelSize(themes.type_scale().caption)
+    metrics = QtGui.QFontMetrics(font)
+    delegate.heading_width = max(metrics.horizontalAdvance(t) for t in titles) + themes.SPACE_S
+    width = max(column_width(rows.fontMetrics()), delegate.heading_width)
+    for title in titles:
+        heading = QtWidgets.QLabel(title)
+        heading.setObjectName("caption")
+        heading.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        heading.setFixedWidth(width)
+        headings.addWidget(heading)
+    return headings
 
 
 class _ClusterItem(QtWidgets.QTreeWidgetItem):
@@ -91,15 +118,15 @@ class Navigator(QtWidgets.QWidget):
     focus_requested = QtCore.Signal(str)  # a member of the cluster to focus
     hovered = QtCore.Signal(object)
     edit_requested = QtCore.Signal()
-    next_warning = QtCore.Signal()
+    next_warning = QtCore.Signal(bool)  # backward: Shift+N
     order_changed = QtCore.Signal()  # cluster sort or filter changed
 
-    def __init__(self, x_title: str, y_title: str, decimals: tuple[int, int] = (4, 3)) -> None:
+    def __init__(self, x_title: str, y_title: str) -> None:
+        """``x_title`` and ``y_title`` name the coordinate columns, with their unit."""
         super().__init__()
         self.setObjectName("navigator")
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setMinimumWidth(260)
-        self.decimals = decimals
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, themes.SPACE_S, 0, themes.SPACE_S)
         layout.setSpacing(themes.SPACE_S)
@@ -149,21 +176,10 @@ class Navigator(QtWidgets.QWidget):
         search_row.setContentsMargins(*inset)
         search_row.addWidget(self.search)
         layout.addLayout(search_row)
-        headings = QtWidgets.QHBoxLayout()
-        headings.setContentsMargins(themes.SPACE_M, 0, themes.SPACE_S + 10, 0)
-        headings.setSpacing(0)
-        assignment = QtWidgets.QLabel("Assignment")
-        assignment.setObjectName("caption")
-        headings.addWidget(assignment, 1)
-        for title in (x_title, y_title):
-            heading = QtWidgets.QLabel(title.split(" · ")[0] + " ppm")
-            heading.setObjectName("caption")
-            heading.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-            heading.setFixedWidth(column_width(heading.fontMetrics()))
-            headings.addWidget(heading)
-        layout.addLayout(headings)
         self.list = QtWidgets.QListWidget()
-        self.list.setItemDelegate(PeakRowDelegate(self.list))
+        delegate = PeakRowDelegate(self.list)
+        layout.addLayout(coordinate_headings((x_title, y_title), delegate, self.list))
+        self.list.setItemDelegate(delegate)
         self.list.setUniformItemSizes(True)
         self.list.setMouseTracking(True)
         self.list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -179,7 +195,7 @@ class Navigator(QtWidgets.QWidget):
         self.count.setObjectName("caption")
         self.count.setContentsMargins(*inset)
         layout.addWidget(self.count)
-        self.reveal = QtWidgets.QPushButton("Reveal selected peak in list")
+        self.reveal = themes.command("Reveal selected peak in list")
         self.reveal.clicked.connect(self._reveal)
         self.reveal.hide()
         layout.addWidget(self.reveal)
@@ -287,11 +303,11 @@ class Navigator(QtWidgets.QWidget):
                 elif self.list.row(item) != row:
                     self.list.takeItem(self.list.row(item))
                     self.list.insertItem(row, item)
-                dx, dy = self.decimals
-                item.setText(f"{peak.name}\t{peak.positions[1]:.{dx}f}\t{peak.positions[0]:.{dy}f}")
+                x, y = (formatting.ppm(peak.positions[i]) for i in (1, 0))
+                item.setText(f"{peak.name}\t{x}\t{y}")
                 item.setToolTip(
                     f"{peak.name}\nID {peak.id}\nUnfolded ppm: "
-                    f"{peak.positions[0]!r}, {peak.positions[1]!r}"
+                    f"{formatting.exact(peak.positions[0])}, {formatting.exact(peak.positions[1])}"
                 )
             if selected in self._items:
                 self.list.setCurrentItem(self._items[selected])
@@ -369,9 +385,10 @@ class Navigator(QtWidgets.QWidget):
         """Name a highlight by its rule, so the threshold is always visible."""
         rules = self.rules
         return {
-            "Amplitude correlation": f"|ρ| ≥ {rules.correlation:g}",
+            "Amplitude correlation": f"|ρ| ≥ {formatting.setting(rules.correlation)}",
             "Linewidth outlier": (
-                f"LW outside {rules.linewidth_low:g}–{rules.linewidth_high:g} × median"
+                f"LW outside {formatting.setting(rules.linewidth_low)}–"
+                f"{formatting.setting(rules.linewidth_high)} × median"
             ),
         }.get(kind, kind)
 
@@ -398,13 +415,14 @@ class Navigator(QtWidgets.QWidget):
         total = self.tree.topLevelItemCount()
         warned = sum(bool(r.warnings) for r in self._reviews)
         # The tab gives the total: count only a filter and any warnings.
-        parts = [f"{shown} of {total} clusters"] if shown != total else []
+        parts = [f"{shown} of {formatting.count(total, 'cluster')}"] if shown != total else []
         if warned:
             parts.append(f"▲ {warned} · N: next ▲")
         self.cluster_count.setText(" · ".join(parts))
         self.cluster_count.setVisible(bool(parts))
         self.cluster_count.setToolTip(
-            f"{warned} clusters with a numerical warning; N in the list selects the next one"
+            f"{formatting.count(warned, 'cluster')} with a numerical warning; N in the list "
+            "selects the next one, Shift+N the previous"
         )
         self.order_changed.emit()
 
@@ -422,8 +440,8 @@ class Navigator(QtWidgets.QWidget):
             return ""
         return self.filter.currentText().strip().rsplit(" (", 1)[0]
 
-    def next_warned(self, selected: str | None) -> str | None:
-        """First member of the next shown cluster with a numerical warning, in list order."""
+    def next_warned(self, selected: str | None, *, backward: bool = False) -> str | None:
+        """First member of the next (or previous) shown cluster with a numerical warning."""
         rows = [
             item
             for index in range(self.tree.topLevelItemCount())
@@ -433,8 +451,10 @@ class Navigator(QtWidgets.QWidget):
         ]
         if not rows:
             return None
-        current = next((i for i, row in enumerate(rows) if selected in row.data(2, _ID)), -1)
-        return rows[(current + 1) % len(rows)].data(1, _ID)
+        current = next((i for i, row in enumerate(rows) if selected in row.data(2, _ID)), None)
+        if current is None:
+            current = 0 if backward else -1
+        return rows[(current + (-1 if backward else 1)) % len(rows)].data(1, _ID)
 
     def _add_cluster(self, review: ClusterReview) -> None:
         item = _ClusterItem()
@@ -456,9 +476,12 @@ class Navigator(QtWidgets.QWidget):
         item.setToolTip(1, " · ".join(names))
         item.setText(2, str(len(names)))
         chi2, largest, rho = review.chi2, review.largest_residual, review.correlation
-        item.setText(3, f"{chi2:.2f}" if math.isfinite(chi2) else "–")
-        item.setText(4, f"{largest:.1f}" if math.isfinite(largest) else "–")
-        item.setText(5, "–" if review.single else f"{rho:.2f}" if math.isfinite(rho) else "n/a")
+        item.setText(3, formatting.chi2(chi2))
+        item.setText(4, formatting.sigma_multiple(largest))
+        item.setText(
+            5,
+            "–" if review.single else formatting.correlation(rho) if math.isfinite(rho) else "n/a",
+        )
         if not review.single and not math.isfinite(rho):
             item.setToolTip(5, "Amplitude covariance unavailable for this cluster")
         for column in (2, 3, 4, 5):
@@ -516,7 +539,11 @@ class Navigator(QtWidgets.QWidget):
         multiple = len(self.list.selectedItems())
         # Only a filter or a multiple selection has something to count; the tab
         # already gives the total.
-        parts = [f"{visible} of {len(self._items)} peaks"] if visible < len(self._items) else []
+        parts = (
+            [f"{visible} of {formatting.count(len(self._items), 'peak')}"]
+            if visible < len(self._items)
+            else []
+        )
         if multiple > 1:
             parts.append(f"{multiple} selected")
         self.count.setText(" · ".join(parts))
@@ -585,11 +612,15 @@ class Navigator(QtWidgets.QWidget):
         if (
             watched is getattr(self, "tree", None)  # filters run during construction
             and event.type() == QtCore.QEvent.Type.KeyPress
-            and not event.modifiers()
+            and event.modifiers()
+            in (QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.KeyboardModifier.ShiftModifier)
         ):
+            shift = event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier
             if event.key() == QtCore.Qt.Key.Key_N:
-                self.next_warning.emit()
+                self.next_warning.emit(shift)
                 return True
+            if shift:
+                return super().eventFilter(watched, event)
             if event.key() in (QtCore.Qt.Key.Key_Return, QtCore.Qt.Key.Key_Enter):
                 self._focus_cluster(self.tree.currentItem())
                 return True

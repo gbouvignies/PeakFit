@@ -1,16 +1,111 @@
 """A useful evidence workspace when external spectra cannot be verified."""
 
 import json
-from dataclasses import replace
+import math
+from dataclasses import dataclass, replace
 
 import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 
+from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.engine.scientific.completed import FinalClusterSamples
+from peakfit.gui import formatting
+from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
 from peakfit.gui.project_results import reconstruct_result
+
+
+def axis_names(analysis) -> tuple[str, str]:
+    """(vertical, horizontal) axis names in peak-position order; F-numbers without a source."""
+    if analysis.dataset is not None:
+        axes = analysis.dataset.spectra.spectral_params
+        return formatting.axis_name(axes[0]), formatting.axis_name(axes[1])
+    return get_dimension_label(0), get_dimension_label(1)
+
+
+def cell_text(value) -> str:
+    """A table cell: text as it is, numbers through the shared formatter."""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, int):
+        return formatting.grouped(value)
+    if isinstance(value, float):
+        return formatting.scaled(value)
+    return str(value)
+
+
+def _float(value) -> float:
+    """A recorded number, or NaN where a summary recorded none."""
+    return math.nan if value is None else float(value)
+
+
+def peak_rows(peaks) -> list[tuple]:
+    """Name, ID and the two positions in ppm, at ppm's fixed decimals.
+
+    ``peaks`` yields (name, ID, positions).
+    """
+    return [
+        (name, identity, *(Exact(formatting.ppm(_float(x)), _float(x)) for x in positions))
+        for name, identity, positions in peaks
+    ]
+
+
+def parameter_rows(parameters) -> list[tuple]:
+    """Name, value ± σ (one power of ten; "not assessed" without σ), unit and bounds.
+
+    ``parameters`` yields (name, value, unit, σ, lower, upper).
+    """
+    rows = []
+    for record in parameters:
+        name, unit = record[0], record[2]
+        value, sigma, low, high = (_float(record[i]) for i in (1, 3, 4, 5))
+        shown = formatting.fitted(value, sigma, unit)
+        rows.append(
+            (
+                name,
+                Exact(shown.value_text, value),
+                unit,
+                Exact(shown.sigma_text, sigma),
+                Exact(formatting.quantity(low, unit), low),
+                Exact(formatting.quantity(high, unit), high),
+            )
+        )
+    return rows
+
+
+def start_rows(parameters) -> list[tuple]:
+    """Name, start, unit, bounds and varied, at each unit's fixed decimals."""
+    return [
+        (
+            name,
+            *(Exact(formatting.quantity(_float(v), unit), _float(v)) for v in (value,)),
+            unit,
+            *(Exact(formatting.quantity(_float(b), unit), _float(b)) for b in (low, high)),
+            vary,
+        )
+        for name, value, unit, low, high, vary in parameters
+    ]
+
+
+def statistics_text(statistics) -> str:
+    """A cluster's recorded statistics as label = value, χ²ᵣ at its fixed decimals."""
+    return (
+        f"χ²ᵣ {formatting.chi2(statistics.reduced_chi_squared)} "
+        f"(χ² {formatting.scaled(statistics.chi_squared)}, "
+        f"{formatting.count(statistics.n_observations, 'observation')}, "
+        f"{formatting.count(statistics.n_fitted_parameters, 'fitted parameter')}, "
+        f"{formatting.grouped(statistics.degrees_of_freedom)} degrees of freedom)"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Exact:
+    """A cell's text as shown and the exact value its tooltip gives."""
+
+    text: str
+    value: float
 
 
 class NumericalReview(QtWidgets.QWidget):
@@ -45,7 +140,7 @@ class NumericalReview(QtWidgets.QWidget):
         explanation.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(explanation)
         actions = QtWidgets.QHBoxLayout()
-        self.relink = QtWidgets.QPushButton("Relink source…")
+        self.relink = themes.command("Relink source…")
         actions.addWidget(self.relink)
         details = QtWidgets.QToolButton()
         details.setText("Verification details")
@@ -69,22 +164,25 @@ class NumericalReview(QtWidgets.QWidget):
         layout.addWidget(failure)
         tabs = QtWidgets.QTabWidget()
         layout.addWidget(tabs, 1)
+        vertical, horizontal = axis_names(analysis)
         peaks = self.table(
-            ["Assignment", "Stable ID", "Indirect / ppm", "Direct / ppm"],
-            [(p.name, p.id, *p.positions) for p in analysis.peaks],
+            ["Assignment", "Stable ID", f"{vertical} (ppm)", f"{horizontal} (ppm)"],
+            peak_rows((p.name, p.id, p.positions) for p in analysis.peaks),
         )
         tabs.addTab(peaks, "Working peaks")
         self.run = QtWidgets.QComboBox()
         journal = {e["run_id"]: e for e in analysis.journal}
         for c in reversed(analysis.runs):
             identity = run_id(c)
-            date = journal.get(identity, {}).get("completed_at", "")
+            date = formatting.local_time(journal.get(identity, {}).get("completed_at", ""))
             self.run.addItem(f"{date} · {identity[:8]} · Full", c)
         full_ids = {run_id(c) for c in analysis.runs}
         for entry in reversed(analysis.journal):
             if entry["run_id"] not in full_ids:
                 self.run.addItem(
-                    f"{entry.get('completed_at', '')} · {entry['run_id'][:8]} · Summary only", entry
+                    f"{formatting.local_time(entry.get('completed_at', ''))} · "
+                    f"{entry['run_id'][:8]} · Summary only",
+                    entry,
                 )
         layout.insertWidget(3, self.run)
         self.keep = QtWidgets.QCheckBox("Keep full evidence")
@@ -97,7 +195,13 @@ class NumericalReview(QtWidgets.QWidget):
         )
         tabs.addTab(self.parameters, "Fitted parameters")
         self.initial = self.table(
-            ["Assignment", "Stable ID", "Initial indirect", "Initial direct"], []
+            [
+                "Assignment",
+                "Stable ID",
+                f"Initial {vertical} (ppm)",
+                f"Initial {horizontal} (ppm)",
+            ],
+            [],
         )
         tabs.addTab(self.initial, "Original starting peaks")
         self.starting_parameters = self.table(
@@ -109,7 +213,8 @@ class NumericalReview(QtWidgets.QWidget):
         self.peak = QtWidgets.QComboBox()
         self.profile = pg.PlotWidget()
         self.profile.setLabel("bottom", "Original source plane index")
-        self.profile.setLabel("left", "Signed fitted amplitude", units="a.u.")
+        # The unit in the text, not pyqtgraph's units: no SI prefix (Ga.u.) on the axis.
+        self.profile.setLabel("left", "Signed fitted amplitude (a.u.)")
         profile_layout.addWidget(self.peak)
         profile_layout.addWidget(self.profile)
         tabs.addTab(profiles, "Amplitude profiles")
@@ -124,22 +229,20 @@ class NumericalReview(QtWidgets.QWidget):
         row.addWidget(self.plane)
         row.addWidget(self.sample_note, 1)
         sample_layout.addLayout(row)
-        self.samples = self.table(
-            [
-                "Indirect index",
-                "Direct index",
-                "Observation",
-                "Terminal correction",
-                "Cluster model",
-                "Reconstructed residual",
-            ],
-            [],
-        )
+        self._sample_headers = [
+            f"{vertical} index",
+            f"{horizontal} index",
+            "Observation",
+            "Terminal correction",
+            "Cluster model",
+            "Reconstructed residual",
+        ]
+        self.samples = self.table(self._sample_headers, [])
         sample_layout.addWidget(self.samples)
         self.cluster.currentIndexChanged.connect(self.show_samples)
         self.plane.valueChanged.connect(self.show_samples)
         tabs.addTab(samples, "Fitting samples")
-        self.export = QtWidgets.QPushButton("Export retained run…")
+        self.export = themes.command("Export retained run…")
         bottom = QtWidgets.QHBoxLayout()
         bottom.addWidget(self.export)
         bottom.addStretch()
@@ -151,7 +254,7 @@ class NumericalReview(QtWidgets.QWidget):
 
     @staticmethod
     def table(headers, rows):
-        """Use native read-only tables with full precision and copyable cells."""
+        """Native read-only tables with copyable cells; full precision in each tooltip."""
         table = QtWidgets.QTableWidget(0, len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -159,13 +262,33 @@ class NumericalReview(QtWidgets.QWidget):
         return table
 
     @staticmethod
-    def populate(table, rows):
-        """Replace a compact numerical table."""
+    def populate(table, rows, headers=None):
+        """Replace a compact numerical table; full precision in each number's tooltip.
+
+        A float column of one order of magnitude shows its × 10ⁿ once, in the header
+        (``headers`` gives the plain titles).
+        """
+        columns = list(zip(*rows, strict=True)) if rows else []
+        texts: dict[int, list[str]] = {}
+        for index, values in enumerate(columns):
+            if all(isinstance(v, float) for v in values):
+                shared = formatting.column([float(v) for v in values])
+                texts[index] = [cell.value_text for cell in shared.cells]
+                if headers is not None:
+                    item = table.horizontalHeaderItem(index)
+                    if item is not None:
+                        item.setText(shared.header(headers[index]))
         table.setRowCount(len(rows))
         for row, values in enumerate(rows):
             for column, value in enumerate(values):
-                cell = QtWidgets.QTableWidgetItem(str(value))
-                cell.setToolTip(str(value))
+                if isinstance(value, Exact):
+                    text, tip = value.text, formatting.exact(value.value)
+                elif column in texts:
+                    text, tip = texts[column][row], formatting.exact(value)
+                else:
+                    text, tip = cell_text(value), str(value)
+                cell = QtWidgets.QTableWidgetItem(text)
+                cell.setToolTip(tip)
                 table.setItem(row, column, cell)
         table.resizeColumnsToContents()
         for column in range(table.columnCount()):
@@ -229,24 +352,24 @@ class NumericalReview(QtWidgets.QWidget):
             )
             self.populate(
                 self.parameters,
-                [
+                parameter_rows(
                     (p["name"], p["value"], p["unit"], p["standard_error"], p["min"], p["max"])
                     for p in (completion.get("parameters") or [])
-                ],
+                ),
             )
             self.populate(
                 self.initial,
-                [
-                    (p["name"], p["id"], *p["positions"])
+                peak_rows(
+                    (p["name"], p["id"], p["positions"])
                     for p in completion.get("initial_peaks", [])
-                ],
+                ),
             )
             self.populate(
                 self.starting_parameters,
-                [
+                start_rows(
                     (p["name"], p["value"], p["unit"], p["min"], p["max"], p["vary"])
                     for p in completion.get("initial_parameters", [])
-                ],
+                ),
             )
             self.peak.clear()
             self.profile.clear()
@@ -259,7 +382,10 @@ class NumericalReview(QtWidgets.QWidget):
         r = completion.result
         self.populate(
             self.starting_parameters,
-            [(p.name, p.value, p.unit, p.min, p.max, p.vary) for p in r.inputs.parameters.values()],
+            start_rows(
+                (p.name, p.value, p.unit, p.min, p.max, p.vary)
+                for p in r.inputs.parameters.values()
+            ),
         )
         self.plane.setRange(1, len(r.inputs.snapshot.plane_values))
         for c in r.outcome.clusters:
@@ -267,12 +393,14 @@ class NumericalReview(QtWidgets.QWidget):
         self.show_samples()
         self.populate(
             self.parameters,
-            [
+            parameter_rows(
                 (p.name, p.value, p.unit, p.standard_error, p.min, p.max)
                 for p in r.outcome.final_nonlinear_parameters
-            ],
+            ),
         )
-        self.populate(self.initial, [(p.name, p.id, *p.positions) for p in r.inputs.snapshot.peaks])
+        self.populate(
+            self.initial, peak_rows((p.name, p.id, p.positions) for p in r.inputs.snapshot.peaks)
+        )
         self.details.setPlainText(
             "\n".join(
                 [
@@ -289,8 +417,8 @@ class NumericalReview(QtWidgets.QWidget):
                         f"Cluster {c.cluster_id}: {c.classification.value}; "
                         f"{c.optimizer_provenance.termination_message}; "
                         f"{c.unusable_reason or ''}; "
-                        + str(
-                            c.analytical_evaluation.statistics
+                        + (
+                            statistics_text(c.analytical_evaluation.statistics)
                             if c.analytical_evaluation
                             else "No analytical evaluation"
                         )
@@ -380,6 +508,7 @@ class NumericalReview(QtWidgets.QWidget):
                 )
                 for i in range(count)
             ],
+            self._sample_headers,
         )
 
     def selected_run(self):

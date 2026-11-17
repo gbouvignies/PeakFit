@@ -4,6 +4,7 @@ import math
 import sys
 from collections import Counter
 from dataclasses import replace
+from functools import partial
 from threading import Event
 from typing import TYPE_CHECKING, cast
 
@@ -98,13 +99,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         # One cache of total-model planes for the spectral view and residual search.
         self.model_planes = ModelPlanes()
         self.canvas = SpectralView(dataset, self.model_planes)
-        decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
-            self.canvas.axis_title(self.canvas.x_axis),
-            self.canvas.axis_title(self.canvas.y_axis),
-            decimals,
+            formatting.axis_title(self.canvas.x_axis), formatting.axis_title(self.canvas.y_axis)
         )
-        self.panel = Inspector(self.canvas.x_axis, self.canvas.y_axis, decimals)
+        self.panel = Inspector(self.canvas.x_axis, self.canvas.y_axis)
         self.inspector = self.panel.editor
         self.canvas.resolve_edit = self.commit_fields
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
@@ -211,7 +209,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c, center=True))
         self.panel.unexplained_requested.connect(self.find_unexplained)
         self.panel.region_chosen.connect(self.frame_region)
-        self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
+        self.navigator.next_warning.connect(
+            lambda backward: self.fitting.next_warning(backward=backward)
+        )
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
         self.panel.setup.regions_toggled.connect(self.canvas.set_regions_visible)
@@ -290,10 +290,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         segment.setSpacing(0)
         self.mode_buttons = []
         for index, name in enumerate(("Experimental", "Overlay", "Residual")):
-            button = QtWidgets.QPushButton(name)
-            button.setObjectName("segment")
-            button.setProperty("edge", ("first", "", "last")[index])
-            button.setCheckable(True)
+            button = themes.segment(name, ("first", "", "last")[index])
             # One choice group (spec §5): a screen reader hears radio buttons.
             button.setAutoExclusive(True)
             button.setChecked(index == 0)
@@ -319,17 +316,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         # Comparison and canvas tools act on the spectrum only.
         self._spectrum_tools = (*self.mode_buttons, self.add_button, self.pin_button, full, display)
         bar.addSpacing(themes.SPACE_XS)
-        self.settings_button = QtWidgets.QPushButton()
-        self.settings_button.setObjectName("chip")
-        self.settings_button.setToolTip("Fit settings: lineshapes, clustering and passes")
+        self.settings_button = themes.command("", "Fit settings: lineshapes, clustering and passes")
         self.settings_button.clicked.connect(self.show_fit_setup)
         bar.addWidget(self.settings_button)
-        self.cancel_fit = QtWidgets.QPushButton("Cancel")
+        self.cancel_fit = themes.command("Cancel")
         self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
         bar.addWidget(self.cancel_fit)
-        self.fit_button = QtWidgets.QPushButton("Fit")
-        self.fit_button.setObjectName("primary")
-        self.fit_button.setToolTip("Fit the complete dataset (Ctrl+Return)")
+        self.fit_button = themes.primary("Fit", "Fit the complete dataset (Ctrl+Return)")
         self.fit_button.clicked.connect(lambda: self.fitting.fit())
         bar.addWidget(self.fit_button)
         self.inspector_button = self._tool("panel-right", "Inspector", checkable=True)
@@ -367,7 +360,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         caption.setObjectName("muted")
         count = QtWidgets.QLabel(f"of {n_planes}")
         count.setObjectName("muted")
-        self.plane_caption = QtWidgets.QLabel("Plane value")
+        self.plane_caption = QtWidgets.QLabel(formatting.plane_axis_name(values=True))
         self.plane_caption.setObjectName("muted")
         self.plane_label = QtWidgets.QLabel()
         self.plane_label.setObjectName("value")
@@ -405,16 +398,24 @@ class EditorWorkspace(QtWidgets.QWidget):
         except (ValueError, KeyError, AttributeError):
             shapes = config.fitting.lineshape
         level = config.clustering.contour_level
+        factor = formatting.setting(config.clustering.contour_factor)
         threshold, clustering = (
-            (f"{level:.3g}", f"clustering threshold {level:.6g} (explicit)")
+            (
+                formatting.scaled(level, 3),
+                f"clustering threshold {formatting.scaled(level, 6)} (explicit)",
+            )
             if level is not None
             else (
-                f"{config.clustering.contour_factor:g}σ",
-                f"clustering threshold {config.clustering.contour_factor:g} × noise",
+                f"{factor}σ",
+                f"clustering threshold {factor} × noise",
             )
         )
         steps = config.fitting.steps
-        passes = f"{len(steps)} steps" if steps else f"{config.fitting.refine_iterations} passes"
+        passes = (
+            formatting.count(len(steps), "step")
+            if steps
+            else formatting.count(config.fitting.refine_iterations, "pass", "passes")
+        )
         self._settings_text = f"{shapes} · {threshold} · {passes}"
         self._adapt_toolbar()
         self.settings_button.setToolTip(
@@ -457,7 +458,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 source = DEFAULT_SOURCE
             else:
                 source = "from apodization"
-            title = formatting.nucleus(axis.nucleus, axis.label)
+            title = formatting.axis_name(axis)
             rows.append((title, lineshape_text(name), source))
         return rows
 
@@ -488,7 +489,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.settings_button.setText(self._settings_text if wide else "Fit settings")
         count = self.warnings.property("count") or 0
         self.warnings.setText(
-            f"▲ {count} cluster{'s' if count != 1 else ''} with warnings" if wide else f"▲ {count}"
+            f"▲ {formatting.count(count, 'cluster')} with warnings" if wide else f"▲ {count}"
         )
 
     def resizeEvent(self, event) -> None:  # noqa: N802
@@ -509,15 +510,25 @@ class EditorWorkspace(QtWidgets.QWidget):
             mode = 0
         for index, button in enumerate(self.mode_buttons):
             button.setChecked(index == mode)
-        self._fit_lanes(mode)
+        self._fit_lanes()
         self.canvas.set_comparison(result, mode, label=comparison.label)
 
-    def _fit_lanes(self, mode: int) -> None:
-        """Lanes the mode would show give way when the window has no room; never enlarge it."""
+    def step_plane(self, offset: int) -> None:
+        """The previous (−1) or next (+1) plane in acquisition order."""
+        self.set_plane(self.canvas.plane + 1 + offset)  # set_plane counts from one
+
+    def _choose_mode(self, mode: int) -> None:
+        """E, O or R on the spectrum: the comparison button's choice, when it is enabled."""
+        if self.mode_buttons[mode].isEnabled():
+            self.set_mode(mode)
+
+    def _fit_lanes(self) -> None:
+        """Lanes give way when the window has no room; never enlarge it.
+
+        Every mode keeps the same lanes, so the check does not depend on the mode.
+        """
         c = self.canvas
-        fits = (
-            mode == _RESIDUAL or not c.sizes.lanes or self._room_for(c.sizes, bar=self.focus_open)
-        )
+        fits = not c.sizes.lanes or self._room_for(c.sizes, bar=self.focus_open)
         if not fits and c.lanes_fit:
             self.decline(
                 "Residual lanes are hidden to fit the window; widen it or hide a side panel "
@@ -725,7 +736,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.list.customContextMenuRequested.connect(
             lambda position: self._peak_menu(self.navigator.list.viewport().mapToGlobal(position))
         )
-        for key, callback in (("A", self.start_placing), ("Escape", self._escape)):
+        # Single keys act on the focused spectrum only, never in a text field.
+        for key, callback in (
+            ("A", self.start_placing),
+            ("Escape", self._escape),
+            ("E", partial(self._choose_mode, 0)),
+            ("O", partial(self._choose_mode, 1)),
+            ("R", partial(self._choose_mode, _RESIDUAL)),
+            ("[", partial(self.step_plane, -1)),
+            ("]", partial(self.step_plane, 1)),
+        ):
             shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.view)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
             shortcut.activated.connect(callback)
@@ -809,10 +829,14 @@ class EditorWorkspace(QtWidgets.QWidget):
             reviews = []
             if result is not None:
                 axes = list(self.dataset.spectra.spectral_params)
-                titles = [formatting.nucleus(a.nucleus, a.label) for a in axes]
+                titles = [formatting.axis_name(a) for a in axes]
                 reviews = review_clusters(result, axes, titles, self.rules)
             self._reviews = (key, reviews)
         return self._reviews[1]
+
+    def _axis_names(self) -> dict[str, str]:
+        """Each spectral axis's name (``¹⁵N F2``) by the engine's label (``F2``)."""
+        return formatting.axis_names(self.dataset.spectra.spectral_params)
 
     def _starting_values(self) -> tuple[list[StartRow] | None, str]:
         """The selected peak's parameters as the current preparation would submit them."""
@@ -824,10 +848,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             (i.engine_name for i in prepared.identities if i.working_id == self.selected_id), None
         )
         axes = {
-            get_dimension_label(index): (
-                formatting.nucleus(a.nucleus, a.label),
-                formatting.ppm_decimals(a),
-            )
+            get_dimension_label(index): formatting.axis_name(a)
             for index, a in enumerate(self.dataset.spectra.spectral_params)
         }
         rows: list[StartRow] = []
@@ -844,11 +865,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         for parameter in parameters:
             identifier = parameter.param_id
             assert identifier is not None
-            title, decimals = axes.get(identifier.axis or "", (identifier.axis or "", 4))
+            title = axes.get(identifier.axis or "", identifier.axis or "")
             kind = {"cs": "δ", "lw": "LW"}.get(identifier.label, identifier.label)
-            places = decimals if parameter.unit == "ppm" else 2
             start, low, high = (
-                formatting.number(v, places)
+                formatting.quantity(v, parameter.unit)
                 for v in (parameter.value, parameter.min, parameter.max)
             )
             rows.append((f"{kind} {title}", parameter.unit, start, low, high, parameter.vary))
@@ -869,7 +889,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         if isinstance(parent, str):
             return title, [("note", f"Run {parent_id[:8]} cannot be compared: {parent}.")]
         axes = list(self.dataset.spectra.spectral_params)
-        titles = [formatting.nucleus(a.nucleus, a.label) for a in axes]
+        titles = [formatting.axis_name(a) for a in axes]
         key = (result.run_id, parent_id, self.rules)
         if key != self._changes[0]:
             parent_reviews = review_clusters(parent, axes, titles, self.rules)
@@ -877,9 +897,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._changes = (key, changes)
         changes = self._changes[1]
         assert changes is not None
-        return title, _change_entries(
-            changes, dict(zip(titles, map(formatting.ppm_decimals, axes), strict=True))
-        )
+        return title, _change_entries(changes)
 
     def set_rules(self, rules: HighlightRules) -> None:
         """Change highlight thresholds; no scientific data or run state changes."""
@@ -929,9 +947,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         if self.selected_id is not None:
             self.panel.show_starts(*self._starting_values())
-        x, y = (
-            formatting.nucleus(a.nucleus, a.label) for a in (self.canvas.x_axis, self.canvas.y_axis)
-        )
+        x, y = (formatting.axis_name(a) for a in (self.canvas.x_axis, self.canvas.y_axis))
         planes = spectra.data.shape[0]
         flagged = 0
         rows: list[Row] = []
@@ -939,7 +955,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             rows.append(Row("Fit", fitting.stage))
         elif result is not None:
             flagged = self.warnings.property("count") or 0
-            rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
+            rows += _run_rows(
+                result, current=bool(fitting.current), warned=flagged, axes=self._axis_names()
+            )
         # With no run the rows stay empty: the toolbar already says Not fitted.
         self._show_failure()
         if fitting.recovery_error:
@@ -948,7 +966,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
         self.panel.show_analysis(
             self.dataset.path.stem,
-            f"{len(self.peaks)} peaks · {planes} planes · {x} × {y}",
+            f"{formatting.count(len(self.peaks), 'peak')} · "
+            f"{formatting.count(planes, 'plane')} · {x} × {y}",
             rows,
             fitted=result is not None,
             warned=bool(flagged),
@@ -1017,8 +1036,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         flagged = sum(bool(r.warnings) for r in self.reviews()) if not fitting.busy else 0
         self.warnings.setProperty("count", flagged)
         self.warnings.setToolTip(
-            f"{flagged} clusters with a numerical warning (unusable, not converged, "
-            "uncertainty unreliable or at bound); N in the cluster list moves between them"
+            f"{formatting.count(flagged, 'cluster')} with a numerical warning (unusable, "
+            "not converged, uncertainty unreliable or at bound); N and Shift+N in the "
+            "cluster list move between them"
         )
         self.warnings.setVisible(bool(flagged))
         self.profiles_button.setEnabled(fitting.result is not None)
@@ -1100,9 +1120,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         shown = self.navigator.shown_reviews()
         tiles = [built[r.cluster_id] for r in shown if r.cluster_id in built]
         count = (
-            f"{len(tiles)} of {len(built)} clusters · {chosen}"
+            f"{len(tiles)} of {formatting.count(len(built), 'cluster')} · {chosen}"
             if chosen
-            else f"{len(built)} clusters"
+            else formatting.count(len(built), "cluster")
         )
         historical = "" if self.fitting.current else f" · Run {result.run_id[:8]} · historical"
         self.profiles.set_tiles(
@@ -1147,7 +1167,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         result = fitting.result
         failed = fitting.failed
         if fitting.busy:
-            text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
+            text = f"{fitting.stage} · {formatting.seconds(fitting.elapsed)} · Navigation available"
         elif result is not None:
             # Currentness first: a narrow toolbar elides only the tail.
             clusters = result.outcome.clusters
@@ -1156,13 +1176,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             text = (
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
-                + _noise_check(result.outcome.noise_model)
+                + _noise_check(result.outcome.noise_model, self._axis_names())
                 + (fitting.attempt + " · " if fitting.attempt and not failed else "")
-                + (
-                    f"all {len(clusters)} clusters usable"
-                    if complete
-                    else dataset_summary(result, warnings=False)
-                )
+                + ("all clusters usable" if complete else dataset_summary(result, warnings=False))
             )
         else:
             text = "" if failed else fitting.attempt or "Not fitted"
@@ -1406,7 +1422,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.plane_label.setText(
             "Single plane"
             if count == 1
-            else formatting.intensity(float(self.dataset.spectra.z_values[plane - 1]))
+            else formatting.plane_value(float(self.dataset.spectra.z_values[plane - 1]))
             if values
             else ""
         )
@@ -1550,7 +1566,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _show_unexplained(self) -> None:
         """Fill the analysis page's list for the current plane, run and threshold."""
         fitting, plane = self.fitting, self.canvas.plane
-        k = formatting.number(self.unexplained_threshold, 1).removesuffix(".0")
+        k = formatting.setting(self.unexplained_threshold)
         note = f"Diagnostic only · residual beyond ±{k} σ_stat"
         self.panel.unexplained_note.setToolTip(
             f"Connected regions of the whole-spectrum residual beyond ±{k} σ_stat. It never "
@@ -1587,7 +1603,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         count = len(regions)
         title = (
             f"Plane {plane + 1} · "
-            + (f"{count} region{'s' if count != 1 else ''}" if count else "no region")
+            + (formatting.count(count, "region") if count else "no region")
             + f" beyond ±{k} σ_stat"
             + (f" · {comparison.label}" if comparison.historical else "")
         )
@@ -1601,15 +1617,16 @@ class EditorWorkspace(QtWidgets.QWidget):
             ]
         names = {peak.id: peak.name for peak in self.peaks}
         canvas = self.canvas
-        x, y = (formatting.nucleus(a.nucleus, a.label) for a in (canvas.x_axis, canvas.y_axis))
+        x, y = (formatting.axis_name(a) for a in (canvas.x_axis, canvas.y_axis))
         rows = []
         for region in regions[:_UNEXPLAINED_ROWS]:
             location = (
-                f"{x} {formatting.number(float(canvas.ppm_x[region.column]), canvas.decimals_x)}"
-                f" · {y} {formatting.number(float(canvas.ppm_y[region.row]), canvas.decimals_y)}"
+                f"{x} {formatting.ppm(float(canvas.ppm_x[region.column]))}"
+                f" · {y} {formatting.ppm(float(canvas.ppm_y[region.row]))}"
             )
             nearest = (
-                f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
+                f" · {formatting.number(region.distance, 1)} pts from "
+                f"{names.get(region.nearest, '')}"
                 + (f" {NOT_IN_MODEL}" if region.nearest in comparison.added else "")
                 if region.nearest is not None
                 else ""
@@ -1617,12 +1634,12 @@ class EditorWorkspace(QtWidgets.QWidget):
             rows.append(
                 (
                     location,
-                    f"{region.extreme:+.1f} σ · {region.size} sample"
-                    f"{'s' if region.size != 1 else ''}{nearest}",
+                    f"{formatting.sigma_multiple(region.extreme, signed=True)} σ · "
+                    f"{formatting.count(region.size, 'sample')}{nearest}",
                 )
             )
         if count > _UNEXPLAINED_ROWS:
-            rows.append(("", f"… and {count - _UNEXPLAINED_ROWS} more"))
+            rows.append(("", f"… and {formatting.grouped(count - _UNEXPLAINED_ROWS)} more"))
         self.panel.show_unexplained(button, False, title, rows, note)
 
     def frame_region(self, index: int) -> None:
@@ -2043,14 +2060,15 @@ class IntensityField(QtWidgets.QDoubleSpinBox):
         return state, text, pos
 
 
-def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
+def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> list[Row]:
     """The active run as label rows: identity, completeness, then when it ran."""
     clusters = result.outcome.clusters
     total = len(clusters)
     usable = sum(cluster.usable for cluster in clusters)
     converged = sum(cluster.optimizer_provenance.converged for cluster in clusters)
     model = "Complete" if usable == total else "Incomplete" if usable else "No usable model"
-    stamp = result.completed_at[:19]
+    stamp = formatting.local_time(result.completed_at)
+    took = formatting.seconds(result.execution_seconds)
     rows: list[Row] = [
         Row(
             "Run",
@@ -2063,15 +2081,15 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
         # Non-breaking spaces: the line wraps only at the dot.
         Row(
             "Fitted",
-            f"{stamp[:16].replace('T', NBSP)}{NBSP}UTC · {result.execution_seconds:.1f}{NBSP}s",
-            tip=f"Completed {stamp.replace('T', ' ')} UTC in {result.execution_seconds:.1f} s",
+            f"{stamp.replace(' ', NBSP)} · {took}",
+            tip=f"Completed {stamp} (local time) in {took}",
         ),
     ]
     if warned:
         rows.append(
             Row(
                 "Warnings",
-                f"▲ {warned} clusters",
+                f"▲ {formatting.count(warned, 'cluster')}",
                 style="warning",
                 tip="Clusters with numerical warnings",
             )
@@ -2082,7 +2100,8 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
         rows.append(
             Row(
                 "Noise check",
-                f"▲ {', '.join(noise.power_mismatch)} · errors may be miscalibrated",
+                f"▲ {', '.join(axes.get(a, a) for a in noise.power_mismatch)} · "
+                "errors may be miscalibrated",
                 style="warning",
                 detail=noise.power_finding,
             )
@@ -2090,9 +2109,9 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
     return rows
 
 
-def _noise_check(model: NoiseModel) -> str:
+def _noise_check(model: NoiseModel, names: dict[str, str]) -> str:
     """The run line's flag for a noise-power mismatch, naming the axes; the tooltip explains."""
-    axes = model.power_mismatch
+    axes = [names.get(axis, axis) for axis in model.power_mismatch]
     return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 
 
@@ -2113,12 +2132,11 @@ def _measures(change: ClusterChange) -> str:
         return f"Measures not compared: {change.not_compared}"
     before, after = change.measures
 
-    def rho(value: float) -> str:
-        return f"{value:.2f}" if math.isfinite(value) else "–"
-
+    rho = formatting.correlation
+    largest = formatting.sigma_multiple
     parts = [
-        f"χ²ᵣ {before.chi2:.2f} → {after.chi2:.2f}",
-        f"|r|max {before.largest_residual:.1f} → {after.largest_residual:.1f} σ",
+        f"χ²ᵣ {formatting.chi2(before.chi2)} → {formatting.chi2(after.chi2)}",
+        f"|r|max {largest(before.largest_residual)} → {largest(after.largest_residual)} σ",
     ]
     if math.isfinite(before.correlation) or math.isfinite(after.correlation):
         parts.append(f"|ρ| {rho(before.correlation)} → {rho(after.correlation)}")
@@ -2156,7 +2174,7 @@ def _before_after(before: int, after: int) -> str:
     return f"{after}, unchanged" if before == after else f"{before} → {after}"
 
 
-def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:
+def _change_entries(changes: RunChanges) -> list[tuple]:
     """Compact page entries: changed clusters first, then the whole run, then positions.
 
     Entries are ("row", label, value, tooltip), ("heading", text[, tooltip]),
@@ -2195,20 +2213,16 @@ def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple
             "Clusters with engine warnings",
         ),
     ]
-    moves = [
-        (move, formatting.number(round(move.delta, places) + 0.0, places))
-        for move in changes.displacements
-        for places in (decimals.get(move.axis, 4) + 1,)
-    ]
+    moves = [(move, formatting.ppm(move.delta)) for move in changes.displacements]
     # Differences that round to zero at display precision are not listed one by one.
-    moves = [(move, delta) for move, delta in moves if float(delta.replace("−", "-")) != 0]
+    moves = [(move, delta) for move, delta in moves if formatting.parse_scaled(delta) != 0]
     if moves:
         entries.append(("heading", "Largest position differences", POSITIONS_TIP))
         entries += [
             (
                 "link",
                 move.name,
-                f"δ {move.axis} {delta} ppm · {move.linewidths:.2f} LW",
+                f"δ {move.axis} {delta} ppm · {formatting.number(move.linewidths, 2)} LW",
                 move.working_id,
                 False,
             )
@@ -2218,6 +2232,10 @@ def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple
         entries.append(("row", "Positions", "unchanged at display precision", POSITIONS_TIP))
     if changes.uncompared:
         entries.append(
-            ("note", f"{changes.uncompared} peaks not compared: unusable in either run.")
+            (
+                "note",
+                f"{formatting.count(changes.uncompared, 'peak')} not compared: "
+                "unusable in either run.",
+            )
         )
     return entries

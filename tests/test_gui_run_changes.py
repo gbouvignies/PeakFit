@@ -10,6 +10,7 @@ from builders import two_cluster_dataset
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.changes import compare_runs
 from peakfit.gui.editor.review import ClusterReview, Highlight, NumericalWarning, review_clusters
@@ -118,7 +119,7 @@ def test_warning_on_the_same_members_is_reported_neutrally(run):
     changes = _compare(spectra, result, result, active, parent)
     (change,) = changes.changes
     assert change.regrouped_from == ()
-    entries = _change_entries(changes, {})
+    entries = _change_entries(changes)
     detail = next(e[2] for e in entries if e[0] == "link" and e[1] == "A +1")
     assert detail.splitlines()[0] == "▲ Uncertainty unreliable no longer reported"
     assert "resolved" not in detail
@@ -132,7 +133,7 @@ def test_regrouped_clusters_show_before_and_now_without_claiming_a_resolution(ru
     (change,) = changes.changes
     assert change.regrouped_from == ("A", "B")
     assert changes.regrouped == 1
-    detail = next(e[2] for e in _change_entries(changes, {}) if e[0] == "link")
+    detail = next(e[2] for e in _change_entries(changes) if e[0] == "link")
     assert detail == "Regrouped from A, B\nBefore regrouping ▲ Uncertainty unreliable"
     assert "no longer reported" not in detail
 
@@ -144,7 +145,7 @@ def test_fit_and_clustering_summary(run):
     changes = _compare(spectra, result, result, active, parent)
     assert changes.clusters == (3, 2)
     assert changes.warned == (0, 1)
-    entries = _change_entries(changes, {})
+    entries = _change_entries(changes)
     rows = [(e[1], e[2]) for e in entries if e[0] == "row"]
     # No run-level χ²ᵣ: a median over clusters with different samples is not comparable.
     assert rows == [("Clusters", "3 → 2 · 1 regrouped"), ("With ▲ warnings", "0 → 1")]
@@ -156,7 +157,7 @@ def test_fit_and_clustering_summary(run):
 def test_unchanged_counts_and_positions_are_said_once(run):
     spectra, result = run
     changes = _compare(spectra, result, result)
-    entries = _change_entries(changes, {})
+    entries = _change_entries(changes)
     rows = {e[1]: e[2] for e in entries if e[0] == "row"}
     assert rows["With ▲ warnings"] == "0, unchanged"
     assert rows["Clusters"].endswith(", unchanged")
@@ -228,8 +229,7 @@ def test_measures_are_compared_only_with_one_definition(run):
     detail = next(
         e[2]
         for e in _change_entries(
-            _compare(spectra, result, result, _real(spectra, result), _real(spectra, result, True)),
-            {},
+            _compare(spectra, result, result, _real(spectra, result), _real(spectra, result, True))
         )
         if e[0] == "link"
     )
@@ -245,7 +245,9 @@ def test_measures_are_compared_only_with_one_definition(run):
     n = len(next(s for s in samples if s.cluster_id == review.cluster_id).grid_indices[0])
     change = _first_change(spectra, result, resampled)
     assert change.measures is None
-    assert change.not_compared == f"fitting samples changed ({n:,} → {n + 1:,} per plane)"
+    assert change.not_compared == (
+        f"fitting samples changed ({formatting.grouped(n)} → {formatting.grouped(n + 1)} per plane)"
+    )
     noisier = replace(
         result,
         completed_fit=replace(
@@ -297,7 +299,7 @@ def test_new_warnings_lead_and_are_drawn_as_warnings(run):
     ]
     changes = _compare(spectra, result, result, active, parent)
     assert [c.names for c in changes.changes] == [("C",), ("A",), ("B",)]
-    links = [e for e in _change_entries(changes, {}) if e[0] == "link"]
+    links = [e for e in _change_entries(changes) if e[0] == "link"]
     assert [e[5] for e in links] == [True, False, False]
 
 
@@ -322,7 +324,7 @@ def test_a_cluster_of_only_new_peaks_is_listed_as_new_with_its_warnings(run):
     assert (new.measures, new.not_compared) == (None, "")
     assert lost.names == ("A",)
     assert changes.regrouped == 0
-    links = [e for e in _change_entries(changes, {}) if e[0] == "link"]
+    links = [e for e in _change_entries(changes) if e[0] == "link"]
     assert links[0][1:3] == ("Z", "New cluster: Z\n▲ Not converged reported")
     assert links[0][5]  # drawn as a warning
     assert "Regrouped" not in links[0][2]
@@ -369,7 +371,7 @@ def test_the_degenerate_refit_leads_with_new_warnings_and_compares_nothing_it_ca
     assert {"▲ Near-collinear shapes", "▲ Uncertainty unreliable"} <= set(first.gained)
     assert first.measures is None
     assert first.not_compared == "fitting samples changed (67 → 68 per plane)"
-    entries = _change_entries(changes, dict.fromkeys(titles, 4))
+    entries = _change_entries(changes)
     link = next(e for e in entries if e[0] == "link")
     assert link[5]  # drawn as a warning
     assert link[2].splitlines()[:2] == [

@@ -7,6 +7,8 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
+from peakfit.gui import formatting
+
 _SPECTRAL_DIMENSIONS = 2
 
 
@@ -148,7 +150,7 @@ def export_peaks(path: Path, peaks: tuple[WorkingPeak, ...]) -> None:
             writer = csv.writer(stream)
             writer.writerow(["name", "F1_ppm", "F2_ppm"])
             for peak in peaks:
-                writer.writerow([peak.name, *(repr(p) for p in peak.positions)])
+                writer.writerow([peak.name, *(formatting.exact(p) for p in peak.positions)])
         temporary.replace(path)
     finally:
         if temporary is not None:

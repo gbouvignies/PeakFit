@@ -551,10 +551,10 @@ class DatasetFitting(QtCore.QObject):
         w.set_mode(1 if usable else 0)
         self.state_changed.emit()
 
-    def next_warning(self) -> None:
-        """Move to the next warned cluster the navigator shows, never a hidden one."""
+    def next_warning(self, *, backward: bool = False) -> None:
+        """Move to the next (or previous) warned cluster the navigator shows, never a hidden one."""
         w = self.workspace
-        target = w.navigator.next_warned(w.selected_id)
+        target = w.navigator.next_warned(w.selected_id, backward=backward)
         if target is not None:
             w.select_peak(target, cluster=True, center=True)
         elif any(r.warnings for r in w.reviews()):

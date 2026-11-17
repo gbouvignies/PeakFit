@@ -129,10 +129,21 @@ class ElidedLabel(QtWidgets.QLabel):
         return QtCore.QSize(0, super().minimumSizeHint().height())
 
     def displayed_text(self) -> str:
-        """Return the text as painted at the current width."""
-        return self.fontMetrics().elidedText(
-            self.text(), QtCore.Qt.TextElideMode.ElideRight, self.contentsRect().width()
-        )
+        """Return the text as painted at the current width.
+
+        Text of " · "-separated phrases drops whole trailing phrases, marked "…", so a
+        word is never cut; a first phrase that does not fit is elided.
+        """
+        metrics, width = self.fontMetrics(), self.contentsRect().width()
+        text = self.text()
+        if metrics.horizontalAdvance(text) <= width:
+            return text
+        phrases = text.split(" · ")
+        for count in range(len(phrases) - 1, 0, -1):
+            shown = " · ".join([*phrases[:count], "…"])
+            if metrics.horizontalAdvance(shown) <= width:
+                return shown
+        return metrics.elidedText(text, QtCore.Qt.TextElideMode.ElideRight, width)
 
     def paintEvent(self, _event) -> None:  # noqa: N802
         """Draw elided text with the label's own palette and style-sheet colors."""

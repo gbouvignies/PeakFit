@@ -245,11 +245,11 @@ def test_one_reference_choice_serves_the_inspector_and_the_tiles(workspace, scie
     w.panel.profile.set_reference((0,))
     assert w.profiles.reference == (0,)
     assert w.profiles.normalized
-    assert w.profiles.mode.text() == "÷ plane 1"
+    assert w.profiles.mode.text() == "÷ plane 1 ▾"
     w.profiles.quantity_changed.emit((0,), False)
     assert not w.panel.profile.normalized
     assert w.panel.profile.reference == (0,)
-    assert w.profiles.mode.text() == "Raw amplitudes"
+    assert w.profiles.mode.text() == "Raw amplitudes ▾"
 
 
 def test_exporting_writes_every_shown_tile_to_a_pdf(workspace, scientific, tmp_path):
