@@ -231,15 +231,50 @@ class Spectra(BaseModel):
             )
         return dims
 
-    def exclude_planes(self, exclude_list: Sequence[int] | None) -> None:
-        """Remove planes (first axis) listed in exclude_list from the data."""
-        if exclude_list is None:
-            return
-        mask = ~np.isin(range(self.data.shape[0]), exclude_list)
-        self.data, self.z_values = self.data[mask], self.z_values[mask]
-        self.source_plane_indices = tuple(
-            i for i, keep in zip(self.source_plane_indices, mask, strict=True) if keep
+    def excluding_planes(self, excluded: Sequence[int]) -> Spectra:
+        """The planes a fit uses: this spectrum without the explicitly ``excluded`` planes.
+
+        ``excluded`` holds zero-based indices of this spectrum's planes. The returned
+        spectrum keeps each remaining plane's ``source_plane_indices`` entry, so its
+        columns stay identified; this spectrum is unchanged. With nothing excluded it is
+        returned itself.
+        """
+        indices = fitted_plane_indices(self.data.shape[0], excluded)
+        if len(indices) == self.data.shape[0]:
+            return self
+        return self.model_copy(
+            update={
+                "data": self.data[list(indices)],
+                "z_values": self.z_values[list(indices)],
+                "source_plane_indices": tuple(self.source_plane_indices[i] for i in indices),
+            }
         )
+
+
+def fitted_plane_indices(n_planes: int, excluded: Sequence[int]) -> tuple[int, ...]:
+    """Zero-based indices of the planes a fit uses: every plane not explicitly excluded.
+
+    This is the one check of an exclusion against a spectrum. Raises ``ValueError``
+    for an index outside the ``n_planes`` planes, or an exclusion that leaves no
+    plane to fit.
+    """
+    left_out = set(excluded)
+    outside = sorted(i for i in left_out if not 0 <= i < n_planes)
+    if outside:
+        msg = (
+            f"Cannot exclude plane {format_planes(outside)}: the spectrum has "
+            f"{n_planes} plane{'s' if n_planes != 1 else ''}, numbered 0 to {n_planes - 1}."
+        )
+        raise ValueError(msg)
+    included = tuple(i for i in range(n_planes) if i not in left_out)
+    if not included:
+        raise ValueError("Every plane is excluded; at least one plane must be fitted.")
+    return included
+
+
+def format_planes(planes: Sequence[int]) -> str:
+    """Zero-based plane indices as user-facing text: ``1, 4``."""
+    return ", ".join(str(i) for i in planes)
 
 
 def determine_shape_name(dim_params: SpectralParameters) -> str:
@@ -330,6 +365,8 @@ __all__ = [
     "Spectrum",
     "axis_lineshapes",
     "determine_shape_name",
+    "fitted_plane_indices",
+    "format_planes",
     "get_dimension_label",
     "model_details",
 ]

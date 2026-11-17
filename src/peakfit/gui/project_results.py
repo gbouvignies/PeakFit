@@ -7,7 +7,7 @@ import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.spectrum import axis_lineshapes
+from peakfit.engine.domain.spectrum import axis_lineshapes, fitted_plane_indices
 from peakfit.engine.scientific.completed import CompletedFit
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.export import model_records
@@ -46,6 +46,11 @@ def restore_result(run, outcome, retained_samples):
         tuple(tuple(s) for s in raw["source_files"]),
         tuple(raw["source_plane_indices"]),
     )
+    excluded = outcome.excluded_planes
+    if snapshot.source_plane_indices != fitted_plane_indices(
+        len(snapshot.source_plane_indices) + len(excluded), excluded
+    ):
+        raise ValueError("Run planes must be every plane of the spectrum but the excluded ones.")
     config = stored_config(snapshot.configuration)
     snapshot = replace(snapshot, configuration=config.model_dump_json())
     model, clusters = restore_geometry(

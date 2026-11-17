@@ -49,7 +49,7 @@ def validate_inputs(spectrum_path: Path, peaklist_path: Path) -> ValidationResul
 def _validate_spectrum(spectrum_path: Path, result: ValidationResult) -> None:
     """Validate spectrum file and update result."""
     try:
-        read_spectra(spectrum_path, None, None)
+        read_spectra(spectrum_path)
     except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
         result.errors.append(f"Failed to read spectrum: {e}")
 

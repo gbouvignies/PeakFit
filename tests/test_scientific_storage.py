@@ -6,7 +6,7 @@ from zipfile import ZipFile
 
 import numpy as np
 import pytest
-from builders import completed_result, two_cluster_dataset, write_as_cli
+from builders import completed_result, write_as_cli
 
 from peakfit.engine.algorithms.covariance_factors import (
     CovarianceFactors,
@@ -17,10 +17,7 @@ from peakfit.engine.algorithms.noise_correlation import (
     AxisProcessing,
     NoiseModel,
     NoisePowerStatus,
-    not_modelled,
 )
-from peakfit.fit.pipeline import run_pipeline
-from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io import scientific as storage
 from peakfit.io.output_metadata import RunMetadata
@@ -216,37 +213,6 @@ def test_reader_limits_before_allocation(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "MAX_ARRAY_BYTES", 10)
     with pytest.raises(ValueError, match="Expanded scientific arrays"):
         storage.read_scientific(path)
-
-
-def test_repeated_plane_values_retain_source_columns_after_exclusion(tmp_path):
-    from peakfit.gui.fitting import prepare_dataset_fit  # noqa: PLC0415
-
-    spectra, peaks, config, _prepared = two_cluster_dataset()
-    spectra.exclude_planes([1])
-    assert spectra.source_plane_indices == (0, 2)
-    prepared = prepare_dataset_fit(spectra, peaks, config)
-    pipeline = run_pipeline(
-        config,
-        prepared.clusters,
-        prepared.noise,
-        prepared.parameters,
-        noise_model=not_modelled("synthetic spectrum"),
-    )
-    gui = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
-    path = export_fit_result(gui, tmp_path / "selected")
-    _, samples, context = storage.read_scientific(path / "scientific.npz")
-    assert context["plane_values"].tolist() == [2.0, 2.0]
-    assert context["source_plane_indices"].tolist() == [0, 2]
-    assert all(s.neighbor_corrections.shape[1] == 2 for s in samples)
-    import csv  # noqa: PLC0415
-
-    with (path / "tables/intensities.csv").open() as stream:
-        rows = list(csv.DictReader(stream))
-    assert [int(r["plane_index"]) for r in rows[:2]] == [0, 1]
-    assert [int(r["source_plane_index"]) for r in rows[:2]] == [0, 2]
-    assert [float(r["z_value"]) for r in rows[:2]] == [2.0, 2.0]
-    spectra.exclude_planes([0])
-    assert spectra.source_plane_indices == (2,)
 
 
 def test_arbitrary_provenance_tags_and_endian_array_bits(tmp_path):

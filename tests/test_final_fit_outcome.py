@@ -159,6 +159,7 @@ def _completion_fixture(
             n_optimizer_passes=3,
             n_correction_updates=2,
             noise_model=not_modelled("synthetic spectrum"),
+            excluded_planes=(),
         ),
         clusters=tuple(clusters),
     )

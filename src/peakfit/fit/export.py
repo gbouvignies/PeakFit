@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.domain.spectrum import fitted_plane_indices
 from peakfit.engine.scientific.coordinates import coordinate_table
 from peakfit.engine.scientific.simulation import simulate_final_outcome
 from peakfit.engine.scientific.summary import RunSummary
@@ -55,7 +56,6 @@ def write_completed_outputs(
     data_shape,
     spectral_parameters,
     plane_values,
-    source_plane_indices,
     peak_identities=None,
     save_simulated=False,
     detailed_evidence=False,
@@ -70,7 +70,22 @@ def write_completed_outputs(
     Detailed observations or a verified source support native parent continuation,
     without claiming chain/RNG resumption. Consumers dispatch on kind/schema_version;
     future analyses can define their own kind without changing fit semantics.
+
+    ``data_shape`` and ``plane_values`` describe the measured spectrum, every plane
+    included. The fitted planes follow from the outcome's excluded planes: the
+    archive's ``data_shape``, ``plane_values`` and ``source_plane_indices`` describe
+    them, column for column with the amplitudes, and ``source_plane_values`` keeps
+    every plane's value.
     """
+    source_shape = tuple(data_shape)
+    source_values = np.asarray(plane_values)
+    if source_values.shape != source_shape[:1]:
+        raise ValueError("Plane values must give one value per plane of the spectrum.")
+    fitted = np.asarray(
+        fitted_plane_indices(source_shape[0], completed.outcome.excluded_planes), dtype=np.int64
+    )
+    fitted_shape = (len(fitted), *source_shape[1:])
+    fitted_values = source_values[fitted]
     identities = (
         peak_identities
         if peak_identities is not None
@@ -82,10 +97,10 @@ def write_completed_outputs(
     )
     context = {
         "metadata": asdict(metadata),
-        "data_shape": tuple(data_shape),
+        "data_shape": fitted_shape,
         "spectral_parameters": spectral_parameters,
-        "plane_values": np.asarray(plane_values),
-        "source_plane_indices": np.asarray(source_plane_indices, dtype=np.int64),
+        "plane_values": fitted_values,
+        "source_plane_indices": fitted,
         "peak_identities": identities,
         "coordinate_table": coordinate_table(
             completed,
@@ -103,6 +118,7 @@ def write_completed_outputs(
             "adoption_warnings": (),
         },
         "models": model_records(completed.model_snapshot),
+        "source_plane_values": source_values,
     }
     files = {
         "scientific_result": write_scientific(
@@ -119,15 +135,15 @@ def write_completed_outputs(
             output_dir,
             config,
             metadata=metadata,
-            z_values=np.asarray(plane_values),
-            source_plane_indices=np.asarray(source_plane_indices),
+            z_values=source_values,
             summary=RunSummary.from_outcome(completed.outcome),
         )
     )
     if save_simulated:
         # Only shape is consulted by simulation; a broadcast scalar avoids a
         # redundant full spectrum allocation and works during numerical review.
-        shape_only = np.broadcast_to(np.array(0.0), tuple(data_shape))
+        # The fitted planes only: an excluded plane has no amplitude to predict from.
+        shape_only = np.broadcast_to(np.array(0.0), fitted_shape)
         simulated = simulate_final_outcome(completed.outcome, completed.model_snapshot, shape_only)
         if simulated is not None:
             path = output_dir / "simulated.npy"

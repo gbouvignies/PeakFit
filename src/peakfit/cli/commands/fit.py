@@ -14,7 +14,7 @@ from peakfit.cli.commands.fit_setup import (
 )
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.config import DOUBLET_RANGE, OLD_DOUBLET, PHASED_FAMILIES
-from peakfit.engine.domain.spectrum import model_details
+from peakfit.engine.domain.spectrum import format_planes, model_details
 from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED, FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
@@ -136,7 +136,12 @@ def fit_command(
     ] = None,
     exclude: Annotated[
         list[int] | None,
-        typer.Option("--exclude", "-e", help="Exclude plane indices"),
+        typer.Option(
+            "--exclude",
+            "-e",
+            help="Leave a plane out of the fit (zero-based index; repeat for more). "
+            "It stays in the outputs, with no amplitude.",
+        ),
     ] = None,
     formats: Annotated[
         list[str] | None,
@@ -316,6 +321,11 @@ def _show_headless_command_summary(
                     "Spectrum": display_path(spectrum),
                     "Peak list": display_path(peaklist),
                     "Plane values": display_path(z_values) if z_values is not None else "None",
+                    **(
+                        {"Excluded planes": format_planes(fit_config.exclude_planes)}
+                        if fit_config.exclude_planes
+                        else {}
+                    ),
                 },
             ),
             (

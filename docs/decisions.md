@@ -1542,3 +1542,34 @@ Short records of non‑obvious design choices and trade‑offs.
 - **No numerical change.** Singlet fits of the bundled example (auto, each family,
   phase on one or both axes) and the old all-axes doublets reproduce the base
   commit's scientific digests exactly; the doublet-J record reruns byte for byte.
+
+## 2026-11-17: Plane exclusion is a fit-time choice, recorded with the fit (#213)
+- **The data keep every plane.** `read_spectra` no longer deletes excluded planes.
+  `load_data` fits `Spectra.excluding_planes(config.exclude_planes)`, a copy without
+  them, so the fit, its noise estimate, noise-power check and clusters see exactly
+  what a spectrum with those planes removed would show. On the bundled example the
+  two fits are bit-identical ([validation](validation/plane-exclusion.md)).
+- **The noise is estimated from the fitted planes only.** That is the scientifically
+  equivalent choice: a dataset without those planes could not see them. On the
+  example, excluding planes 0, 40, 41 and 130 moves the estimate by 6 × 10⁻⁵
+  relative; a corrupted excluded plane would move it far more. Clustering likewise
+  uses the fitted planes.
+- **Excluded planes have no fitted amplitude** (the plan's default). The outcome
+  records `excluded_planes`; its amplitude columns stay the fitted planes, so no
+  consumer of amplitudes or covariance factors meets a placeholder. NaN columns for
+  excluded planes were rejected: profiles, ratios, the duplicate-plane check and
+  MCMC would each have to mask them.
+- **Marked, not dropped.** `intensities.csv` keeps every plane's row; an excluded
+  one has `plane_excluded = yes` and empty intensity and error cells, distinct
+  from `unavailable` (a value the fit has but withholds). The archive adds
+  `source_plane_values`, and its reader requires the fitted planes to be exactly
+  the spectrum's planes minus the excluded ones; a project reopen checks the same.
+- **Never automatic.** Only `exclude_planes` or `--exclude` excludes a plane; the
+  desktop fit still refuses exclusion until its controls exist (W4). An index
+  outside the spectrum, or excluding every plane, is now an error instead of being
+  ignored.
+- **Breaking, without a version bump.** Archive 12.0.0, fit JSON 9.0.0 and project
+  15.0.0 are unreleased, so they are amended in place (one bump per release,
+  `docs/outputs.md`). An archive or project written before the amendment lacks
+  `excluded_planes` and is refused as written by a development build, to be refit.
+  A refused archive of another version names the PeakFit version that wrote it.

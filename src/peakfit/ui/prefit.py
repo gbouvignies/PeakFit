@@ -4,6 +4,7 @@ import multiprocessing
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from peakfit.engine.domain.spectrum import format_planes
 from peakfit.ui.branding import show_command_summary
 
 if TYPE_CHECKING:
@@ -116,6 +117,11 @@ def show_prefit_check(
                 "Input Files",
                 {
                     "Spectrum": f"{spectrum_path.name} ({n_series} spectra, {shape_type})",
+                    **(
+                        {"Excluded planes": format_planes(config.exclude_planes)}
+                        if config.exclude_planes
+                        else {}
+                    ),
                     "Peak list": peaklist_label,
                     "Noise": f"{noise_val:.2e} ({_format_noise_source(noise_source)})",
                     # The fit's errors depend on it; headless runs print it as a line.

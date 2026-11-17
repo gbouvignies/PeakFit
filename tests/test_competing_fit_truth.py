@@ -216,6 +216,7 @@ def _final_outcome_for_json(
             ),
             n_optimizer_passes=1,
             noise_model=not_modelled("synthetic spectrum"),
+            excluded_planes=(),
         )
     )
     return outcome, fit.spectra, results
@@ -288,6 +289,7 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
         ),
         n_optimizer_passes=1,
         noise_model=not_modelled("synthetic spectrum"),
+        excluded_planes=(),
     )
     outcome = finalize_fit(pipeline_result)
     assert pipeline_result.correction_snapshot is not None

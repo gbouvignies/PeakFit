@@ -233,7 +233,6 @@ def write_as_cli(result, spectra, config, directory, metadata):
         data_shape=spectra.data.shape,
         spectral_parameters=[axis.model_dump() for axis in spectra.params],
         plane_values=spectra.z_values,
-        source_plane_indices=spectra.source_plane_indices,
         peak_identities=[
             {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
             for i in result.inputs.identities

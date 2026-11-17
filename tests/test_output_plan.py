@@ -84,6 +84,7 @@ def _outcome() -> FinalFitOutcome:
         n_optimizer_passes=1,
         n_correction_updates=0,
         overall_converged=True,
+        excluded_planes=(),
         statistics=FinalFitStatistics(
             chi_squared=10.0,
             reduced_chi_squared=10.0,

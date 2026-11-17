@@ -25,6 +25,22 @@ Notable user-facing and architecture changes are recorded here.
       imported TOML are kept and shown.
     - **Results:** singlet and all-axes doublet fits are bit-identical.
 
+### Changed
+
+- Excluded planes (`exclude_planes`, `peakfit fit --exclude`) stay in the data and
+  the outputs. The fit, its noise estimate and its clusters use only the other
+  planes, exactly as if the excluded ones had been removed from the spectrum.
+    - `intensities.csv` keeps a row for every plane: an excluded plane's row is
+      marked `plane_excluded = yes` and has no intensity or error. The archive
+      (`excluded_planes`, `source_plane_values`), the fit JSON and the report
+      record the excluded set.
+    - An index outside the spectrum's planes, or excluding every plane, is now an
+      error instead of being ignored.
+    - **Breaking:** the unreleased scientific archive 12.0.0, fit JSON 9.0.0 and
+      analysis project 15.0.0 formats were amended in place to record excluded
+      planes. Files that development builds wrote before are refused; refit them.
+
+
 ### Fixed
 
 - Doublet lineshapes now fit J by its derivative. Before, every doublet lineshape

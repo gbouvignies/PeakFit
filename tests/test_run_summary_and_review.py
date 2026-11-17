@@ -37,6 +37,7 @@ def _outcome(
         overall_converged=all(
             cluster.classification is FitOutcomeClassification.CONVERGED for cluster in clusters
         ),
+        excluded_planes=(),
         statistics=FinalFitStatistics(
             chi_squared=0.0,
             reduced_chi_squared=0.0,

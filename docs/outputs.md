@@ -44,7 +44,8 @@ Retain exactly:
 - Model/calibration/processing descriptors and a small sampled-shape reference
   against which a reconstructed evaluator is checked.
 - Stable peak IDs, assignments, initial/fitted/adopted coordinate distinctions,
-  exact source-plane identities, ordered experimental values and exclusions.
+  exact source-plane identities, ordered experimental values and excluded planes
+  (see [Excluded planes](#excluded-planes)).
 
 Large observations, sampled models and both residual representations are absent
 from default exports; the largest recorded residual is the only residual summary
@@ -117,7 +118,8 @@ observations. All arrays read from archives are read-only.
 ## Other outputs and interface parity
 
 Full-grid `simulated.npy` stays opt-in via `[output].save_simulated = true` in both
-interfaces. It is float64, with shape/calibration/plane mappings in `scientific.npz`;
+interfaces. It is float64, with shape/calibration/plane mappings in `scientific.npz`,
+and covers the fitted planes only (`source_plane_indices`);
 it adds about **146.49 MB** for this dataset and contains predictions, not data.
 Explicit `--format json` remains available for older interoperability workflows;
 it contains large numerical lists and can add about 77.71 MB. It is never the
@@ -206,15 +208,40 @@ API call without that state explicitly reports `unknown`; CLI reports
 recorded completion transition, never later working edits, and never mutates the
 outcome. Only this explicit state differs when re-exporting Current versus Outdated.
 
-## Plane identity in standalone CSV
+## Excluded planes
 
-`intensities.csv` now contains both `plane_index` (zero-based retained fitting
-column) and `source_plane_index` (zero-based original spectrum plane). These are
-identities; `z_value` is the experimental value and may repeat. For example,
-excluding source plane 1 from values `[2, 0, 2]` produces retained indices `[0, 1]`,
-source indices `[0, 2]` and values `[2, 2]`. Both interfaces pass the actual source
-mapping through the shared writer. Low-level projection calls omitting a mapping
-assume the unexcluded identity mapping. This is an additive CSV column change.
+Only an explicit setting excludes a plane: `exclude_planes` in the configuration,
+or `peakfit fit --exclude`, by zero-based plane index. The desktop fit uses every
+plane. An index outside the spectrum, or excluding every plane, is an error.
+
+The fit leaves an excluded plane out: its noise estimate, noise-power check,
+clusters and amplitudes use only the other planes, exactly as a fit of the
+spectrum with those planes removed (equal to within 10⁻¹² relative, bit for bit on
+the bundled example: [validation](validation/plane-exclusion.md)). The measured data
+keep every plane, and every output says which planes were excluded:
+
+- **Archive.** `outcome.excluded_planes` lists them, ascending. Each cluster's
+  amplitude columns are the remaining planes, in order: `context.source_plane_indices`
+  maps a column to its plane, and `context.plane_values` and `context.data_shape`
+  describe the fitted planes. `context.source_plane_values` holds every plane's
+  value. The reader refuses an archive whose fitted planes are not exactly the
+  spectrum's planes minus the excluded ones.
+- **Detailed evidence and continuation** hold and verify the fitted planes only.
+- **`intensities.csv`** has one row per peak and plane of the spectrum.
+  `source_plane_index` is the zero-based plane and `z_value` its value, which may
+  repeat. `plane_index` is the amplitude column in the archive. An excluded plane's
+  row has `plane_excluded = yes` and leaves the intensity, its three errors and
+  `plane_index` empty: the fit has no amplitude there. Peak- and cluster-level
+  columns are filled as on the other rows.
+- **Fit JSON** lists `excluded_planes`; `z_axis.values` holds every plane's value.
+- **Report** gives the excluded planes; so do the CLI's fit summaries.
+
+For example, excluding plane 1 of values `[2, 0, 2]` fits planes 0 and 2, with
+amplitude columns 0 and 1 and values `[2, 2]`; `intensities.csv` has three rows per
+peak, the second marked excluded.
+
+## Other table columns
+
 `reduced_chi_squared`, beside `intensity_err`, is the cluster's normalized residual
 diagnostic; it does not scale the error (see below). `noise_correlation`, in
 `intensities.csv` and `parameters.csv`, is "modelled" when the errors account for
@@ -487,13 +514,19 @@ introduced it is released, a format may still be amended in place; files written
 by development builds of that version can then become unreadable, and are refit.
 
 - Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
-  read. Earlier versions are rejected with "Unsupported scientific result
-  version", "Unsupported fit JSON schema version" or "Unsupported analysis
-  version". Per-axis lineshape models ([ADR 0004](adr/0004-per-axis-lineshape-models.md))
-  amended these unreleased formats in place: archives and projects that development
-  builds wrote before them record `[fitting] lineshape` and `fit_phase`, and are
-  refused with "written by a PeakFit development build before per-axis lineshape
-  models … refit". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
+  read. A refused archive's message also names the PeakFit version that wrote it,
+  which can still open it. Earlier versions are rejected with "Unsupported
+  scientific result version", "Unsupported fit JSON schema version" or "Unsupported
+  analysis version".
+- These unreleased formats were amended in place twice; files that development
+  builds wrote before an amendment are refused and refit:
+    - Per-axis lineshape models ([ADR 0004](adr/0004-per-axis-lineshape-models.md)):
+      archives and projects that record `[fitting] lineshape` and `fit_phase` are
+      refused with "written by a PeakFit development build before per-axis
+      lineshape models … refit".
+    - Excluded planes: an archive or project without `excluded_planes` is refused
+      with "written by a development build of PeakFit".
+- Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
   only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
   `fit_j_coupling`, `[parameters].from_file`, `[fitting].optimizer_seed`) or run metadata (`git_commit`,
   `completion_warnings`) that no longer exist. To
