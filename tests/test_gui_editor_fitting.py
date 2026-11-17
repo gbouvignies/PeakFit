@@ -43,7 +43,6 @@ from peakfit.gui.editor.profile import (
     PeakProfile,
     ProfilePlot,
     framed_range,
-    parse_planes,
     peak_profile,
 )
 from peakfit.gui.editor.spectral_geometry import MAIN_MIN
@@ -1314,12 +1313,12 @@ def test_the_loaded_screen_says_each_thing_once(workspace):
     assert all("\n" not in row.family.currentText() for row in setup.axes.rows)
     assert all(row.family.toolTip() for row in setup.axes.rows)
     assert "e+" not in setup.noise.text() + setup.level.text()
-    # Only an explicit noise level is worth a caption; the estimate is the default.
-    explicit = bool(fitting.configuration.noise_level)
-    assert setup.noise_source.isHidden() is not explicit
-    assert setup.noise.toolTip() == (
-        "Explicit value from the fit settings" if explicit else "Estimated from all planes"
-    )
+    # The noise source is the choice beside it; a manual value replaces the estimate.
+    manual = fitting.configuration.noise_level is not None
+    assert setup.noise_mode.currentData() == ("manual" if manual else "estimated")
+    assert setup.noise_value.isHidden() is not manual
+    assert setup.noise.isHidden() is manual
+    assert setup.noise.toolTip() == "Estimated from the fitted planes"
     assert setup.passes.toolTip()
     assert setup.regions.toolTip()
 
@@ -1663,13 +1662,13 @@ def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(qapp, s
     [("1", (1,)), ("1-3, 5", (1, 2, 3, 5)), (" 3 ,1 ", (1, 3))],
 )
 def test_reference_planes_are_plane_numbers(text, expected):
-    assert parse_planes(text, 5) == expected
+    assert formatting.parse_planes(text, 5) == expected
 
 
 @pytest.mark.parametrize("text", ["", "0", "6", "a", "3-1"])
 def test_invalid_reference_planes_are_rejected(text):
     with pytest.raises(ValueError, match=r"plane|Planes"):
-        parse_planes(text, 5)
+        formatting.parse_planes(text, 5)
 
 
 def _withheld(series, status, cause, **extra):

@@ -241,25 +241,6 @@ def peak_profile(
     )
 
 
-def parse_planes(text: str, count: int) -> tuple[int, ...]:
-    """One-based plane numbers from "1, 3-5"; raise ValueError naming the problem."""
-    planes: set[int] = set()
-    for part in text.replace(" ", "").split(","):
-        if not part:
-            continue
-        low, _dash, high = part.partition("-")
-        try:
-            first, last = int(low), int(high or low)
-        except ValueError:
-            raise ValueError(f"“{part}” is not a plane number or range") from None
-        if not 1 <= first <= last <= count:
-            raise ValueError(f"Planes must lie between 1 and {count}: “{part}”")
-        planes.update(range(first, last + 1))
-    if not planes:
-        raise ValueError("Enter at least one reference plane")
-    return tuple(sorted(planes))
-
-
 def withheld_reason(series: ProfileSeries) -> str:
     """Why one member's amplitudes are not shown, naming which class applies."""
     m = series.identifiability
@@ -488,7 +469,7 @@ def ask_reference(
 
     def done() -> None:
         try:
-            planes = parse_planes(field.text(), count)
+            planes = formatting.parse_planes(field.text(), count)
         except ValueError as exc:
             error.setText(str(exc))
             error.show()

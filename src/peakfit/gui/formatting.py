@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 _PLAIN = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
@@ -404,4 +404,38 @@ def parse_scaled(text: str) -> float:
     mantissa, times, power = plain.partition("×10")
     if not times:
         return float(plain)
-    return float(mantissa) * 10.0 ** int(power.translate(_PLAIN))
+    # As one decimal literal: 3.1 × 10⁻³ is exactly the float 3.1e-3, not 3.1 × 0.001.
+    return float(f"{float(mantissa)!r}e{int(power.translate(_PLAIN))}")
+
+
+# ------------------------------------------------------------------ planes
+def plane_numbers(planes: Iterable[int]) -> str:
+    """Zero-based planes as the one-based plane numbers navigation shows: ``1–2, 5``."""
+    runs: list[list[int]] = []
+    for plane in sorted(set(planes)):
+        if runs and plane == runs[-1][-1] + 1:
+            runs[-1].append(plane)
+        else:
+            runs.append([plane])
+    return ", ".join(
+        f"{run[0] + 1}{DASH}{run[-1] + 1}" if len(run) > 1 else f"{run[0] + 1}" for run in runs
+    )
+
+
+def parse_planes(text: str, count: int) -> tuple[int, ...]:
+    """One-based plane numbers from "1, 3-5" (or 3–5); raise ValueError naming the problem."""
+    planes: set[int] = set()
+    for part in text.replace(" ", "").replace(DASH, "-").split(","):
+        if not part:
+            continue
+        low, _dash, high = part.partition("-")
+        try:
+            first, last = int(low), int(high or low)
+        except ValueError:
+            raise ValueError(f"“{part}” is not a plane number or range") from None
+        if not 1 <= first <= last <= count:
+            raise ValueError(f"Planes must lie between 1 and {count}: “{part}”")
+        planes.update(range(first, last + 1))
+    if not planes:
+        raise ValueError("Enter at least one plane")
+    return tuple(sorted(planes))
