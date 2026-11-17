@@ -110,7 +110,12 @@ def fit_command(
     ] = False,
     exclude: Annotated[
         list[int] | None,
-        typer.Option("--exclude", "-e", help="Exclude plane indices"),
+        typer.Option(
+            "--exclude",
+            "-e",
+            help="Leave a plane out of the fit (zero-based index; repeat for more). "
+            "It stays in the outputs, with no amplitude.",
+        ),
     ] = None,
     formats: Annotated[
         list[str] | None,
@@ -256,6 +261,11 @@ def _show_headless_command_summary(
                     "Spectrum": display_path(spectrum),
                     "Peak list": display_path(peaklist),
                     "Plane values": display_path(z_values) if z_values is not None else "None",
+                    **(
+                        {"Excluded planes": ", ".join(str(i) for i in fit_config.exclude_planes)}
+                        if fit_config.exclude_planes
+                        else {}
+                    ),
                 },
             ),
             (

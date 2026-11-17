@@ -273,6 +273,7 @@ def test_project_recording_a_removed_config_key_is_rejected_by_version(
         "12.0.0",  # spectral parameters with aq = APOD/SW (docs/lineshapes.md)
         "13.0.0",  # AIC, BIC and independent-noise log-likelihood
         "14.0.0",  # no covariance factors (profile-uncertainty §3.1)
+        "15.0.0",  # no record of excluded planes
     ],
 )
 def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
@@ -280,7 +281,7 @@ def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "15.0.0"
+    assert manifest["schema_version"] == "16.0.0"
     manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=f"Unsupported analysis version: '{re.escape(version)}'"):
@@ -333,7 +334,7 @@ def test_a_project_without_covariance_factors_is_refused_with_a_refit_instructio
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "15.0.0"
+    assert manifest["schema_version"] == "16.0.0"
     manifest["schema_version"] = "14.0.0"
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=r"Unsupported analysis version: '14\.0\.0'.*refit"):
@@ -1054,15 +1055,18 @@ def test_two_linked_analyses_share_source_and_relink_is_persisted(tmp_path):
     assert invalid.reason
 
 
-def test_linked_verify_source_plane_identity(analysis, tmp_path, monkeypatch):
-    spectra = analysis.dataset.spectra.model_copy(deep=True)
-    spectra.exclude_planes([1])  # Repeated experimental values cannot identify these planes.
+def test_a_run_that_drops_a_plane_without_recording_its_exclusion_is_refused(
+    analysis, tmp_path, monkeypatch
+):
+    # Only a recorded, explicit exclusion may leave a plane out of a run.
+    spectra = analysis.dataset.spectra.excluding_planes([1])
     config = PeakFitConfig.model_validate_json(analysis.configuration)
     prepared = prepare_dataset_fit(spectra, analysis.peaks, config)
     prepared = replace(
         prepared, snapshot=replace(prepared.snapshot, source_files=analysis.dataset.sources)
     )
     result = finish_dataset_fit(prepared, compute_dataset_fit(prepared))
+    assert result.outcome.excluded_planes == ()
     completion = dataset_completion(
         result, prepared.snapshot, submitted_revision=0, manual_revision=0
     )
@@ -1071,16 +1075,8 @@ def test_linked_verify_source_plane_identity(analysis, tmp_path, monkeypatch):
         tmp_path / "Mapped.peakfit",
     )
     monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
-    loaded = open_analysis(path)
-    assert loaded.dataset is not None, loaded.reason
-    assert loaded.completion.result.inputs.snapshot.source_plane_indices == (0, 2)
-    for old, new in zip(
-        result.completed_fit.samples,
-        reconstruct_result(loaded.completion.result, loaded.dataset).completed_fit.samples,
-        strict=True,
-    ):
-        np.testing.assert_array_equal(old.data, new.data)
-        np.testing.assert_array_equal(old.neighbor_corrections, new.neighbor_corrections)
+    with pytest.raises(ValueError, match="every plane of the spectrum but the excluded ones"):
+        open_analysis(path)
 
 
 def test_project_has_no_observations_predictions_or_residual_arrays(analysis, tmp_path):

@@ -271,8 +271,8 @@ def load_completed(path, *, source=None):
                 "Continuation source changed during verification. Retry with a stable source."
             )
         indices = np.asarray(context["source_plane_indices"])
-        if np.any(indices >= spectra.data.shape[0]):
-            raise ValueError("Continuation plane mapping exceeds the source spectrum.")
+        if len(context["source_plane_values"]) != spectra.data.shape[0]:
+            raise ValueError("Continuation source plane count disagrees.")
         source_data = spectra.data[indices]
         if tuple(source_data.shape) != tuple(context["data_shape"]):
             raise ValueError("Continuation source dimensions disagree.")

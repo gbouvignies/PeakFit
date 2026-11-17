@@ -5,9 +5,8 @@ from zipfile import ZipFile
 
 import numpy as np
 import pytest
-from builders import completed_result, two_cluster_dataset
+from builders import completed_result
 
-from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io.readers.continuation import continuation_state, load_completed, restore_completed
@@ -147,48 +146,3 @@ def test_reconstruction_refuses_changed_evaluator_reference(tmp_path):
     e.shapes[0, 0] += 0.1
     with pytest.raises(ScientificIntegrityError, match="evaluator no longer reproduces"):
         restore_completed(outcome, samples, context, source_data=spectra.data)
-
-
-def test_compact_continuation_verifies_source_and_exact_excluded_plane_identity(
-    tmp_path, monkeypatch
-):
-    import hashlib  # noqa: PLC0415
-    import json  # noqa: PLC0415
-    from dataclasses import replace  # noqa: PLC0415
-
-    from peakfit.fit.pipeline import run_pipeline  # noqa: PLC0415
-    from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit  # noqa: PLC0415
-    from peakfit.gui.fitting import prepare_dataset_fit  # noqa: PLC0415
-
-    spectra, peaks, config, _ = two_cluster_dataset()
-    original = spectra.model_copy(deep=True)
-    spectra.exclude_planes([1])
-    source = tmp_path / "original.ft2"
-    source.write_bytes(b"test input; scientific reader supplied below")
-    record = json.dumps(
-        {"path": str(source), "checksum_sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
-    )
-    prepared = prepare_dataset_fit(spectra, peaks, config)
-    prepared = replace(
-        prepared, snapshot=replace(prepared.snapshot, source_files=(("spectrum", record),))
-    )
-    pipeline = run_pipeline(
-        config,
-        prepared.clusters,
-        prepared.noise,
-        prepared.parameters,
-        noise_model=not_modelled("synthetic spectrum"),
-    )
-    result = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
-    directory = export_fit_result(result, tmp_path / "results")
-    monkeypatch.setattr("peakfit.io.readers.continuation.read_spectra", lambda *_: original)
-    restored = load_completed(directory / "scientific.npz")
-    for a, b in zip(restored.samples, result.completed_fit.samples, strict=True):
-        np.testing.assert_array_equal(a.data, b.data)
-        np.testing.assert_array_equal(a.neighbor_corrections, b.neighbor_corrections)
-    _, _, context = read_scientific(directory / "scientific.npz")
-    assert context["plane_values"].tolist() == [2.0, 2.0]
-    assert context["source_plane_indices"].tolist() == [0, 2]
-    source.write_bytes(b"changed")
-    with pytest.raises(ValueError, match="SHA-256"):
-        load_completed(directory / "scientific.npz")

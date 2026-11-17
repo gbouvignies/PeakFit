@@ -50,7 +50,7 @@ class ResultsLoader:
             _summary_document(
                 outcome,
                 metadata=RunMetadata(**context["metadata"]),
-                z_values=context["plane_values"],
+                z_values=context["source_plane_values"],
             )
         )
 

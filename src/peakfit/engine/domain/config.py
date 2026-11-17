@@ -208,7 +208,10 @@ class PeakFitConfig(BaseModel):
     )
     exclude_planes: list[int] = Field(
         default_factory=list,
-        description="List of plane indices to exclude from fitting.",
+        description=(
+            "Zero-based indices of the planes the fit leaves out. They stay in the data "
+            "and the outputs, with no fitted amplitude. Only this setting excludes a plane."
+        ),
     )
 
     @field_validator("exclude_planes")

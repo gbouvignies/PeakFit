@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-OUTPUT_SCHEMA_VERSION: Literal["9.0.0"] = "9.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["10.0.0"] = "10.0.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -170,7 +170,7 @@ class FinalFitStatisticsSchema(_Schema):
 
 
 class ZAxisSchema(_Schema):
-    """The ordered series coordinate values used by the run."""
+    """Every plane's series coordinate value, in spectrum order, excluded planes included."""
 
     values: list[FiniteFloat]
 
@@ -205,9 +205,9 @@ class NoiseModelSchema(_Schema):
 
 
 class FitSummarySchema(_Schema):
-    """Version 9.0.0 completed-fit JSON document."""
+    """Version 10.0.0 completed-fit JSON document."""
 
-    schema_version: Literal["9.0.0"]
+    schema_version: Literal["10.0.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat
@@ -215,6 +215,8 @@ class FitSummarySchema(_Schema):
     final_nonlinear_parameters: list[FinalParameterSchema]
     clusters: list[FinalClusterOutcomeSchema]
     statistics: FinalFitStatisticsSchema
+    # Zero-based planes the user excluded from the fit: they have no amplitude.
+    excluded_planes: list[NonNegativeInt]
     z_axis: ZAxisSchema | None = None
 
     @model_validator(mode="before")
@@ -239,6 +241,11 @@ class FitSummarySchema(_Schema):
         for cluster in self.clusters:
             if cluster.correction_revision != self.terminal_correction_revision:
                 raise ValueError("cluster correction_revision must match the terminal revision")
+        excluded = self.excluded_planes
+        if excluded != sorted(set(excluded)):
+            raise ValueError("excluded_planes must be ascending and distinct")
+        if self.z_axis is not None and any(i >= len(self.z_axis.values) for i in excluded):
+            raise ValueError("excluded_planes must be planes of z_axis")
         return self
 
 

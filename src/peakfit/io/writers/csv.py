@@ -11,6 +11,7 @@ from peakfit.engine.algorithms.covariance_factors import (
     profile_correlations,
     profile_standard_errors,
 )
+from peakfit.engine.domain.spectrum import fitted_plane_indices
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import format_float
 
@@ -62,10 +63,14 @@ def write_final_outcome_intensities(
     z_values: np.ndarray | None,
     path: Path,
     config: WriterConfig | None = None,
-    *,
-    source_plane_indices: np.ndarray | None = None,
 ) -> None:
-    """Write frozen amplitudes with both fitting-column and source-plane identity."""
+    """Write one row per peak and plane of the spectrum, excluded planes included.
+
+    ``z_values`` holds every plane's value, in spectrum order. A fitted plane's row
+    has its amplitude and errors, and ``plane_index``, its amplitude column. An
+    excluded plane's row is marked ``plane_excluded`` and leaves those cells empty:
+    the fit has no amplitude there.
+    """
     cfg = config or WriterConfig()
     rows: list[dict[str, Any]] = []
     for cluster in outcome.clusters:
@@ -74,43 +79,43 @@ def write_final_outcome_intensities(
         evaluation = cluster.analytical_evaluation
         if evaluation is None:
             raise ValueError("Usable final outcome is missing its analytical evaluation.")
-        n_planes = evaluation.amplitudes.shape[1]
-        indices = np.arange(n_planes) if source_plane_indices is None else source_plane_indices
-        if (
-            indices.shape != (n_planes,)
-            or indices.dtype.kind not in "iu"
-            or np.any(indices < 0)
-            or len(np.unique(indices)) != n_planes
-        ):
-            raise ValueError("Invalid intensity source-plane mapping.")
+        n_planes = evaluation.amplitudes.shape[1] + len(outcome.excluded_planes)
+        if z_values is not None and len(z_values) != n_planes:
+            raise ValueError("Plane values must give one value per plane of the spectrum.")
+        columns = {
+            plane: column
+            for column, plane in enumerate(fitted_plane_indices(n_planes, outcome.excluded_planes))
+        }
         factors = evaluation.covariance_factors
         profile = profile_standard_errors(factors, evaluation.amplitudes)
         marginal = marginal_standard_errors(factors, evaluation.amplitudes)
         correlated = profile_correlations(factors, evaluation.amplitudes)
         for peak_index, peak_name in enumerate(cluster.peak_names):
-            for plane_index in range(evaluation.amplitudes.shape[1]):
-                z_value = (
-                    float(z_values[plane_index])
-                    if z_values is not None and plane_index < len(z_values)
-                    else float(plane_index)
-                )
-                rows.append(
-                    {
-                        **_outcome_row(cluster, cfg),
-                        "peak_name": peak_name,
-                        "z_value": _fmt_optional(z_value, cfg),
+            for plane in range(n_planes):
+                z_value = float(z_values[plane]) if z_values is not None else float(plane)
+                row = {
+                    **_outcome_row(cluster, cfg),
+                    "peak_name": peak_name,
+                    "z_value": _fmt_optional(z_value, cfg),
+                    "noise_correlation": _noise_correlation(outcome),
+                    "correlated_profile": _CORRELATED_PROFILE[correlated[peak_index].status],
+                    "source_plane_index": plane,
+                    "plane_excluded": "yes" if plane not in columns else "no",
+                }
+                if (column := columns.get(plane)) is not None:
+                    row |= {
                         "intensity": _fmt_final_value(
-                            float(evaluation.amplitudes[peak_index, plane_index]),
+                            float(evaluation.amplitudes[peak_index, column]),
                             cfg,
                             unavailable="unavailable",
                         ),
                         "intensity_err": _fmt_final_value(
-                            float(profile[peak_index, plane_index]),
+                            float(profile[peak_index, column]),
                             cfg,
                             unavailable="unavailable",
                         ),
                         "intensity_err_marginal": _fmt_final_value(
-                            float(marginal[peak_index, plane_index]),
+                            float(marginal[peak_index, column]),
                             cfg,
                             unavailable="unavailable",
                         ),
@@ -119,12 +124,9 @@ def write_final_outcome_intensities(
                             cfg,
                             unavailable="unavailable",
                         ),
-                        "noise_correlation": _noise_correlation(outcome),
-                        "correlated_profile": _CORRELATED_PROFILE[correlated[peak_index].status],
-                        "plane_index": plane_index,
-                        "source_plane_index": int(indices[plane_index]),
+                        "plane_index": column,
                     }
-                )
+                rows.append(row)
     _write_rows(path, _intensity_header(), rows)
 
 
@@ -241,6 +243,7 @@ def _intensity_header() -> list[str]:
         "correlated_profile",
         "plane_index",
         "source_plane_index",
+        "plane_excluded",
     ]
     return header + _outcome_columns()
 

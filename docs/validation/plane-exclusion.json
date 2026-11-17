@@ -1,0 +1,79 @@
+{
+ "excluded_planes": [
+  0,
+  40,
+  41,
+  130
+ ],
+ "rtol": 1e-12,
+ "clusters": 122,
+ "classifications_identical": true,
+ "uncertainty_warnings_identical": true,
+ "recorded_excluded_planes": [
+  0,
+  40,
+  41,
+  130
+ ],
+ "intensity_rows_marked_excluded": [
+  0,
+  40,
+  41,
+  130
+ ],
+ "excluded_rows_without_intensity": true,
+ "noise_fitted_planes": 11921.833021389695,
+ "noise_all_planes": 11922.544916060584,
+ "source_plane_values": 131,
+ "quantities": {
+  "noise": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "global chi_squared": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "global reduced_chi_squared": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "global n_observations": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "global degrees_of_freedom": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "parameter values": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "parameter standard errors": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "amplitudes": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "conditional sigma": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "profile sigma": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "marginal sigma": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  },
+  "cluster chi_squared": {
+   "max_relative": 0.0,
+   "bit_identical": true
+  }
+ },
+ "passed": true
+}

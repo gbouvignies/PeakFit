@@ -136,11 +136,22 @@ class FinalFitOutcome:
     n_correction_updates: int
     overall_converged: bool
     statistics: FinalFitStatistics
+    # Zero-based source planes the user excluded from this fit, ascending. They have
+    # no amplitude: each cluster's amplitude columns are the remaining planes, in order.
+    excluded_planes: tuple[int, ...]
     # Derived from ``clusters``, never supplied, so the two cannot disagree.
     by_cluster_id: Mapping[int, FinalClusterOutcome] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Index the clusters by identifier, rejecting duplicate identifiers."""
+        excluded = self.excluded_planes
+        if (
+            not isinstance(excluded, tuple)
+            or any(type(i) is not int or i < 0 for i in excluded)
+            or list(excluded) != sorted(set(excluded))
+        ):
+            msg = f"Excluded planes must be ascending, distinct plane indices, got {excluded!r}"
+            raise ValueError(msg)
         by_id = MappingProxyType({cluster.cluster_id: cluster for cluster in self.clusters})
         if len(by_id) != len(self.clusters):
             ids = [cluster.cluster_id for cluster in self.clusters]
@@ -234,6 +245,7 @@ def finalize_fit(pipeline_completion: PipelineCompletion) -> FinalFitOutcome:
             for outcome in frozen_outcomes
         ),
         statistics=_global_statistics(frozen_outcomes),
+        excluded_planes=pipeline_completion.excluded_planes,
     )
 
 

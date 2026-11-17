@@ -169,6 +169,7 @@ def _fixture(
             correction_snapshot=correction_snapshot,
             n_optimizer_passes=1,
             noise_model=not_modelled("synthetic spectrum"),
+            excluded_planes=(),
         )
     )
     return SimulationFixture(
@@ -355,7 +356,6 @@ def test_simulated_writer_consumes_outcome_and_snapshot(tmp_path: Path) -> None:
         data_shape=fixture.spectra.data.shape,
         spectral_parameters=[p.model_dump() for p in fixture.spectra.params],
         plane_values=fixture.spectra.z_values,
-        source_plane_indices=fixture.spectra.source_plane_indices,
         save_simulated=True,
     )
     actual = np.load(files["simulated"], allow_pickle=False)

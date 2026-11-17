@@ -23,6 +23,13 @@ value" (or "Plane number" without values) unless the user supplies a display nam
 and unit; PeakFit never infers either.
 _Avoid_: Z-value when a more specific experiment-defined name is known
 
+**Excluded plane**:
+A plane the user explicitly leaves out of a fit, by its zero-based index. It stays
+in the measured data and in every output, marked, with no fitted amplitude; the
+fit, its noise estimate and its clusters use only the other planes. PeakFit never
+excludes a plane on its own.
+_Avoid_: dropped, removed or masked plane
+
 **Spectral axis**:
 A frequency dimension of each plane on which peak positions and lineshapes are
 defined.

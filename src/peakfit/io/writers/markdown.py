@@ -17,6 +17,10 @@ _MAX_CLUSTER_ROWS = 40
 _MAX_PARAMETER_ROWS = 40
 
 
+def _planes(planes: tuple[int, ...]) -> str:
+    return ", ".join(str(i) for i in planes)
+
+
 def write_final_outcome_report(
     outcome: FinalFitOutcome,
     path: Path,
@@ -37,6 +41,11 @@ def write_final_outcome_report(
         f"- Unusable: {summary.n_unusable}",
         f"- Usable clusters: {summary.n_usable}",
         f"- Reduced chi2 population: {summary.redchi_population_size}",
+        *(
+            [f"- Excluded planes (zero-based, not fitted): {_planes(outcome.excluded_planes)}"]
+            if outcome.excluded_planes
+            else []
+        ),
         f"- {outcome.noise_model.description}",
         *(
             [f"- **Warning.** {outcome.noise_model.power_warning}"]

@@ -299,12 +299,12 @@ def read_noise_model(dic: dict[str, Any], shape: Sequence[int]) -> NoiseModel:
     return NoiseModel(axes=tuple(axes))
 
 
-def read_spectra(
-    path_spectra: Path,
-    path_z_values: Path | None = None,
-    exclude_list: Sequence[int] | None = None,
-) -> Spectra:
-    """Read an NMRPipe spectrum and optional plane values file."""
+def read_spectra(path_spectra: Path, path_z_values: Path | None = None) -> Spectra:
+    """Read every plane of an NMRPipe spectrum, with an optional plane values file.
+
+    Plane exclusion is a fit-time choice (``Spectra.excluding_planes``): the measured
+    data always keeps every plane.
+    """
     dic, data = read(path_spectra)
     data = data.astype(np.float32)
 
@@ -322,15 +322,12 @@ def read_spectra(
 
     params = read_spectral_parameters(dic, data)
 
-    spectra = Spectra(
+    return Spectra(
         dic=dic,
         data=data,
         z_values=z_values,
         params=params,
     )
-    spectra.exclude_planes(exclude_list)
-
-    return spectra
 
 
 __all__ = ["NUCLEUS_LABELS", "read_noise_model", "read_spectra", "read_spectral_parameters"]

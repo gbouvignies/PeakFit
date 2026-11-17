@@ -45,6 +45,8 @@ class PipelineCompletion:
     results: list[FitResult]
     # The noise correlation the published errors assume; keyword-only, never defaulted.
     noise_model: NoiseModel = field(kw_only=True)
+    # The zero-based source planes the user excluded; the clusters hold the others.
+    excluded_planes: tuple[int, ...] = field(kw_only=True)
     evaluations: list[FitEvaluation] = field(default_factory=list)
     correction_snapshot: CorrectionSnapshot | None = None
     n_optimizer_passes: int = 0

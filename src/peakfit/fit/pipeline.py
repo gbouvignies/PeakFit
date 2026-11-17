@@ -241,6 +241,7 @@ def run_pipeline_iter(
         evaluations=current_evaluations,
         correction_snapshot=terminal_snapshot,
         noise_model=noise_model,
+        excluded_planes=tuple(fit_config.exclude_planes),
         n_optimizer_passes=len(passes),
         n_correction_updates=correction_updates,
     )

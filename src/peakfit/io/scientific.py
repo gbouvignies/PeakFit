@@ -26,6 +26,7 @@ from peakfit.engine.algorithms.noise_correlation import (
     NoiseModel,
     NoisePowerStatus,
 )
+from peakfit.engine.domain.spectrum import fitted_plane_indices
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.engine.scientific.coordinates import validate_coordinate_table
 from peakfit.engine.scientific.final_outcome import (
@@ -41,7 +42,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "12.0.0"
+VERSION = "13.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -269,6 +270,20 @@ def decode_document(archive, document):
     return decoded
 
 
+def unsupported_version(document, what, supported):
+    """Why an archive of another version is refused, naming the PeakFit that wrote it."""
+
+    def field(record, name):  # encode_value tags mappings as {"mapping": {...}}
+        if isinstance(record, dict) and set(record) == {"mapping"}:
+            record = record["mapping"]
+        return record.get(name) if isinstance(record, dict) else None
+
+    found = document.get("schema_version")
+    writer = field(field(field(document, "context"), "metadata"), "software_version")
+    opens = f"; open it with PeakFit {writer}, which wrote it" if isinstance(writer, str) else ""
+    return f"Unsupported {what} version {found!r} (this PeakFit reads {supported}{opens})"
+
+
 def unreadable(path, error, what, remedy):
     """The integrity error for an unreadable ``what`` file, ending with ``remedy``."""
     if isinstance(error, KeyError):
@@ -301,10 +316,7 @@ def _read_scientific(path):
             document.get("schema_version") != VERSION
             or document.get("kind") != "peakfit_scientific_result"
         ):
-            raise ValueError(
-                f"Unsupported scientific result version {document.get('schema_version')!r} "
-                f"(this PeakFit reads {VERSION})"
-            )
+            raise ValueError(unsupported_version(document, "scientific result", VERSION))
         evidence = document.get("evidence")
         if evidence not in {"results", "detailed", "full"}:
             raise ValueError("Unsupported scientific evidence policy.")
@@ -368,6 +380,7 @@ def _read_scientific(path):
     )
     if len({p.name for p in parameters}) != len(parameters):
         raise ValueError("Duplicate scientific parameter identity.")
+    raw["excluded_planes"] = tuple(raw["excluded_planes"])
     raw["statistics"] = FinalFitStatistics(**raw["statistics"])
     raw["noise_model"] = _noise_model(raw["noise_model"])
     outcome = FinalFitOutcome(
@@ -622,12 +635,17 @@ def _validate_context(outcome, samples, context):  # noqa: PLR0912
     planes = _array(context["plane_values"], "plane value")
     if planes.shape != (shape[0],) or not np.all(np.isfinite(planes)):
         raise ValueError("Invalid scientific plane mapping.")
+    # Every plane of the spectrum is either fitted (an amplitude column) or explicitly
+    # excluded; none is silently dropped.
+    source_values = _array(context["source_plane_values"], "source plane value")
+    if source_values.ndim != 1 or not np.all(np.isfinite(source_values)):
+        raise ValueError("Invalid scientific source plane values.")
+    fitted = fitted_plane_indices(len(source_values), outcome.excluded_planes)
     source_indices = _array(context["source_plane_indices"], "source plane index")
     if (
-        source_indices.shape != planes.shape
-        or source_indices.dtype.kind not in "iu"
-        or np.any(source_indices < 0)
-        or len(np.unique(source_indices)) != len(planes)
+        source_indices.dtype.kind not in "iu"
+        or source_indices.tolist() != list(fitted)
+        or not np.array_equal(planes, source_values[source_indices])
     ):
         raise ValueError("Invalid scientific source plane indices.")
     if len(context["spectral_parameters"]) != len(shape):

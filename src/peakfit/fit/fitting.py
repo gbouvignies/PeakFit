@@ -56,17 +56,20 @@ def load_data(
     Returns:
         LoadedData container with spectra, peaks, noise, clusters, etc.
     """
-    # 1. Load Spectra
-    spectra = read_spectra(spectrum_path, z_values_path, config.exclude_planes)
+    # 1. Load Spectra: every measured plane, then the planes the fit uses. The
+    # noise estimate, noise-power check and clusters see only those, exactly as if
+    # the excluded planes had been removed from the spectrum.
+    spectra = read_spectra(spectrum_path, z_values_path)
+    fitted = spectra.excluding_planes(config.exclude_planes)
 
     # 2. Detect Lineshapes
-    shape_names = get_shape_names(config.fitting, spectra)
+    shape_names = get_shape_names(config.fitting, fitted)
 
     # 3. Load Peaks
-    peaks = read_list(peaklist_path, spectra, shape_names, config.fitting)
+    peaks = read_list(peaklist_path, fitted, shape_names, config.fitting)
 
     # 4. Noise, clustering threshold and clusters, shared with the GUI
-    noise_val, contour, clusters = prepare_clusters(spectra, peaks, config)
+    noise_val, contour, clusters = prepare_clusters(fitted, peaks, config)
     noise_source = "user-provided" if config.noise_level is not None else "estimated"
 
     return LoadedData(
@@ -74,9 +77,7 @@ def load_data(
         peaks=peaks,
         noise=noise_val,
         noise_source=noise_source,
-        noise_model=check_noise_power(
-            read_noise_model(spectra.dic, spectra.data.shape), spectra.data
-        ),
+        noise_model=check_noise_power(read_noise_model(fitted.dic, fitted.data.shape), fitted.data),
         shape_names=shape_names,
         contour_level=contour,
         clusters=clusters,
@@ -277,7 +278,6 @@ def write_fit_run_outputs(
         data_shape=spectra.data.shape,
         spectral_parameters=[axis.model_dump() for axis in spectra.params],
         plane_values=spectra.z_values,
-        source_plane_indices=spectra.source_plane_indices,
         save_simulated=config.output.save_simulated,
         detailed_evidence=config.output.detailed_evidence,
     )

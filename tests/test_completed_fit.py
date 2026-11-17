@@ -133,6 +133,7 @@ def completed():
             8,
             7,
             noise_model=not_modelled("synthetic spectrum"),
+            excluded_planes=(),
         )
     )
     return result, spectra, grid, centers

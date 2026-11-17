@@ -1,4 +1,4 @@
-"""JSON 9.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 10.0.0 projection of immutable completed-fit outcomes."""
 
 import json
 import math
@@ -65,8 +65,11 @@ def _summary_document(
         ],
         "clusters": [_serialize_cluster(cluster) for cluster in outcome.clusters],
         "statistics": _serialize_final_statistics(outcome.statistics),
+        # Amplitude columns are the planes not listed here, in spectrum order.
+        "excluded_planes": list(outcome.excluded_planes),
     }
     if z_values is not None:
+        # Every plane's value, excluded planes included.
         document["z_axis"] = {"values": _json_value(np.asarray(z_values))}
     return document
 

@@ -107,6 +107,11 @@ def show_prefit_check(
                 "Input Files",
                 {
                     "Spectrum": f"{spectrum_path.name} ({n_series} spectra, {shape_type})",
+                    **(
+                        {"Excluded planes": ", ".join(str(i) for i in config.exclude_planes)}
+                        if config.exclude_planes
+                        else {}
+                    ),
                     "Peak list": peaklist_label,
                     "Noise": f"{noise_val:.2e} ({_format_noise_source(noise_source)})",
                     # The fit's errors depend on it; headless runs print it as a line.

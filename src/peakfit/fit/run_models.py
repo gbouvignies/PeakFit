@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class LoadedData:
     """Container for loaded fitting data."""
 
-    spectra: Spectra
+    spectra: Spectra  # every measured plane; the clusters hold the fitted planes only
     peaks: list[Peak]
     noise: float
     noise_source: str
