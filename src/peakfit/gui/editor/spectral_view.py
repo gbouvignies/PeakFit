@@ -63,8 +63,13 @@ REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
 
 
+def _unbroken(text: str) -> str:
+    """A number with its power of ten kept on one line."""
+    return text.replace(" ", _NBSP)
+
+
 def _samples(count: int, kind: str) -> str:
-    return f"{count} {kind} sample{'s' if count != 1 else ''}"
+    return formatting.count(count, f"{kind} sample")
 
 
 def framed_ranges(
@@ -332,8 +337,6 @@ class SpectralView(QtWidgets.QWidget):
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._contours_ready)
         self.theme: Theme = LIGHT
-        self.decimals_x = formatting.ppm_decimals(self.x_axis)
-        self.decimals_y = formatting.ppm_decimals(self.y_axis)
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         # One scene: the 2D plot, its slices, lanes and dividers are placed by
@@ -394,9 +397,7 @@ class SpectralView(QtWidgets.QWidget):
             scene.addItem(axis)
         self.left_axis.setWidth(self.extents.left)
         self.bottom_axis.setHeight(self.extents.bottom)
-        x_name, y_name = (
-            formatting.nucleus(a.nucleus, a.label) for a in (self.x_axis, self.y_axis)
-        )
+        x_name, y_name = (formatting.axis_name(a) for a in (self.x_axis, self.y_axis))
         self.row_divider = Divider(
             vertical=False,
             on_drag=partial(self._drag_divider, "row"),
@@ -543,11 +544,6 @@ class SpectralView(QtWidgets.QWidget):
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         self.request_contours()
 
-    @staticmethod
-    def axis_title(axis) -> str:
-        """Use loaded names rather than assume a particular pair of nuclei."""
-        return f"{formatting.nucleus(axis.nucleus, axis.label)} · {axis.label}"
-
     def _scatter(self, symbol, size, z):
         item = pg.ScatterPlotItem(symbol=symbol, size=size, brush=None)
         item.setZValue(z)
@@ -578,9 +574,7 @@ class SpectralView(QtWidgets.QWidget):
         return text
 
     def _coordinates(self, x: float, y: float) -> str:
-        return (
-            f"{formatting.number(x, self.decimals_x)}, {formatting.number(y, self.decimals_y)} ppm"
-        )
+        return f"{formatting.ppm(x)}, {formatting.ppm(y)} ppm"
 
     def _place_legend(self) -> None:
         rect = self.box.sceneBoundingRect()
@@ -826,14 +820,12 @@ class SpectralView(QtWidgets.QWidget):
     def _emit_status(self, raw: float) -> None:
         text = (
             f"{'Draft' if self._drag_peak else 'Pinned' if self.pinned else 'Preview'} · "
-            f"{self.axis_title(self.x_axis)} "
-            f"{formatting.number(self.ppm_x[self.ix], self.decimals_x)}, "
-            f"{self.axis_title(self.y_axis)} "
-            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm · "
+            f"{formatting.axis_name(self.x_axis)} {formatting.ppm(self.ppm_x[self.ix])}, "
+            f"{formatting.axis_name(self.y_axis)} {formatting.ppm(self.ppm_y[self.iy])} ppm · "
             + (
-                f"{formatting.intensity(raw)} σ_stat residual"
+                f"{formatting.sigma_multiple(raw, signed=True)} σ_stat residual"
                 if self.comparison_mode == _RESIDUAL
-                else f"{self._intensity(raw, formatting.exponent(abs(raw) or 1.0))} a.u."
+                else f"{formatting.intensity(raw)} a.u."
             )
             + (
                 f" · {'residual' if self.comparison_mode == _RESIDUAL else 'model'} of "
@@ -845,12 +837,6 @@ class SpectralView(QtWidgets.QWidget):
         # The corner readout shows the sample; the status bar only when it has no room.
         self.status_changed.emit("" if self.readout.isVisible() else text)
         self.view.setAccessibleDescription(text)
-
-    @staticmethod
-    def _intensity(value: float, power: int) -> str:
-        """An intensity in a given power of ten, so values read side by side align."""
-        number = f"{value * 10.0**-power:.6g}"
-        return f"{number}{_NBSP}×10{formatting.superscript(str(power))}" if power else number
 
     def set_pinned(self, pinned: bool) -> None:
         """Pin the inspection sample independently of a selected assignment."""
@@ -1023,7 +1009,7 @@ class SpectralView(QtWidgets.QWidget):
         self.comparison_mode = mode if result is not None else 0
         self.comparison_label = label if result is not None else ""
         self._place_changes()
-        # Residual mode hides the lanes (the slices show residuals) and keeps the preference.
+        # Lanes follow the run, not the mode: the plot keeps its place across modes.
         self._relayout()
         self._style_traces()
         self._update_legend()
@@ -1300,7 +1286,8 @@ class SpectralView(QtWidgets.QWidget):
         """Experimental solid, model dashed, residual in its own hue; clips by fill."""
         t = self.theme
         residual = self.comparison_mode == _RESIDUAL
-        measured = pg.mkPen(color(t.text if residual else t.measured), width=1.3)
+        # One quantity, one hue: Residual slices draw the residual as the lanes do.
+        measured = pg.mkPen(color(t.residual_positive if residual else t.measured), width=1.3)
         model = pg.mkPen(color(t.model), width=1.3, style=QtCore.Qt.PenStyle.DashLine)
         for curve in (self.curve_x, self.curve_y):
             curve.setPen(measured)
@@ -1330,9 +1317,11 @@ class SpectralView(QtWidgets.QWidget):
         if self.comparison_mode == _RESIDUAL:
             first = self.residual_threshold
             items = [
-                key(t.residual_positive, solid, f"residual &gt; +{first:g}σ"),
+                key(t.residual_positive, solid, f"residual &gt; +{formatting.setting(first)}σ"),
                 key(
-                    t.residual_negative, dashed, f"&lt; −{first:g}σ" + (f" · {run}" if run else "")
+                    t.residual_negative,
+                    dashed,
+                    f"&lt; −{formatting.setting(first)}σ" + (f" · {run}" if run else ""),
                 ),
             ]
         else:
@@ -1374,7 +1363,7 @@ class SpectralView(QtWidgets.QWidget):
         style = {"color": t.secondary, "font-size": f"{type_scale().small}px"}
         for axis, spectral in ((self.bottom_axis, self.x_axis), (self.left_axis, self.y_axis)):
             axis.labelStyle = style
-            axis.setLabel(f"{self.axis_title(spectral)}  (ppm)")
+            axis.setLabel(formatting.axis_title(spectral))
         for line in (self.zero_x, self.zero_y, self.lane_zero_x, self.lane_zero_y):
             line.setPen(pg.mkPen(t.divider))
         for divider in (self.row_divider, self.column_divider):
@@ -1503,8 +1492,13 @@ class SpectralView(QtWidgets.QWidget):
 
     # ----------------------------------------------------------------- slices
     def _effective_sizes(self) -> SliceSizes:
-        """Residual mode, or a window without room, hides the lanes; the preference stays."""
-        shown = self.sizes.lanes and self.comparison_mode != _RESIDUAL and self.lanes_fit
+        """Lanes need a run and room; the preference stays when either is missing.
+
+        Once a run exists the lanes keep their place in every comparison mode, so
+        switching Experimental, Overlay and Residual never moves or resizes the 2D
+        plot. Experimental draws no fitted contribution, so its lanes stay empty.
+        """
+        shown = self.sizes.lanes and self.comparison_result is not None and self.lanes_fit
         return replace(self.sizes, lanes=shown)
 
     def minimum(self, sizes: SliceSizes | None = None) -> tuple[int, int]:
@@ -1644,7 +1638,7 @@ class SpectralView(QtWidgets.QWidget):
         noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
         model_row = model[self.iy, :] if model is not None else None
         model_column = model[:, self.ix] if model is not None else None
-        lanes = self.comparison_mode == 1 and model is not None and self._effective_sizes().lanes
+        lanes = model is not None and self._effective_sizes().lanes
         if self.comparison_mode == _RESIDUAL:
             if model_row is None or model_column is None:
                 for item in (self.curve_x, self.curve_y, self.model_x, self.model_y):
@@ -1763,13 +1757,16 @@ class SpectralView(QtWidgets.QWidget):
         """Say only what departs from the default: residual or lane scale, gain, clipping."""
         t = self.theme
         parts = []
+        lanes = self._effective_sizes().lanes
+        scale = f"residual ±{formatting.scaled(self.lane_sigma, 3)} σ_stat"
         if self.comparison_mode == _RESIDUAL:
-            parts.append(f"Slices: residual ±{self.lane_sigma:.3g} σ_stat")
+            parts.append(f"Slices{' and lanes' if lanes else ''}: {scale}")
         else:
             if self.gain != 1:
-                parts.append(f"Slices ×{self.gain:.3g}")
-            if self._effective_sizes().lanes:
-                parts.append(f"Lanes ±{self.lane_sigma:.3g} σ_stat")
+                parts.append(f"Slices ×{formatting.scaled(self.gain, 3)}")
+            # Experimental keeps the lanes' room but draws no fitted contribution.
+            if lanes and self.comparison_mode:
+                parts.append(f"Lanes ±{formatting.scaled(self.lane_sigma, 3)} σ_stat")
         phrases = [(part, part) for part in parts]
         data = sum(d for d, _m in self.clips.values())
         model = sum(m for _d, m in self.clips.values())
@@ -1785,18 +1782,19 @@ class SpectralView(QtWidgets.QWidget):
     def _update_readout(self, value: float | None, fitted: float | None) -> None:
         """Exact values at the crosshair; the slices themselves carry no numbers."""
         lines = [
-            f"<b>{formatting.number(self.ppm_x[self.ix], self.decimals_x)} · "
-            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)}{_NBSP}ppm</b>"
+            f"<b>{formatting.ppm(self.ppm_x[self.ix])} · "
+            f"{formatting.ppm(self.ppm_y[self.iy])}{_NBSP}ppm</b>"
         ]
-        power = formatting.exponent(max(abs(value or 0.0), abs(fitted or 0.0)) or 1.0)
+        shown = formatting.shared([v for v in (value, fitted) if v is not None])
         if value is not None:
-            lines.append(f"I {self._intensity(value, power)}{_NBSP}a.u.")
+            lines.append(f"I {_unbroken(shown[0])}{_NBSP}a.u.")
         if self.comparison_mode and fitted is None:
             lines.append("model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
-            lines.append(f"model {self._intensity(fitted, power)}")
-            lines.append(f"residual {(value - fitted) / noise:+.1f}{_NBSP}σ")
+            lines.append(f"model {_unbroken(shown[-1])}")
+            residual = formatting.sigma_multiple((value - fitted) / noise, signed=True)
+            lines.append(f"residual {residual}{_NBSP}σ")
         self.readout.setText("<br>".join(lines))
         self._show_readout()
 

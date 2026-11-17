@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui import formatting
+
 # isort: split
 import pyqtgraph as pg
 
@@ -60,13 +62,16 @@ class PeakInspector(QtWidgets.QWidget):
             control.setEnabled(peak is not None)
         for field, value in zip(
             (self.name, self.x_field, self.y_field),
-            (peak.name, repr(peak.positions[1]), repr(peak.positions[0])) if peak else ("", "", ""),
+            (peak.name, *(formatting.exact(peak.positions[i]) for i in (1, 0)))
+            if peak
+            else ("", "", ""),
             strict=True,
         ):
             with QtCore.QSignalBlocker(field):
                 field.setText(value)
         self.details.setText(
-            f"Displayed: {displayed[0]:.6f}, {displayed[1]:.6f} ppm · unfolded fields above"
+            f"Displayed: {formatting.ppm(displayed[0])}, {formatting.ppm(displayed[1])} ppm"
+            " · unfolded fields above"
             if peak
             and displayed
             and any(
@@ -110,7 +115,7 @@ class PeakInspector(QtWidgets.QWidget):
             self.name.text(),
             self.x_field.text(),
             self.y_field.text(),
-        ) != (self._peak.name, repr(self._peak.positions[1]), repr(self._peak.positions[0]))
+        ) != (self._peak.name, *(formatting.exact(self._peak.positions[i]) for i in (1, 0)))
 
     def values(self) -> tuple[str, tuple[float, float]]:
         """Validate the complete draft, focusing a field that needs correction."""

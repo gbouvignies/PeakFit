@@ -16,6 +16,7 @@ import numpy as np
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.diagnostics.coincidence import collinear_pairs
 from peakfit.engine.domain.spectrum import get_dimension_label
+from peakfit.gui import formatting
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import SpectralParameters
@@ -61,13 +62,14 @@ class CollinearShapes:
         """Review text and its caption; descriptive, not a statement about resonances."""
         a, b = names.get(self.first, self.first), names.get(self.second, self.second)
         cancel = (
-            f" · contributions cancel ×{self.cancellation:,.0f}".replace(",", " ")
+            f" · contributions cancel ×{formatting.grouped(round(self.cancellation))}"
             if math.isfinite(self.cancellation)
             else ""
         )
         return (
             f"Near-collinear fitted shapes: {a} / {b}",
-            f"1 − |cos| {self.dissimilarity:.1e}{cancel} · their split, and the positions "
+            f"1 − |cos| {formatting.scaled(self.dissimilarity, 2)}{cancel} · their split, "
+            "and the positions "
             "that produced it, are poorly constrained",
         )
 
@@ -181,7 +183,8 @@ def review_clusters(
                 highlights.append(
                     Highlight(
                         "Amplitude correlation",
-                        f"|ρ| {correlation:.2f} ≥ {rules.correlation:g}",
+                        f"|ρ| {formatting.correlation(correlation)} ≥ "
+                        f"{formatting.setting(rules.correlation)}",
                     )
                 )
         if cluster.usable:
@@ -196,7 +199,7 @@ def review_clusters(
                         highlights.append(
                             Highlight(
                                 "Linewidth outlier",
-                                f"LW {ratio:.2f} × median ({names_of[label]})",
+                                f"LW {formatting.number(ratio, 2)} × median ({names_of[label]})",
                                 working,
                             )
                         )

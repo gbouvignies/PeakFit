@@ -9,6 +9,7 @@ import pytest
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
+from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.window import EditorWindow
@@ -114,10 +115,9 @@ def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, qapp)
     workspace._refresh()
     workspace.select_peak(peak.id)
     editor = workspace.inspector
-    # Unfocused fields show one decimal beyond the axis digital resolution.
-    decimals = workspace.canvas.decimals_x
-    assert editor.x_field.text() == f"{peak.positions[1]:.{decimals}f}"
-    assert decimals < len(repr(peak.positions[1]).split(".")[1])
+    # Unfocused fields show ppm at its fixed display precision.
+    assert editor.x_field.text() == formatting.ppm(peak.positions[1])
+    assert len(editor.x_field.text()) < len(repr(peak.positions[1]))
     editor.name.setText("Renamed")
     assert workspace.commit_fields()
     assert workspace.peaks[0].positions == peak.positions
@@ -673,7 +673,7 @@ def test_mapping_warning_reports_peaks_outside_the_direct_window(dataset):
     swapped = tuple(replace(p, positions=p.positions[::-1]) for p in peaks)
     warning = mapping_warning(swapped, spectra)
     assert warning is not None
-    assert f"{len(peaks)} of {len(peaks)} peaks lie outside the H window" in warning
+    assert f"{len(peaks)} of {len(peaks)} peaks lie outside the H F3 window" in warning
     assert "the other mapping leaves 0 outside" in warning
     # Indirect positions outside the window may be folded peaks: never a warning.
     folded = tuple(replace(p, positions=(p.positions[0] + 40.0, p.positions[1])) for p in peaks)

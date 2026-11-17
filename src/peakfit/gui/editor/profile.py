@@ -32,7 +32,16 @@ from peakfit.engine.scientific.profiles import (
 )
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
-from peakfit.gui.theme import LIGHT, REFERENCE_TYPE, Theme, color, type_scale
+from peakfit.gui.theme import (
+    LIGHT,
+    REFERENCE_TYPE,
+    Theme,
+    color,
+    menu_button,
+    set_menu_text,
+    toggle,
+    type_scale,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -49,7 +58,8 @@ CORRELATED_SHORT = "errors correlated across planes"
 NOT_ASSESSED_SHORT = "correlation across planes not assessed"
 CORRELATED_LIMIT = (
     "Downstream fits that treat the per-plane errors (intensity_err) as independent can "
-    f"misstate parameter uncertainty by more than {DOWNSTREAM_SIGMA_TOLERANCE:.0%}. This is "
+    "misstate parameter uncertainty by more than "
+    f"{formatting.percent(DOWNSTREAM_SIGMA_TOLERANCE)}. This is "
     "a limit of independent per-plane errors, not of the data: the amplitudes and their "
     "errors are unchanged. "
     "Read downstream errors for this peak with that in mind; the results archive "
@@ -75,13 +85,14 @@ def correlation_findings(correlation: PeakProfileCorrelation, partner: str) -> s
     found = []
     if correlation.mode > CORRELATED_MODE_THRESHOLD:
         found.append(
-            f"largest correlated mode {correlation.mode:.2f} c, above "
-            f"{CORRELATED_MODE_THRESHOLD:g} c"
+            f"largest correlated mode {formatting.number(correlation.mode, 2)} c, above "
+            f"{formatting.setting(CORRELATED_MODE_THRESHOLD)} c"
         )
     if correlation.partner_correlation > PARTNER_CORRELATION_THRESHOLD:
         found.append(
-            f"|ρ| {correlation.partner_correlation:.2f} with {partner} within each plane, "
-            f"above {PARTNER_CORRELATION_THRESHOLD:g}"
+            f"|ρ| {formatting.correlation(correlation.partner_correlation)} with {partner} "
+            "within each plane, "
+            f"above {formatting.setting(PARTNER_CORRELATION_THRESHOLD)}"
         )
     return "; ".join(found)
 
@@ -127,9 +138,10 @@ def correlated_note(series: Sequence[ProfileSeries]) -> tuple[str, str]:
 
 WITHIN_TOLERANCE_TEXT = (
     "Independent per-plane errors describe every member's profile: no correlated mode "
-    f"above {CORRELATED_MODE_THRESHOLD:g} c and no |ρ| with a partner above "
-    f"{PARTNER_CORRELATION_THRESHOLD:g}, below which they misstated no downstream σ by "
-    f"more than {DOWNSTREAM_SIGMA_TOLERANCE:.0%} in validation."
+    f"above {formatting.setting(CORRELATED_MODE_THRESHOLD)} c and no |ρ| with a partner "
+    f"above {formatting.setting(PARTNER_CORRELATION_THRESHOLD)}, below which they "
+    "misstated no downstream σ by "
+    f"more than {formatting.percent(DOWNSTREAM_SIGMA_TOLERANCE)} in validation."
 )
 
 
@@ -249,18 +261,6 @@ def parse_planes(text: str, count: int) -> tuple[int, ...]:
     return tuple(sorted(planes))
 
 
-def _scientific(value: float, digits: int = 2) -> str:
-    """A small or large diagnostic number as 3.3×10⁻⁸; zero stays 0."""
-    if not np.isfinite(value):
-        return "–"
-    if value == 0:
-        return "0"
-    mantissa, power = f"{value:.{digits - 1}e}".split("e")
-    exponent = int(power)
-    sign = mantissa.replace("-", "−")
-    return sign if exponent == 0 else f"{sign}×10{formatting.superscript(str(exponent))}"
-
-
 def withheld_reason(series: ProfileSeries) -> str:
     """Why one member's amplitudes are not shown, naming which class applies."""
     m = series.identifiability
@@ -272,12 +272,12 @@ def withheld_reason(series: ProfileSeries) -> str:
     if m.cause is Cause.NEAR_COLLINEAR:
         return (
             "reliability not established: near-collinear fitted shapes with "
-            f"{', '.join(series.partners)} (1 − |cos| = {_scientific(m.dissimilarity)})"
+            f"{', '.join(series.partners)} (1 − |cos| = {formatting.scaled(m.dissimilarity, 2)})"
         )
     if m.cause is Cause.ILL_CONDITIONED:
         return (
             "reliability not established: ill-conditioned fitted shapes (smallest to "
-            f"largest singular value {_scientific(m.condition)})"
+            f"largest singular value {formatting.scaled(m.condition, 2)})"
         )
     if m.cause is Cause.INVALID_SHAPE:
         return "reliability not established: the fitted shape cannot be assessed"
@@ -310,7 +310,7 @@ def withheld_text(profile: PeakProfile) -> str:
             parts.append(
                 " and ".join(t.assignment for t in group)
                 + ": reliability not established: near-collinear fitted shapes "
-                + f"(1 − |cos| = {_scientific(closest)})"
+                + f"(1 − |cos| = {formatting.scaled(closest, 2)})"
             )
             stated.update(id(t) for t in group)
         else:
@@ -341,13 +341,14 @@ def diagnostics_text(profile: PeakProfile) -> str:
         sigma = _sigma_range(s.errors)
         lines += [
             f"{s.assignment} · {m.status.value} ({m.cause.value})",
-            f"  recorded amplitudes {_scientific(low, 3)} to {_scientific(high, 3)} · {sigma}",
+            f"  recorded amplitudes {formatting.scaled(low, 3)} to "
+            f"{formatting.scaled(high, 3)} · {sigma}",
             f"  rank {m.rank} of {m.peaks} · smallest/largest singular value "
-            f"{_scientific(m.condition)} · null-space projection "
-            f"{_scientific(m.null_projection)} · ill-conditioned projection "
-            f"{_scientific(m.weak_projection)}"
+            f"{formatting.scaled(m.condition, 2)} · null-space projection "
+            f"{formatting.scaled(m.null_projection, 2)} · ill-conditioned projection "
+            f"{formatting.scaled(m.weak_projection, 2)}"
             + (
-                f" · 1 − |cos| to {', '.join(s.partners)} {_scientific(m.dissimilarity)}"
+                f" · 1 − |cos| to {', '.join(s.partners)} {formatting.scaled(m.dissimilarity, 2)}"
                 if s.partners
                 else ""
             ),
@@ -365,16 +366,10 @@ def _available(errors: np.ndarray) -> bool:
 def _sigma_range(errors: np.ndarray) -> str:
     """A series' profile σ for diagnostics: one value, or its range over the planes."""
     if not _available(errors):
-        return "profile σ not available"
-    low, high = float(np.min(errors)), float(np.max(errors))
-    if _scientific(low, 3) == _scientific(high, 3):
-        return f"profile σ {_scientific(low, 3)}"
-    return f"profile σ {_scientific(low, 3)} to {_scientific(high, 3)}"
-
-
-def _sigma(error: float) -> str:
-    """Name an unavailable standard error instead of formatting NaN as a value."""
-    return f"σ = {formatting.scaled(error, 3)}" if np.isfinite(error) else "σ unavailable"
+        return f"profile σ {formatting.NOT_ASSESSED}"
+    digits = formatting.SIGMA_DIGITS
+    low, high = (formatting.scaled(float(f(errors)), digits) for f in (np.min, np.max))
+    return f"profile σ {low}" if low == high else f"profile σ {low} to {high}"
 
 
 def framed_range(x: np.ndarray) -> tuple[float, float] | None:
@@ -417,7 +412,11 @@ def isolated_hint(profile: PeakProfile | None) -> str:
     isolated = [j for j in range(profile.x.size) if not frame[0] <= profile.x[j] <= frame[1]]
     planes = ", ".join(
         f"plane {profile.source_planes[j] + 1}"
-        + (f" (value {formatting.intensity(float(profile.x[j]))})" if profile.plane_values else "")
+        + (
+            f" (value {formatting.plane_value(float(profile.x[j]))})"
+            if profile.plane_values
+            else ""
+        )
         for j in isolated
     )
     return f"Isolated from the other planes: {planes}."
@@ -473,7 +472,7 @@ def ask_reference(
     note = QtWidgets.QLabel(
         "A / A_ref with R the mean reference amplitude of each peak. Display only: "
         "recorded amplitudes, uncertainties and exports are unchanged. Unavailable "
-        f"when σ_R/|R| exceeds {RELIABILITY_LIMIT:g}."
+        f"when σ_R/|R| exceeds {formatting.setting(RELIABILITY_LIMIT)}."
     )
     note.setObjectName("caption")
     note.setWordWrap(True)
@@ -557,6 +556,8 @@ class ProfilePlot(QtWidgets.QWidget):
 
     def __init__(self) -> None:  # noqa: PLR0915
         super().__init__()
+        # Axis names (``¹⁵N F2``) by engine label, for the noise-check qualifier.
+        self.axis_names: dict[str, str] = {}
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
@@ -631,15 +632,13 @@ class ProfilePlot(QtWidgets.QWidget):
 
     def _chips(self) -> QtWidgets.QHBoxLayout:
         """Quantity choice and the off-scale toggle, side by side under the note."""
-        self.show_all = QtWidgets.QPushButton("Show all points")
-        self.show_all.setObjectName("chip")
-        self.show_all.setCheckable(True)
+        self.show_all = toggle("Show all points", "Include observations off the plotted scale")
         self.show_all.toggled.connect(self._draw)
         self.show_all.hide()
         # Raw amplitudes by default; a reference is only ever chosen explicitly.
-        self.mode = QtWidgets.QPushButton("Raw amplitudes")
-        self.mode.setObjectName("chip")
-        self.mode.setToolTip("Profile quantity: raw amplitudes or normalized to reference planes")
+        self.mode = menu_button(
+            "Raw amplitudes", "Profile quantity: raw amplitudes or normalized to reference planes"
+        )
         self.mode.clicked.connect(self._mode_menu)
         chips = QtWidgets.QHBoxLayout()
         chips.setSpacing(6)
@@ -818,7 +817,7 @@ class ProfilePlot(QtWidgets.QWidget):
         style_text = {"color": self.theme.faint, "font-size": f"{type_scale().caption}px"}
         left = self.plot.getAxis("left")
         left.setScale(10.0**-power)
-        scale = f"×10{formatting.superscript(str(power))}" if power else ""
+        scale = formatting.factor(power)
         quantity = f"A / A_ref ({self.reference_text()})" if normalized else ""
         left.setLabel(" ".join(t for t in (quantity, scale) if t), **style_text)
         span = (bottom - margin, top + margin)
@@ -826,20 +825,23 @@ class ProfilePlot(QtWidgets.QWidget):
             _left_axis_width(left, span, self.plot.height(), 10.0**-power, normalized=normalized)
         )
         self.plot.setLabel(
-            "bottom", "Plane value" if profile.plane_values else "Plane number", **style_text
+            "bottom",
+            formatting.plane_axis_name(values=bool(profile.plane_values)),
+            **style_text,
         )
         marker = "●"
         shown = {index for index, *_ in rows}
         entries = [
             f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
-            + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
-            + ("" if _available(s.errors) else " · σ not available")
+            + (f"<b>{name}</b>" if i == 0 else name)
+            + ("" if _available(s.errors) else f" · σ {formatting.NOT_ASSESSED}")
             + (
                 f'&nbsp;<span title="{CORRELATED_SHORT}">{CORRELATED_MARK}</span>'
                 if s.flagged
                 else ""
             )
             for i, s in enumerate(profile.series)
+            for name in (escape(formatting.unbroken_name(s.assignment)),)
             if i in shown
         ] + (["◆&nbsp;reference"] if normalized else [])
         # Wrap between entries only, never inside an assignment such as 159N-H.
@@ -848,12 +850,13 @@ class ProfilePlot(QtWidgets.QWidget):
         )
         # The chip names the requested quantity; the axis and the fallback line the shown one.
         requested = f"÷ {self.reference_text()}"
-        self.mode.setText(
+        set_menu_text(
+            self.mode,
             "Raw amplitudes"
             if not self.normalized
             else f"{requested} · not applied"
             if reason
-            else requested
+            else requested,
         )
         self.fallback.setText(
             f"▲ Showing raw amplitudes. Normalization to {self.reference_text()} is "
@@ -869,14 +872,14 @@ class ProfilePlot(QtWidgets.QWidget):
         if hidden.size:
             planes = ", ".join(str(profile.source_planes[j] + 1) for j in hidden)
             self._hidden_text = (
-                f"{hidden.size} {'point' if hidden.size == 1 else 'points'} off scale "
+                f"{formatting.count(int(hidden.size), 'point')} off scale "
                 f"(plane{'s' if hidden.size > 1 else ''} {planes})"
             )
             self.show_all.setToolTip(
                 "Off-scale observations: "
                 + "; ".join(
-                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.errors[j])}) "
-                    f"at {formatting.intensity(float(x[j]))} "
+                    f"{s.assignment} {formatting.measured(s.amplitudes[j], s.errors[j]).text} "
+                    f"at {formatting.plane_value(float(x[j]))} "
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden
                     for s in profile.series
@@ -939,12 +942,13 @@ class ProfilePlot(QtWidgets.QWidget):
         # page give what was found and what to do.
         mismatch = profile.noise_model.power_mismatch
         if mismatch:
-            noise += f" · noise check ▲ {', '.join(mismatch)}"
+            names = ", ".join(self.axis_names.get(axis, axis) for axis in mismatch)
+            noise += f" · noise check ▲ {names}"
         shown = self._normalized
         quantity = (
             f"±1σ of the ratio, lineshape uncertainty included · noise correlation {noise} · "
-            f"σ_R/|R| = {shown.reference_error / abs(shown.reference):.3f} "
-            f"(limit {RELIABILITY_LIMIT:g})"
+            f"σ_R/|R| = {formatting.number(shown.reference_error / abs(shown.reference), 3)} "
+            f"(limit {formatting.setting(RELIABILITY_LIMIT)})"
             + (" · reference amplitude negative" if shown.reference < 0 else "")
             if shown is not None
             else f"±1 profile σ · noise correlation {noise}"
@@ -1031,7 +1035,9 @@ class ProfilePlot(QtWidgets.QWidget):
         for plane in planes:
             j = int(np.flatnonzero(profile.source_planes == plane)[0])
             label = f"Plane {plane + 1}" + (
-                f" · value {profile.x[j]:g}" if profile.plane_values else ""
+                f" · value {formatting.plane_value(float(profile.x[j]))}"
+                if profile.plane_values
+                else ""
             )
             action = menu.addAction(label)
             action.triggered.connect(

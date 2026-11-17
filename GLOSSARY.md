@@ -19,7 +19,7 @@ One spectrum in a pseudo-ND series, identified by its index and plane value.
 **Plane value**:
 The experiment-specific coordinate associated with a plane. Its physical meaning
 depends on the experiment and input configuration. The GUI labels it "Plane
-value" (or "Plane number" without values) unless the user supplies a display name
+value" (or "Plane" without values) unless the user supplies a display name
 and unit; PeakFit never infers either.
 _Avoid_: Z-value when a more specific experiment-defined name is known
 
@@ -33,6 +33,13 @@ _Avoid_: dropped, removed or masked plane
 **Spectral axis**:
 A frequency dimension of each plane on which peak positions and lineshapes are
 defined.
+
+**Axis name**:
+How the GUI names a spectral axis everywhere: the nucleus from the file's header,
+mass number raised, and the F-dimension, "¹⁵N F2". The F-number keeps homonuclear
+axes distinct; the nucleus is never inferred. Direct and indirect describe
+acquisition and appear only in help.
+_Avoid_: "Direct"/"Indirect" as names; a nucleus without its F-dimension
 
 **Peak**:
 An NMR peak with a name, a position, and a lineshape on each spectral axis.

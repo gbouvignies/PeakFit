@@ -92,7 +92,7 @@ column at the sampled horizontal coordinate. Neither is a projection or sum. Sli
 are lines through the native samples, without markers or values between samples:
 measured data and, in Overlay, the total model at the same samples in common units.
 Residual lanes under each slice show the whole-spectrum residual; in Residual the
-slices show it and the lanes hide. Slice sizes are shares of the spectral view,
+slices show it too, and the lanes keep their place so the 2D plot does not move (§8). Slice sizes are shares of the spectral view,
 the row slice's of its height and the column slice's of its width, so the slices
 grow with the window and neither the 2D plot nor the slices has a fixed priority.
 Overview and cluster focus have separate defaults (22 % row / 18 % column in the
@@ -444,11 +444,23 @@ Menus, popovers and loss of application focus are not accidental group exits.
 Deletion explicitly discards that peak's draft, then deletes its committed record.
 
 Store float64 values without display rounding. Unchanged fields retain their exact
-value; no-op focus/formatting never changes science. Unfocused coordinates show one
-decimal place beyond the axis digital resolution (ppm per point; for the bundled
-dataset four decimals in ¹H and three in ¹⁵N); focus and copy reveal full
-round-trip precision. Fitted values show σ to two significant figures and the
-value to the same decimal position. Display precision never changes stored values.
+value; no-op focus/formatting never changes science. One formatter
+(`gui/formatting.py`) is the only route from a number to text, and a static test
+holds every GUI label to it. Each quantity has fixed decimals wherever it appears:
+ppm 3 (unfocused coordinates included), Hz 1, χ²ᵣ 2, residuals in σ 1, correlations
+2. A value with a standard error shows the σ to two significant digits and the value
+rounded to the same place, both at one shared power of ten, (3.10 ± 0.13) × 10⁹; a
+table column (or row) of one order of magnitude carries the single × 10ⁿ in its
+header. A zero σ shows 0; a missing σ reads “not assessed”. Plain digits run from
+10⁻² to 10⁴, a power of ten beyond, never e notation. Times are local with their
+zone. Focus and copy reveal full round-trip precision. Display precision never
+changes stored values.
+
+A spectral axis has one name everywhere: the header's nucleus with its mass number
+raised and its F-dimension, “¹⁵N F2”, so homonuclear axes stay distinct; a unit
+follows in parentheses, “¹⁵N F2 (ppm)”. Direct and indirect appear only in help.
+The plane axis uses its label and unit when known, else “Plane value” with plane
+values and “Plane” without.
 Accept scientific notation and either an unambiguous local decimal separator or
 dot; do not accept thousands separators or ambiguous mixed punctuation. Exports
 use canonical round-trip dot-decimal values. Reject non-finite numbers. Show ppm,
@@ -475,7 +487,8 @@ In the navigator, arrows move, Enter focuses a Clusters row's cluster (§5 table
 and N / Shift+N move to the next/previous row matching the active filters. With
 the canvas focused, E / O / R choose Experimental / Overlay / Residual, [ and ]
 change plane, A adds a peak and Space pins. Single-letter keys never act inside
-text fields.
+text fields. The shortcuts help lists every menu command with its key, in the
+platform's notation, followed by these single keys.
 
 Every visible command is keyboard reachable; focus order follows toolbar → navigator →
 plots → inspector → plane strip. Labels have buddies; the comparison selector
@@ -667,7 +680,12 @@ so amplitudes compare across planes. The wheel over a slice sets a **gain** on b
 slices that persists through hover, planes and zoom until a double-click or reset,
 a new dataset, or focus on an unrelated cluster.
 Residual lanes, and the slices in Residual, share one ±N σ_stat scale (±8 by
-default) set independently by the wheel over a lane.
+default) set independently by the wheel over a lane. **Stable geometry:** once a run
+exists the lanes keep their place in every comparison mode (drawn in Overlay and
+Residual, empty in Experimental, which shows no fitted contribution), so switching
+Experimental, Overlay and Residual never moves or resizes the 2D plot; before the
+first fit no mode shows lanes. When the window has no room for them the lanes give
+way in every mode alike. Residual slices draw the residual in its own hue.
 
 Annotations are minimal: a zero baseline, no intensity axis, a caption only for the
 residual or lane scale, a gain or clipping counts, and exact values in a corner
@@ -1082,10 +1100,10 @@ views share one plot-style function and an AxisItem subclass for tick formatting
 
 | Element | Design rule |
 | --- | --- |
-| Typography | System UI family. Sizes derive once at start-up from the system general font: its size in logical pixels is the body/controls size, and secondary text and plot labels, dense captions and selected identity keep the ratios 12 : 11 : 15 to a 13 px body (13/12/11/15 px at the default font). A system font below 13 px keeps those reference sizes, so captions never fall below 11 px. Stylesheet, plot axes, the corner readout and Profiles tiles use only these derived sizes; exported Profiles PDF pages keep the reference sizes. Tabular numerals (OpenType `tnum`) in every numeric field, table, axis and status. One shared number formatter (§5 display precision; engineering axis scaling, never `2e+06`). Semibold only for selected identity and section titles. Never shrink labels to fit: room that holds text grows with the body size instead (the inspector's opening width, the profile plot's height and the left-axis width its tick labels and ×10ⁿ label need); content wider than a narrowed inspector scrolls horizontally rather than being cut; the slice caption drops whole phrases marked “…” with every phrase in its tooltip; the corner readout hides rather than shows cut values (the status line keeps them). |
+| Typography | System UI family. Sizes derive once at start-up from the system general font: its size in logical pixels is the body/controls size, and secondary text and plot labels, dense captions and selected identity keep the ratios 12 : 11 : 15 to a 13 px body (13/12/11/15 px at the default font). A system font below 13 px keeps those reference sizes, so captions never fall below 11 px. Stylesheet, plot axes, the corner readout and Profiles tiles use only these derived sizes; exported Profiles PDF pages keep the reference sizes. Tabular numerals (OpenType `tnum`) in every numeric field, table, axis and status. One shared number formatter (§5 display precision; × 10ⁿ axis scaling, never `2e+06`). Semibold only for selected identity and section titles. Never shrink labels to fit: room that holds text grows with the body size instead (the inspector's opening width, the profile plot's height and the left-axis width its tick labels and ×10ⁿ label need); content wider than a narrowed inspector scrolls horizontally rather than being cut; the slice caption drops whole phrases marked “…” with every phrase in its tooltip; the corner readout hides rather than shows cut values (the status line keeps them). |
 | Rhythm | 4/8/12/16/24 logical-pixel spacing; 24–26 px controls, 28–30 px navigator rows, 10–14 px panel padding. |
 | Surfaces | Window, chrome, panel and plot surfaces only; thin dividers; 4–6 px radii; no shadows, gradients or nested cards inside the window. |
-| Commands | One filled accent **Fit** action. Canvas tools are icon buttons from one permissively licensed SVG set, tinted from tokens, with tooltips naming shortcuts; the comparison selector is a joined segmented control. Unavailable commands are disabled with an explanation; a command is hidden only when it cannot apply to the dataset (plane controls for a 2D spectrum). |
+| Commands | One look per kind of control, defined once in `theme.py`: **command** (bordered button with a verb), **primary command** (filled accent, **Fit** only), **toggle** (a checkbox, never a button that stays pressed), **segmented choice** (joined segments, the checked one filled, never bolder, so widths do not jump), **menu button** (a bordered button whose label ends with ▾) and **link** (accent text that navigates to another object). Canvas tools are icon buttons from one permissively licensed SVG set, tinted from tokens, with tooltips naming shortcuts; navigator tabs and disclosures keep their own roles. Unavailable commands are disabled with an explanation; a command is hidden only when it cannot apply to the dataset (plane controls for a 2D spectrum). |
 | Light UI palette | Window `#EEF0F3`, chrome `#F7F8FA`, panel `#FBFBFC`, plot `#FFFFFF`, divider `#E1E5EA`, text `#1D232B`, secondary `#5F6A76`, caption `#636D79`, control outline `#7D8792`, disabled `#8E98A3`, accent `#2F5DA8`, selection `#DBE6F6`. |
 | Dark UI palette | Window `#0F1318`, chrome `#171C22`, panel `#1A2027`, plot `#13171C`, divider `#29313A`, text `#E1E6EC`, secondary `#A3AEBA`, caption `#86919D`, control outline `#66727F`, disabled `#6F7A86`, accent `#7EA6E8`, selection `#22324A`. |
 | Scientific encoding | Measured positive: graded blue ramp ending at `#1F4F99` light / `#8FB3EA` dark, low levels thinner and lighter. Measured negative: plum `#8E3B8E` / `#D08AD0`, dashed. Model: amber `#C98512` / `#E9A83C`, dotted when negative. Whole-spectrum residual: positive vermilion `#D2492E` / `#F07A5E` solid, negative teal `#1F8A8A` / `#4CC2C2` dashed. Profile members: a categorical set distinct from layer hues. Pinned crosshair amber dashed; selection ring accent. |

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui import formatting
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.failures import failure_message
@@ -258,7 +259,7 @@ class AnalysisActions:
             self._saved_state = self._save_state
             size = sum(storage.values()) / 1024**2
             self.loading_status.setText(
-                f"Saved {path.name} · {size:.1f} MiB project data · Spectrum linked"
+                f"Saved {path.name} · {formatting.mebibytes(size)} project data · Spectrum linked"
             )
             if self.workspace:
                 self.workspace.fitting.adopt_saved(analysis.runs, analysis.journal)

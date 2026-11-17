@@ -1508,6 +1508,22 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Singlets are bit-identical.** Evidence:
   [validation note](validation/doublet-j.md).
 
+## 2026-11-17: One formatter, one axis name, stable plot geometry (#211)
+- **ppm has three decimals everywhere.** The earlier rule (one decimal beyond each
+  axis's digital resolution: four in ¹H, three in ¹⁵N) showed the same quantity at
+  different precisions side by side. Issue #211 fixes ppm at 3, Hz at 1 and χ²ᵣ at 2;
+  focus and copy still reveal full precision, and no stored value changes.
+- **σ to two significant digits.** The issue's example "(3.104 ± 0.132) × 10⁹" shows
+  three; its rule says two, and the rule is what the formatter and its tests apply:
+  (3.10 ± 0.13) × 10⁹.
+- **Lanes in every mode once a run exists.** Hiding the lanes in Residual grew the
+  plot by 44 px and moved every contour on each switch. Residual now keeps them (they
+  repeat the slice's residual), and Experimental keeps their room empty.
+- **Plane axis.** Without a user label, imported plane values read "Plane value", not
+  "Plane": the axis carries values, not indices.
+- **Nucleus as recorded.** The bundled dataset's headers say "H" and "N", so it reads
+  "H F3" and "N F2"; the mass number is raised only when the header gives it.
+
 ## 2026-11-17: Plane exclusion is a fit-time choice, recorded with the fit (#213)
 - **The data keep every plane.** `read_spectra` no longer deletes excluded planes.
   `load_data` fits `Spectra.excluding_planes(config.exclude_planes)`, a copy without

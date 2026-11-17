@@ -85,16 +85,18 @@ def test_slices_show_the_model_plane_and_the_display_residual_at_native_samples(
     assert "residual" in c.readout.text()
 
 
-def test_residual_mode_shows_residuals_in_the_slices_and_keeps_the_lane_preference(fitted):
+def test_residual_mode_shows_residuals_in_the_slices_and_keeps_the_lanes(fitted):
     c = fitted.canvas
     c.set_lanes(True)
     assert c.row_lane.isVisible()
     selected, ranges = fitted.selected_id, c.box.viewRange()
+    plot = tuple(c.arrangement.main)
     fitted.set_mode(2)
     wait_until(lambda: not c.contour_pending)
-    assert not c.row_lane.isVisible()
-    assert not c.column_lane.isVisible()
-    assert c.sizes.lanes  # the preference is kept
+    # The lanes keep their place, so the 2D plot does not move between modes.
+    assert c.row_lane.isVisible()
+    assert c.column_lane.isVisible()
+    assert tuple(c.arrangement.main) == plot
     noise = c.comparison_result.outcome.noise
     residual = (c.spectra.data[c.plane] - c._model.values) / noise
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy, :])
@@ -415,9 +417,9 @@ def test_the_readout_shares_one_power_of_ten_and_the_status_bar_stays_quiet(fitt
     # One number style: intensity and model share the larger one's power of ten.
     value = float(c.spectra.data[c.plane, c.iy, c.ix])
     model = float(c._model.values[c.iy, c.ix]) if c._model is not None else 0.0
-    power = formatting.exponent(max(abs(value), abs(model)))
-    expected = f"{value * 10.0**-power:.6g}"
-    assert f"I {expected}" in c.readout.text()
+    shown = formatting.shared([value, model])
+    assert f"I {shown[0]}".replace(" ", "\u00a0") in c.readout.text().replace(" ", "\u00a0")
+    assert f"model {shown[1]}".replace(" ", "\u00a0") in c.readout.text().replace(" ", "\u00a0")
     assert "e+" not in c.readout.text()
     assert status[-1] == ""  # the readout shows it; the status bar does not repeat it
     assert "a.u." in c.view.accessibleDescription()
