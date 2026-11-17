@@ -308,6 +308,7 @@ QPushButton#primary:hover:enabled {{ background: {t.accent}; }}
 QPushButton#primary:disabled {{ background: {t.divider}; border-color: {t.divider};
     color: {t.disabled}; }}
 QPushButton#menu {{ padding: 0 8px 0 10px; }}
+QPushButton#menu[compact="true"] {{ padding: 0 4px 0 6px; }}
 QPushButton#segment {{ border-radius: 0; border-right-width: 0; padding: 0 9px;
     color: {t.secondary}; background: {t.panel}; }}
 QPushButton#segment[edge="first"] {{ border-top-left-radius: 5px;
@@ -437,6 +438,7 @@ class MenuChoice(QtWidgets.QPushButton):
         """``choices`` are (short label, menu text, data)."""
         super().__init__()
         self.setObjectName(MENU)
+        self.setProperty("compact", True)  # it sits beside its value, in a form cell
         self.setToolTip(tip)
         self._name = name
         self._choices = list(choices)

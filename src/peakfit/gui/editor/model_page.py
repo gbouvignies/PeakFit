@@ -170,7 +170,8 @@ def _value_edit(name: str) -> QtWidgets.QLineEdit:
     least = metrics.horizontalAdvance("0.000 × 10⁰")
 
     def fit(text: str) -> None:
-        edit.setFixedWidth(max(least, metrics.horizontalAdvance(text)) + 12)
+        # The theme's 6 px padding, 1 px border and Qt's 2 px margin, on each side.
+        edit.setFixedWidth(max(least, metrics.horizontalAdvance(text)) + 20)
 
     edit.textChanged.connect(fit)
     fit("")

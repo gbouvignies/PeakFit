@@ -434,7 +434,7 @@ def test_each_value_and_its_source_share_one_line(tmp_path, preview):
     assert page.threshold_mode.accessibleName() == "Clustering threshold kind: level"
     # A typed value is never cut: the field is as wide as its text.
     width = page.noise_value.fontMetrics().horizontalAdvance(page.noise_value.text())
-    assert page.noise_value.width() >= width + 12
+    assert page.noise_value.width() >= width + 18  # the theme's padding, border and margin
 
 
 @pytest.fixture

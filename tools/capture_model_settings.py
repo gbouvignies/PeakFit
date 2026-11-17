@@ -72,6 +72,7 @@ class Capture:
             "undo": w.undo_action.text(),
             "run_line": w.summary.text(),
             "clipped": [label["text"] for label in clipped_labels(panel)],
+            "cut_fields": cut_fields(panel),
         }
 
     def shot(self, state: str, size=None, appearance: str = "Light") -> None:
@@ -94,7 +95,7 @@ class Capture:
         record = {"file": name, **self.measures()}
         self.records.append(record)
         # Acceptance, not just a record: nothing scrolls sideways or is cut.
-        if record["sideways_scroll"] or record["clipped"]:
+        if record["sideways_scroll"] or record["clipped"] or record["cut_fields"]:
             raise RuntimeError(f"{name}: sideways scrolling or clipped text: {record}")
         arm_watchdog(STALL)
 
@@ -111,6 +112,17 @@ class Capture:
                 self.shot(state, None, appearance)
         self.session.window.resize(1280, 800)
         settle(400)
+
+
+def cut_fields(root: QtWidgets.QWidget) -> list[str]:
+    """Visible fields whose text needs more room than they have (padding, border, margin)."""
+    return [
+        edit.text()
+        for edit in root.findChildren(QtWidgets.QLineEdit)
+        if edit.isVisible()
+        and not isinstance(edit.parent(), QtWidgets.QAbstractSpinBox)
+        and edit.fontMetrics().horizontalAdvance(edit.text()) + 18 > edit.width()
+    ]
 
 
 def _type(edit: QtWidgets.QLineEdit, text: str) -> None:
