@@ -12,8 +12,10 @@ import pytest
 from builders import two_cluster_dataset
 from PySide6 import QtWidgets
 
+from peakfit.engine.domain.constraints import ParameterConstraint
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo
+from peakfit.gui.editor.constraints import rule_text
 from peakfit.gui.editor.model_page import ModelPage, RunSettings, Setting
 from peakfit.io.config import load_config
 
@@ -345,7 +347,7 @@ def test_each_new_setting_is_marked_when_it_differs_from_the_run(tmp_path, previ
         assert page.titles[setting].text().endswith(DIFFERS)
         assert page.titles[setting].toolTip() == f"Run 5d7b4768 used {used}"
     assert page.constraints_differs.isVisible()
-    assert page.constraints_differs.toolTip() == "Run 5d7b4768 used None"
+    assert page.constraints_differs.toolTip() == "Run 5d7b4768 used no constraints"
     assert "5d7b4768" in page.differs.text()
     # The run's own settings carry no mark.
     page.show_state(recorded, preview, "", run)
@@ -368,3 +370,30 @@ def test_every_new_setting_in_its_widest_state_fits_the_inspector(tmp_path, prev
     _rule(page, "F3", "eta", "0.5", "0.25", "0.75", hold=True)
     page.constraints.add_rule.click()
     assert page.minimumSizeHint().width() <= INSPECTOR_CONTENT
+
+
+@pytest.mark.parametrize("pattern", ["*.F2.cs", "*.*.phase", "*"])
+def test_an_imported_rule_the_desktop_fit_supports_stays_valid_and_editable(tmp_path, pattern):
+    config = _toml(tmp_path, f'[parameters.defaults]\n"{pattern}" = {{ vary = false }}')
+    page, emitted = _page(config)
+    page.constraints_toggle.setChecked(True)
+    (row,) = page.constraints.rules
+    assert row.pattern.text() == pattern
+    assert not page.invalid
+    row.hold.setChecked(False)
+    _type(row.start, "1")
+    assert emitted[-1].parameters.defaults.patterns[pattern].value == 1.0
+    assert emitted[-1].parameters.defaults.patterns[pattern].vary is None
+
+
+def test_the_constraints_mark_names_what_the_run_used(tmp_path):
+    recorded = _toml(tmp_path)
+    page, _emitted = _page(recorded, run=RunSettings("5d7b4768", recorded))
+    _window(page, "F2", "0.5")
+    assert page.constraints_differs.toolTip() == "Run 5d7b4768 used no constraints"
+
+
+def test_a_run_records_each_rule_as_submitted():
+    rule = ParameterConstraint(value=20.0, min=5.0, max=80.25, vary=False)
+    assert rule_text("*.F2.lw", rule) == "*.F2.lw: start 20 · range 5–80.25 · held"
+    assert rule_text("*.*.eta", ParameterConstraint(max=0.5)) == "*.*.eta: range −∞–0.5"

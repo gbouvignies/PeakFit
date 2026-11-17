@@ -28,10 +28,11 @@ from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, Page, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
-from peakfit.gui.editor.model_page import RunSettings, submitted_rows
+from peakfit.gui.editor.model_page import RunSettings
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
+from peakfit.gui.editor.run_page import submitted_rows
 from peakfit.gui.editor.spectral_geometry import SliceSizes, default_sizes, stored_share
 from peakfit.gui.editor.spectral_view import NOT_IN_MODEL, SpectralView
 from peakfit.gui.editor.unexplained import (
@@ -503,14 +504,11 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def toggle_plane_exclusion(self) -> None:
         """Exclude the current plane from the fit, or include it again: one undoable edit."""
-        plane = self.canvas.plane
+        plane, count = self.canvas.plane, self.dataset.spectra.data.shape[0]
         settings = self.fitting.configuration.model_copy(deep=True)
-        excluded = sorted(set(settings.exclude_planes) ^ {plane})
-        try:
-            fitted_plane_indices(self.dataset.spectra.data.shape[0], excluded)
-        except ValueError:
+        if not _can_toggle(count, settings.exclude_planes, plane):
             return  # the last fitted plane stays; the action is disabled for it
-        settings.exclude_planes = excluded
+        settings.exclude_planes = sorted(set(settings.exclude_planes) ^ {plane})
         self.configure(settings)
 
     def _show_plane_exclusion(self) -> None:
@@ -525,9 +523,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             if out
             else f"Exclude plane {plane + 1} from the fit"
         )
-        action.setEnabled(
-            count > 1 and not self.fitting.busy and (out or count - len(excluded) > 1)
-        )
+        action.setEnabled(not self.fitting.busy and _can_toggle(count, excluded, plane))
 
     def configure(self, settings: PeakFitConfig) -> None:
         """Commit edited working settings as one undoable edit; a run becomes Outdated."""
@@ -2174,6 +2170,15 @@ def _axis_infos(spectra) -> list[AxisInfo]:
         )
         for i, param in enumerate(spectra.spectral_params)
     ]
+
+
+def _can_toggle(count: int, excluded: list[int], plane: int) -> bool:
+    """Whether ``plane`` can leave or rejoin the fit: some plane must stay fitted."""
+    try:
+        fitted_plane_indices(count, sorted(set(excluded) ^ {plane}))
+    except ValueError:
+        return False
+    return count > 1
 
 
 def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> list[Row]:

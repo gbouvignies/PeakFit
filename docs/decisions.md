@@ -1706,12 +1706,16 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Planes by number.** The Model page and the menu use one-based plane numbers,
   as navigation and the Profiles reference do; the configuration keeps zero-based
   indices. Parsing moved to `formatting.parse_planes` with `plane_numbers`.
-- **Axis-wide constraints only.** Position windows per axis and rules
+- **Axis-wide constraints only.** Position windows per axis and new rules
   `*.<axis>.<kind>` for linewidth and η, in order. Positions are bounded by the
-  window, and J and phase are set in the per-axis table, so rules leave them out.
-  Per-peak constraints stay attached to their peak (spec §7: the Peak page's
-  Parameters section), are kept as imported, and still stop a desktop fit, as
-  before; their editing is not part of W4.
+  window, and J and phase are set in the per-axis table, so new rules leave them
+  out; an imported axis-wide rule on any parameter stays valid and editable, shown
+  as written (`gui.fitting.desktop_rule` is the one test of what the desktop fit
+  applies). Per-peak constraints stay attached to their peak (spec §7: the Peak
+  page's Parameters section) and still stop a desktop fit, as before, which the
+  page now says; their editing is not part of W4.
+- **The run's settings as submitted.** The Run page lists each run's noise (a
+  manual value as entered), threshold, excluded planes and each rule.
 - **Exclusion as a model edit.** The desktop fit prepares
   `Spectra.excluding_planes(exclude_planes)` exactly as `load_data` does, and
   equals `peakfit fit --exclude` bit for bit, as manual noise and an absolute level

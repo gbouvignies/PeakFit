@@ -181,7 +181,7 @@ def test_a_run_that_excluded_a_plane_shows_it_measured_not_fitted(workspace, sci
     w._update_inspector()
     rows = {row.label: row.value for row in w.panel.run_page._key[0]}
     assert rows["Planes"] == "2 of 3 fitted · 2 excluded"
-    assert rows["Noise"].endswith("· manual")
+    assert rows["Noise"] == "2 × 10⁻³ · manual"  # as entered, not rounded
     assert rows["Threshold"] == "level 0.1"
 
 

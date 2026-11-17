@@ -40,7 +40,9 @@ class FitInputSnapshot:
     metadata, plane coordinates, configuration, and working peaks are copied.
     ``data_shape`` and ``plane_values`` describe the whole measured spectrum;
     ``source_plane_indices`` are the planes fitted, column for column with the
-    amplitudes (every plane but those the configuration excludes).
+    amplitudes (every plane but those the configuration excludes). The desktop
+    dataset is the whole source spectrum, so its plane i is source plane i: views
+    look a plane up here directly, and a reopened project is refused otherwise.
     """
 
     spectrum_id: int
@@ -296,6 +298,14 @@ def _working_model(spectra, peaks, lineshapes):
     return identities, scientific
 
 
+def desktop_rule(pattern: str) -> bool:
+    """Whether the desktop fit applies a rule: ``*`` or ``*.<axis>.<parameter>``.
+
+    Peaks take safe IDs in the desktop fit, so a rule naming a peak would match none.
+    """
+    return pattern == "*" or re.fullmatch(r"\*\.[^.]+\.[^.]+", pattern) is not None
+
+
 def _validate_constraint_targets(settings: PeakFitConfig) -> None:
     """Reject assignment-dependent rules before replacing names with safe IDs.
 
@@ -305,10 +315,7 @@ def _validate_constraint_targets(settings: PeakFitConfig) -> None:
     patterns = list(settings.parameters.defaults.patterns)
     for step in settings.fitting.steps:
         patterns.extend((*step.fix, *step.vary))
-    if settings.parameters.peaks or any(
-        pattern != "*" and re.fullmatch(r"\*\.[^.]+\.[^.]+", pattern) is None
-        for pattern in patterns
-    ):
+    if settings.parameters.peaks or not all(map(desktop_rule, patterns)):
         raise ValueError(
             "Name/assignment-targeted constraints are not supported in the desktop dataset "
             "fit. Remove parameters.peaks and "

@@ -53,6 +53,25 @@ def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
             line += 1
 
 
+def mark_invalid(widget: QtWidgets.QWidget, invalid: bool) -> None:
+    """Outline a field whose entry cannot be used (the theme's ``invalid`` style)."""
+    if widget.property("invalid") != invalid:
+        widget.setProperty("invalid", invalid)
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+
+
+def show_message(label: QtWidgets.QLabel, text: str, *, hint: bool) -> None:
+    """The line under a setting: an error marked ▲, or a neutral hint; hidden when empty."""
+    style = "caption" if hint else "error"
+    if label.objectName() != style:
+        label.setObjectName(style)
+        label.style().unpolish(label)
+        label.style().polish(label)
+    label.setText(text if hint or not text else f"▲ {text}")
+    label.setVisible(bool(text))
+
+
 def section(layout: QtWidgets.QBoxLayout, text: str) -> QtWidgets.QLabel:
     """A section title; every section starts with the same gap above it."""
     label = text_label(text.upper(), "section")

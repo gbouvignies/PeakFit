@@ -24,7 +24,8 @@ from peakfit.engine.domain.constraints import (
 )
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.labels import text_label
+from peakfit.gui.editor.labels import mark_invalid, show_message, text_label
+from peakfit.gui.fitting import desktop_rule
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -51,6 +52,21 @@ def parse_number(text: str) -> float | None:
     return value
 
 
+_INVALID = object()  # a typed window that is not a positive number
+WINDOW = "window"  # the error key of the position windows, beside each rule's index
+
+
+def _window(text: str) -> float | object | None:
+    """A typed position window: a positive number, None when empty, else ``_INVALID``."""
+    try:
+        value = parse_number(text)
+    except ValueError:
+        return _INVALID
+    if value is None:
+        return None
+    return value if value > 0 else _INVALID
+
+
 def _text(value: float | None) -> str:
     return "" if value is None else formatting.setting(value)
 
@@ -66,7 +82,7 @@ class _RuleDraft:
     high: str = ""
     held: bool = False
     free: bool | None = None  # the rule's vary when not held: None (default) or True
-    raw: str = ""  # an imported pattern this editor cannot represent
+    raw: str = ""  # an imported pattern other than linewidth or η, shown as written
 
     @property
     def pattern(self) -> str:
@@ -86,6 +102,21 @@ class _RuleDraft:
             free=True if constraint.vary else None,
             raw="" if known else pattern,
         )
+
+
+def rule_text(pattern: str, constraint: ParameterConstraint) -> str:
+    """A rule as recorded: ``*.F2.lw: start 20 · range 5–80 · held``."""
+    show = formatting.setting
+    parts = []
+    if constraint.value is not None:
+        parts.append(f"start {show(constraint.value)}")
+    if constraint.min is not None or constraint.max is not None:
+        low = show(constraint.min) if constraint.min is not None else "−∞"
+        high = show(constraint.max) if constraint.max is not None else "∞"
+        parts.append(f"range {low}–{high}")
+    if constraint.vary is not None:
+        parts.append("held" if constraint.vary is False else "fitted")
+    return f"{pattern}: {' · '.join(parts) or 'no change'}"
 
 
 def rule_error(draft: _RuleDraft) -> str:
@@ -188,17 +219,10 @@ class _RuleRow(QtWidgets.QWidget):
         self.unit.setText(KINDS.get(draft.kind, ("", ""))[1])
 
     def show_message(self, text: str, *, hint: bool) -> None:
-        style = "caption" if hint else "error"
-        if self.message.objectName() != style:
-            self.message.setObjectName(style)
-            self.message.style().unpolish(self.message)
-            self.message.style().polish(self.message)
-        self.message.setText(text if hint or not text else f"▲ {text}")
-        self.message.setVisible(bool(text))
+        """The line under the rule, outlining its values for an error."""
+        show_message(self.message, text, hint=hint)
         for edit in (self.start, self.low, self.high):
-            edit.setProperty("invalid", bool(text) and not hint)
-            edit.style().unpolish(edit)
-            edit.style().polish(edit)
+            mark_invalid(edit, bool(text) and not hint)
 
 
 def _number_edit(name: str) -> QtWidgets.QLineEdit:
@@ -264,14 +288,17 @@ class ConstraintsEditor(QtWidgets.QWidget):
     def show_parameters(
         self, parameters: ParameterConfig, names: Collection[str] | None = None
     ) -> None:
-        """Show committed constraints; ``names`` are the prepared model's parameters.
+        """Show committed constraints; ``names`` are the prepared model's parameter names.
 
         Unchanged constraints keep drafts in progress; changed ones (Undo, a reopened
         analysis) replace them.
         """
-        names_changed = names is not None and names != self._names
-        if names is not None:
-            self._names = names
+        # One stand-in per parameter kind and axis (``_.F2.lw``): rules are axis-wide, so
+        # matching them needs the kinds, not every peak's parameter.
+        kinds = frozenset(f"_.{n.partition('.')[2]}" for n in names) if names is not None else None
+        names_changed = kinds is not None and kinds != self._names
+        if kinds is not None:
+            self._names = kinds
         if parameters == self._parameters:
             if names_changed:
                 self._update_errors()
@@ -287,8 +314,8 @@ class ConstraintsEditor(QtWidgets.QWidget):
             edit.setPlaceholderText(_text(default) if default is not None else "none")
         count = len(parameters.peaks)
         self.peaks.setText(
-            f"{formatting.count(count, 'peak')} with constraints of their own "
-            "(per-peak rules are kept as they are)"
+            f"▲ {formatting.count(count, 'peak')} with constraints of their own, which the "
+            "desktop fit does not apply; fit them with the CLI."
             if count
             else ""
         )
@@ -342,13 +369,10 @@ class ConstraintsEditor(QtWidgets.QWidget):
         errors: dict[int | str, str] = {}
         windows: dict[str, float | None] = {}
         for label, text in self._windows.items():
-            try:
-                value = parse_number(text)
-            except ValueError:
-                value = math.nan
-            if value is not None and not value > 0:
-                errors["window"] = "Enter each position window as a positive number of ppm."
-            windows[label] = value if value is not None and value > 0 else None
+            value = _window(text)
+            if value is _INVALID:
+                errors[WINDOW] = "Enter each position window as a positive number of ppm."
+            windows[label] = value if isinstance(value, float) else None
         patterns: dict[str, ParameterConstraint] = {}
         for index, draft in enumerate(self._drafts):
             if draft is self._pending:
@@ -373,17 +397,20 @@ class ConstraintsEditor(QtWidgets.QWidget):
         return parameters, errors
 
     def _pattern_error(self, draft: _RuleDraft) -> str:
-        if draft.raw:
+        if not desktop_rule(draft.pattern):
             return (
-                f"“{draft.raw}”: rules for named peaks or other parameters are not "
-                "supported in the desktop fit. Remove it, or fit with the CLI."
+                f"“{draft.raw}”: the desktop fit applies no rules for named peaks. "
+                "Remove it, or fit with the CLI."
             )
         names = self._names
         if names is not None and not any(matches_pattern(n, draft.pattern) for n in names):
-            kind = KINDS[draft.kind][0]
-            where = "any axis" if draft.axis == ALL_AXES else self._axis_name(draft.axis)
+            if draft.raw:
+                what = f"“{draft.raw}”"
+            else:
+                where = "any axis" if draft.axis == ALL_AXES else self._axis_name(draft.axis)
+                what = f"{KINDS[draft.kind][0]} on {where}"
             return (
-                f"{kind} on {where} matches no parameter of the current model. "
+                f"{what} matches no parameter of the current model. "
                 "Remove the rule or change the lineshape."
             )
         return ""
@@ -417,19 +444,10 @@ class ConstraintsEditor(QtWidgets.QWidget):
         if self._parameters is None:
             return
         _settings, errors = self._settings()
-        window = errors.get("window", "")
-        self.window_message.setText(f"▲ {window}" if window else "")
-        self.window_message.setVisible(bool(window))
+        window = errors.get(WINDOW, "")
+        show_message(self.window_message, window, hint=False)
         for label, edit in self.windows.items():
-            try:
-                bad = (value := parse_number(self._windows.get(label, ""))) is not None and (
-                    value <= 0
-                )
-            except ValueError:
-                bad = True
-            edit.setProperty("invalid", bad)
-            edit.style().unpolish(edit)
-            edit.style().polish(edit)
+            mark_invalid(edit, _window(self._windows.get(label, "")) is _INVALID)
         for index, row in enumerate(self.rules):
             draft = self._drafts[index]
             row.show_message(errors.get(index, ""), hint=draft is self._pending)

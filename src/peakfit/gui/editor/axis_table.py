@@ -23,7 +23,7 @@ from peakfit.engine.domain.config import (
 from peakfit.engine.domain.spectrum import DEFAULT_SHAPE
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.labels import text_label
+from peakfit.gui.editor.labels import mark_invalid, show_message, text_label
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -200,13 +200,7 @@ class _AxisRow:
 
     def show_message(self, text: str, *, hint: bool) -> None:
         """The line under the axis: an error, or a neutral hint; hidden when empty."""
-        style = "caption" if hint else "error"
-        if self.message.objectName() != style:
-            self.message.setObjectName(style)
-            self.message.style().unpolish(self.message)
-            self.message.style().polish(self.message)
-        self.message.setText(text if hint or not text else f"▲ {text}")
-        self.message.setVisible(bool(text))
+        show_message(self.message, text, hint=hint)
 
 
 def _hz_edit(name: str) -> QtWidgets.QLineEdit:
@@ -440,9 +434,7 @@ class AxisModelTable(QtWidgets.QWidget):
                 row.show_message(errors.get(label, ""), hint=False)
             invalid = label in errors and self._drafts[label].doublet is not None
             for edit in (row.j, row.low, row.high):
-                edit.setProperty("invalid", invalid)
-                edit.style().unpolish(edit)
-                edit.style().polish(edit)
+                mark_invalid(edit, invalid)
         first = next(
             (
                 f"{row.axis.name}: {errors[row.axis.label]}"

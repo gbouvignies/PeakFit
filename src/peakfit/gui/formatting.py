@@ -405,7 +405,8 @@ def parse_scaled(text: str) -> float:
     if not times:
         return float(plain)
     # As one decimal literal: 3.1 × 10⁻³ is exactly the float 3.1e-3, not 3.1 × 0.001.
-    return float(f"{float(mantissa)!r}e{int(power.translate(_PLAIN))}")
+    float(mantissa)  # a mantissa that is not a number raises here
+    return float(f"{mantissa}e{int(power.translate(_PLAIN))}")
 
 
 # ------------------------------------------------------------------ planes

@@ -10,12 +10,11 @@ committed value and blocks Fit.
 
 import math
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.engine.domain.spectrum import fitted_plane_indices
 from peakfit.gui import formatting
@@ -25,14 +24,17 @@ from peakfit.gui.editor.constraints import ConstraintsEditor, parse_number
 from peakfit.gui.editor.labels import (
     LABEL_WIDTH,
     ElidedLabel,
-    Row,
     disclosure,
+    mark_invalid,
     section,
+    show_message,
     text_label,
 )
 
 if TYPE_CHECKING:
-    from peakfit.gui.dataset_fit import DatasetFitResult
+    from collections.abc import Sequence
+
+    from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.gui.fitting import PreparedDatasetFit
 
 SOLVER = "VarPro · signed amplitudes solved per plane"
@@ -60,8 +62,24 @@ class Setting(Enum):
 
 
 LIMITS = (Setting.ITERATIONS, Setting.TOLERANCE)
-ROWS = tuple(setting for setting in Setting if setting is not Setting.CONSTRAINTS)  # labelled
-CHECKED = (Setting.NOISE, Setting.THRESHOLD, Setting.PLANES)  # typed values, validated here
+# The settings with a label in the page's label column (Constraints has a disclosure).
+LABELLED = tuple(setting for setting in Setting if setting is not Setting.CONSTRAINTS)
+# The settings typed into a field and validated by the page itself.
+TYPED = (Setting.NOISE, Setting.THRESHOLD, Setting.PLANES)
+
+
+class NoiseSource(StrEnum):
+    """Where the statistical noise comes from."""
+
+    ESTIMATED = "estimated"
+    MANUAL = "manual"
+
+
+class ThresholdKind(StrEnum):
+    """How the clustering threshold is given."""
+
+    FACTOR = "factor"
+    LEVEL = "level"
 
 
 class ScaledValidator(QtGui.QValidator):
@@ -98,43 +116,11 @@ def constraints_text(parameters: ParameterConfig, names: dict[str, str]) -> str:
     return " · ".join(parts) or "None"
 
 
-def submitted_rows(result: DatasetFitResult, names: dict[str, str]) -> list[Row]:
-    """The settings a run was submitted with, as its Run page rows; unusual ones only.
-
-    Noise and threshold always; the planes and constraints when the run had any.
-    """
-    settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
-    level = result.inputs.contour_level
-    clustering = settings.clustering
-    rows = [
-        Row(
-            "Noise",
-            f"{formatting.scaled(result.inputs.noise)} · "
-            + ("manual" if settings.noise_level is not None else "estimated"),
-            tip="The statistical noise this run used",
-        ),
-        Row(
-            "Threshold",
-            f"level {formatting.setting(level)}"
-            if clustering.contour_level is not None
-            else f"{formatting.setting(clustering.contour_factor)} × noise = "
-            f"{formatting.scaled(level)}",
-            tip="The clustering threshold this run used",
-        ),
-    ]
-    if excluded := settings.exclude_planes:
-        total = result.inputs.snapshot.data_shape[0]
-        rows.append(
-            Row(
-                "Planes",
-                f"{formatting.grouped(total - len(excluded))} of {formatting.grouped(total)} "
-                f"fitted · {formatting.plane_numbers(excluded)} excluded",
-                tip="Excluded planes are measured, with no fitted amplitude",
-            )
-        )
-    if settings.parameters != ParameterConfig():
-        rows.append(Row("Constraints", constraints_text(settings.parameters, names)))
-    return rows
+def planes_fitted(total: int, excluded: Sequence[int]) -> str:
+    """``All 131 fitted``, or ``128 of 131 fitted``."""
+    if not excluded:
+        return f"All {formatting.grouped(total)} fitted"
+    return f"{formatting.grouped(total - len(excluded))} of {formatting.grouped(total)} fitted"
 
 
 def _cell(*items: QtWidgets.QWidget | QtWidgets.QLayout) -> QtWidgets.QVBoxLayout:
@@ -194,13 +180,6 @@ def _value_edit(name: str) -> QtWidgets.QLineEdit:
     return edit
 
 
-def _show_invalid(edit: QtWidgets.QLineEdit, invalid: bool) -> None:
-    if edit.property("invalid") != invalid:
-        edit.setProperty("invalid", invalid)
-        edit.style().unpolish(edit)
-        edit.style().polish(edit)
-
-
 ENTER_NOISE = "Enter the statistical noise as a positive number."
 ENTER_LEVEL = "Enter the clustering level as a positive intensity."
 NO_PLANE_LEFT = "Every plane is excluded. Keep at least one plane to fit."
@@ -220,11 +199,12 @@ class ModelPage(QtWidgets.QWidget):
         self._key = None
         self._planes = 0
         self._estimate: float | None = None  # the noise estimated from the fitted planes
+        self._level: float | None = None  # the clustering level the settings give
         self._committed: dict[Setting, object] = {}  # the value each field last showed
         self._exact: dict[QtWidgets.QLineEdit, tuple[str, float]] = {}  # shown text → value
         self.invalid = ""
-        self.titles = {setting: text_label(setting.value, "muted") for setting in ROWS}
-        self.errors = {setting: text_label("", "error", wrap=True) for setting in CHECKED}
+        self.titles = {setting: text_label(setting.value, "muted") for setting in LABELLED}
+        self.errors = {setting: text_label("", "error", wrap=True) for setting in TYPED}
         for message in self.errors.values():
             message.hide()
         layout = QtWidgets.QVBoxLayout(self)
@@ -241,7 +221,8 @@ class ModelPage(QtWidgets.QWidget):
         section(layout, "Clustering")
         # Statistical noise: the estimate, or a value entered instead of it.
         self.noise_mode = _choice(
-            "Statistical noise source", (("Estimated", "estimated"), ("Manual", "manual"))
+            "Statistical noise source",
+            (("Estimated", NoiseSource.ESTIMATED), ("Manual", NoiseSource.MANUAL)),
         )
         self.noise_mode.setToolTip("Estimate the noise from the fitted planes, or enter it")
         self.noise_mode.currentIndexChanged.connect(self._noise_mode_chosen)
@@ -251,7 +232,8 @@ class ModelPage(QtWidgets.QWidget):
         self.noise_estimate = text_label("", "caption")
         # The clustering threshold: a factor of the noise, or an absolute level.
         self.threshold_mode = _choice(
-            "Clustering threshold kind", (("Factor", "factor"), ("Level", "level"))
+            "Clustering threshold kind",
+            (("Factor", ThresholdKind.FACTOR), ("Level", ThresholdKind.LEVEL)),
         )
         self.threshold_mode.setToolTip(
             "A multiple of the statistical noise, or an absolute intensity level"
@@ -471,8 +453,10 @@ class ModelPage(QtWidgets.QWidget):
         self, configuration: PeakFitConfig, preview: PreparedDatasetFit | None, error: str
     ) -> None:
         """What the preparation resolved: noise, estimate, level and counts."""
+        # What Manual and Level start from: the values the page shows.
+        self._estimate = preview.estimated_noise if preview is not None else None
+        self._level = preview.contour_level if preview is not None else None
         if preview is not None:
-            self._estimate = preview.estimated_noise
             self.noise.setText(formatting.scaled(preview.noise))
             self.noise_estimate.setText(
                 f"estimate {formatting.scaled(preview.estimated_noise)}"
@@ -500,12 +484,18 @@ class ModelPage(QtWidgets.QWidget):
         noise = configuration.noise_level
         if self._committed.get(Setting.NOISE, _UNSET) != noise:
             self._committed[Setting.NOISE] = noise
-            self._set_mode(self.noise_mode, "manual" if noise is not None else "estimated")
+            self._set_mode(
+                self.noise_mode,
+                NoiseSource.MANUAL if noise is not None else NoiseSource.ESTIMATED,
+            )
             self._show_value(self.noise_value, noise)
         level = configuration.clustering.contour_level
         if self._committed.get(Setting.THRESHOLD, _UNSET) != level:
             self._committed[Setting.THRESHOLD] = level
-            self._set_mode(self.threshold_mode, "level" if level is not None else "factor")
+            self._set_mode(
+                self.threshold_mode,
+                ThresholdKind.LEVEL if level is not None else ThresholdKind.FACTOR,
+            )
             self._show_value(self.level_value, level)
         excluded = tuple(configuration.exclude_planes)
         if self._committed.get(Setting.PLANES, _UNSET) != excluded:
@@ -520,16 +510,24 @@ class ModelPage(QtWidgets.QWidget):
             self._exact[edit] = (text, value)
 
     @staticmethod
-    def _set_mode(combo: QtWidgets.QComboBox, mode: str) -> None:
+    def _set_mode(combo: QtWidgets.QComboBox, mode: StrEnum) -> None:
         with QtCore.QSignalBlocker(combo):
             combo.setCurrentIndex(combo.findData(mode))
 
+    @property
+    def _noise_source(self) -> NoiseSource:
+        return NoiseSource(self.noise_mode.currentData())
+
+    @property
+    def _threshold_kind(self) -> ThresholdKind:
+        return ThresholdKind(self.threshold_mode.currentData())
+
     def _show_modes(self) -> None:
-        manual = self.noise_mode.currentData() == "manual"
+        manual = self._noise_source is NoiseSource.MANUAL
         self.noise.setVisible(not manual)
         self.noise_value.setVisible(manual)
         self.noise_estimate.setVisible(manual and bool(self.noise_estimate.text()))
-        level = self.threshold_mode.currentData() == "level"
+        level = self._threshold_kind is ThresholdKind.LEVEL
         self.threshold.setVisible(not level)
         self.level_value.setVisible(level)
 
@@ -537,12 +535,7 @@ class ModelPage(QtWidgets.QWidget):
         return {row.axis.label: row.axis.name for row in self.axes.rows} if self.axes else {}
 
     def _show_planes(self, excluded: list[int]) -> None:
-        total = self._planes
-        self.planes.setText(
-            f"{formatting.grouped(total - len(excluded))} of {formatting.grouped(total)} fitted"
-            if excluded
-            else f"All {formatting.grouped(total)} fitted"
-        )
+        self.planes.setText(planes_fitted(self._planes, excluded))
 
     # ------------------------------------------------------------- drafts
     def _number(self, edit: QtWidgets.QLineEdit) -> float | None:
@@ -574,9 +567,9 @@ class ModelPage(QtWidgets.QWidget):
 
     def _field_errors(self) -> dict[Setting, str]:
         errors: dict[Setting, str] = {}
-        if self.noise_mode.currentData() == "manual" and self._number(self.noise_value) is None:
+        if self._noise_source is NoiseSource.MANUAL and self._number(self.noise_value) is None:
             errors[Setting.NOISE] = ENTER_NOISE
-        if self.threshold_mode.currentData() == "level" and self._number(self.level_value) is None:
+        if self._threshold_kind is ThresholdKind.LEVEL and self._number(self.level_value) is None:
             errors[Setting.THRESHOLD] = ENTER_LEVEL
         _planes, why = self._excluded()
         if why:
@@ -593,16 +586,15 @@ class ModelPage(QtWidgets.QWidget):
         }
         for setting, message in self.errors.items():
             text = errors.get(setting, "")
-            message.setText(f"▲ {text}" if text else "")
-            message.setVisible(bool(text))
-            _show_invalid(fields[setting], bool(text))
+            show_message(message, text, hint=False)
+            mark_invalid(fields[setting], bool(text))
         self._update_invalid()
 
     def _update_invalid(self, *_args) -> None:
         errors = self._field_errors()
         reasons = [
             self.axes.invalid if self.axes is not None else "",
-            *(f"{setting.value}: {errors[setting]}" for setting in CHECKED if setting in errors),
+            *(f"{setting.value}: {errors[setting]}" for setting in TYPED if setting in errors),
             self.constraints.invalid if self.constraints is not None else "",
         ]
         first = next((reason for reason in reasons if reason), "")
@@ -613,7 +605,7 @@ class ModelPage(QtWidgets.QWidget):
     # ------------------------------------------------------------- edits
     def _noise_mode_chosen(self) -> None:
         """Manual starts from the estimate as shown; Estimated drops the value."""
-        if self.noise_mode.currentData() == "manual":
+        if self._noise_source is NoiseSource.MANUAL:
             start = formatting.scaled(self._estimate) if self._estimate is not None else ""
             self.noise_value.setText(start)
             self.noise_value.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
@@ -622,16 +614,12 @@ class ModelPage(QtWidgets.QWidget):
 
     def _threshold_mode_chosen(self) -> None:
         """Level starts from the level the factor gives, as shown; Factor drops it."""
-        if self.threshold_mode.currentData() == "level":
-            level = self._level_shown()
-            self.level_value.setText(level)
+        if self._threshold_kind is ThresholdKind.LEVEL:
+            level = self._level
+            self.level_value.setText(formatting.scaled(level) if level is not None else "")
             self.level_value.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
         self._show_modes()
         self._edited()
-
-    def _level_shown(self) -> str:
-        text = self.level.text().removeprefix("= ")
-        return text if text and "noise" not in text else ""
 
     def _show_constraints(self, shown: bool) -> None:
         if self.constraints is not None:
@@ -680,7 +668,8 @@ class ModelPage(QtWidgets.QWidget):
                 else "every plane"
             )
         if working.parameters != recorded.parameters:
-            rows[Setting.CONSTRAINTS] = constraints_text(recorded.parameters, self._names())
+            used = constraints_text(recorded.parameters, self._names())
+            rows[Setting.CONSTRAINTS] = "no constraints" if used == "None" else used
         if w.max_iterations != r.max_iterations:
             rows[Setting.ITERATIONS] = formatting.grouped(r.max_iterations)
         if w.tolerance != r.tolerance:
@@ -716,12 +705,12 @@ class ModelPage(QtWidgets.QWidget):
         low, high = TOLERANCE_RANGE
         if math.isfinite(tolerance) and low <= tolerance <= high:
             fitting.tolerance = tolerance
-        if self.noise_mode.currentData() == "estimated":
+        if self._noise_source is NoiseSource.ESTIMATED:
             settings.noise_level = None
         elif (noise := self._number(self.noise_value)) is not None:
             settings.noise_level = noise
         clustering = settings.clustering
-        if self.threshold_mode.currentData() == "factor":
+        if self._threshold_kind is ThresholdKind.FACTOR:
             clustering.contour_level = None
             clustering.contour_factor = self.threshold.value()
         elif (level := self._number(self.level_value)) is not None:

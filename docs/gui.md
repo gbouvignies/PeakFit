@@ -197,9 +197,11 @@ the configuration's `exclude_planes` counts from 0), with how many are fitted;
 how far a peak may move from its start in ppm, and rules on a parameter kind
 (linewidth or η) on one axis or all, each setting a start, a range or **Hold**,
 applied in order so a later rule overrides an earlier one. A rule waits, with a
-hint, until it sets something; per-peak constraints are kept as imported and
-belong to their peak; an imported rule for named peaks is shown as written and
-must be removed before a desktop fit. Then **Optimizer limits** (collapsed:
+hint, until it sets something. An imported axis-wide rule on another parameter
+(`*.F2.cs`, `*.*.phase`, `*`) is shown as written, with its start, range and Hold
+editable; an imported rule for named peaks is shown as written and must be removed
+before a desktop fit. Per-peak constraints belong to their peak; the desktop fit
+does not apply them yet, and the page says so. Then **Optimizer limits** (collapsed:
 solver, iteration limit, tolerance). Values use × 10ⁿ, never e notation, and
 accept plain or scientific entry (1.5e5, 1.5 × 10⁵); the tolerance reads
 1 × 10⁻⁸. A typed value that cannot be fitted (a noise or level that is not
@@ -222,8 +224,9 @@ which marks it **not fitted**, and stays measured: Overlay and Residual show its
 experimental contours with “plane N is measured but not fitted”, and the peak
 profiles and the Profiles view draw it as a faint dotted line with “plane N
 measured, not fitted”, never as a point. The Run page lists the settings each run
-was submitted with: its noise (manual or estimated), threshold and, when it had
-any, its excluded planes and constraints. Before the first fit the toolbar
+was submitted with: its noise (a manual value as entered, an estimate as
+computed), threshold and, when it had any, its excluded planes and constraints,
+each rule on its own line. Before the first fit the toolbar
 says **Not fitted** and Run is unavailable.
 
 After every committed change to peaks or settings the Model page prepares the exact
