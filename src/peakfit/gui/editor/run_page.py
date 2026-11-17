@@ -66,18 +66,18 @@ class RunPage(QtWidgets.QWidget):
         self.changes.setSpacing(2)
         run.addLayout(self.changes)
         self._changes_key = None
-        heading = QtWidgets.QHBoxLayout()
-        heading.setSpacing(4)
-        run.addSpacing(themes.SPACE_M)
-        self.unexplained_section = _label("SIGNAL NOT EXPLAINED ON THIS PLANE", "section")
-        heading.addWidget(self.unexplained_section)
-        self.unexplained_info = InfoButton("Signal not explained")
-        heading.addWidget(self.unexplained_info)
-        heading.addStretch(1)
-        run.addLayout(heading)
+        self.unexplained_section = section(run, "Signal not explained on this plane")
+        # What the list is sits beside the button that computes it, not on the heading,
+        # which would then need more than the inspector's width.
+        request = QtWidgets.QHBoxLayout()
+        request.setSpacing(4)
         self.unexplained_button = themes.command("")
         self.unexplained_button.clicked.connect(self.unexplained_requested)
-        run.addWidget(self.unexplained_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        request.addWidget(self.unexplained_button)
+        self.unexplained_info = InfoButton("Signal not explained")
+        request.addWidget(self.unexplained_info)
+        request.addStretch(1)
+        run.addLayout(request)
         self.unexplained_title = _label("", "muted", wrap=True)
         run.addWidget(self.unexplained_title)
         self.unexplained = QtWidgets.QVBoxLayout()
@@ -88,13 +88,16 @@ class RunPage(QtWidgets.QWidget):
         self._unexplained_key = None
         layout.addWidget(self.run_block)
         self._key = None
+        self._fitted = False
+        self._about = ""
 
     def show_run(self, rows: list[Row], *, fitted: bool, warned: bool) -> None:
         """The active run's rows; without a run and rows, only a failure can show."""
         self.run_block.setVisible(fitted or bool(rows))
+        self._fitted = fitted
         for widget in (self.unexplained_section, self.unexplained_button, self.unexplained_note):
             widget.setVisible(fitted)
-        self.unexplained_info.setVisible(fitted and bool(self.unexplained_info.body.text()))
+        self._show_info()
         key = (tuple(rows), warned)
         if key == self._key:
             return
@@ -188,8 +191,9 @@ class RunPage(QtWidgets.QWidget):
         if key == self._unexplained_key:
             return
         self._unexplained_key = key
+        self._about = about
         self.unexplained_info.set_text(about)
-        self.unexplained_info.setVisible(bool(about) and self.unexplained_section.isVisibleTo(self))
+        self._show_info()
         self.unexplained_button.setText(button)
         self.unexplained_button.setEnabled(enabled)
         self.unexplained_title.setText(title)
@@ -208,3 +212,7 @@ class RunPage(QtWidgets.QWidget):
             row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
             row.addWidget(_label(detail, "caption", wrap=True), 1)
             self.unexplained.addLayout(row)
+
+    def _show_info(self) -> None:
+        """The unexplained-signal ⓘ shows with its section, when it has something to say."""
+        self.unexplained_info.setVisible(self._fitted and bool(self._about))

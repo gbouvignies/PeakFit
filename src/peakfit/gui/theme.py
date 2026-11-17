@@ -324,7 +324,7 @@ QToolButton#text:checked, QToolButton#text:hover:enabled {{ background: transpar
 QToolButton#text:hover:enabled {{ color: {t.text}; }}
 QToolButton#info {{ padding: 0 2px; color: {t.secondary}; font-size: {s.small}px; }}
 QToolButton#info:hover:enabled {{ color: {t.accent}; background: transparent; }}
-QFrame#popover {{ background: {t.panel}; border: 1px solid {t.border}; border-radius: 6px; }}
+QFrame#popover {{ background: {t.panel}; border: 1px solid {t.border}; border-radius: 5px; }}
 QPushButton#link {{ border: 0; background: transparent; color: {t.accent}; padding: 1px 0;
   min-height: 0; text-align: left; }}
 QPushButton#link:hover {{ text-decoration: underline; }}

@@ -7,13 +7,17 @@ A setting that differs from the active run's is marked with •.
 """
 
 import math
+from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.domain.constraints import ParameterConfig
+from peakfit.engine.domain.spectrum import format_planes
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo, AxisModelTable
+from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo, AxisModelTable, axis_model_text
 from peakfit.gui.editor.labels import LABEL_WIDTH, disclosure, section, text_label
 
 if TYPE_CHECKING:
@@ -21,6 +25,30 @@ if TYPE_CHECKING:
     from peakfit.gui.fitting import PreparedDatasetFit
 
 SOLVER = "VarPro · signed amplitudes solved per plane"
+TOLERANCE_RANGE = (1e-12, 0.1)  # an optimizer tolerance the setting accepts
+
+
+@dataclass(frozen=True)
+class RunSettings:
+    """The active run's short ID and the settings it recorded."""
+
+    run: str
+    settings: PeakFitConfig
+
+
+class Setting(Enum):
+    """A Model page row below the axis table, with its label."""
+
+    NOISE = "Statistical noise"
+    THRESHOLD = "Threshold"
+    PASSES = "Passes"
+    PLANES = "Planes"
+    CONSTRAINTS = "Constraints"
+    ITERATIONS = "Iteration limit"
+    TOLERANCE = "Tolerance"
+
+
+LIMITS = (Setting.ITERATIONS, Setting.TOLERANCE)
 
 
 class ScaledValidator(QtGui.QValidator):
@@ -41,6 +69,33 @@ class ScaledValidator(QtGui.QValidator):
         return state, text, pos
 
 
+def constraints_text(parameters: ParameterConfig, names: dict[str, str]) -> str:
+    """Axis-wide and per-peak constraints in one line, or "None"."""
+    if parameters == ParameterConfig():
+        return "None"
+    parts = []
+    if parameters.position_window is not None:
+        parts.append(f"positions ± {formatting.ppm(parameters.position_window)} ppm")
+    windows = parameters.position_windows.model_dump(exclude_none=True)
+    parts += [f"{names.get(axis, axis)} ± {formatting.ppm(w)} ppm" for axis, w in windows.items()]
+    if parameters.defaults.patterns:
+        parts.append(formatting.count(len(parameters.defaults.patterns), "default rule"))
+    if parameters.peaks:
+        parts.append(formatting.count(len(parameters.peaks), "peak") + " constrained")
+    return " · ".join(parts)
+
+
+def _rows(grid: QtWidgets.QGridLayout, rows) -> None:
+    """Muted labels in the page's label column, each beside its stacked widgets."""
+    for line, (title, widgets) in enumerate(rows):
+        grid.addWidget(title, line, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+        cell = QtWidgets.QVBoxLayout()
+        cell.setSpacing(2)
+        for widget in widgets:
+            cell.addWidget(widget)
+        grid.addLayout(cell, line, 1)
+
+
 def _form() -> QtWidgets.QGridLayout:
     grid = QtWidgets.QGridLayout()
     grid.setHorizontalSpacing(themes.SPACE_S)
@@ -48,14 +103,6 @@ def _form() -> QtWidgets.QGridLayout:
     grid.setColumnMinimumWidth(0, LABEL_WIDTH)  # the inspector's label column
     grid.setColumnStretch(1, 1)
     return grid
-
-
-def _cell(*widgets: QtWidgets.QWidget) -> QtWidgets.QVBoxLayout:
-    cell = QtWidgets.QVBoxLayout()
-    cell.setSpacing(2)
-    for widget in widgets:
-        cell.addWidget(widget)
-    return cell
 
 
 class ModelPage(QtWidgets.QWidget):
@@ -70,6 +117,7 @@ class ModelPage(QtWidgets.QWidget):
         self._configuration: PeakFitConfig | None = None
         self._key = None
         self._planes = 0
+        self.titles = {setting: text_label(setting.value, "muted") for setting in Setting}
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(themes.SPACE_S)
@@ -82,10 +130,8 @@ class ModelPage(QtWidgets.QWidget):
         self._axes_slot.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(self._axes_slot)
         section(layout, "Clustering")
-        clustering = _form()
         self.noise = text_label("", "")
         self.noise_source = text_label("explicit value", "caption")
-        self.noise_title = text_label("Statistical noise", "muted")
         self.threshold = QtWidgets.QDoubleSpinBox()
         self.threshold.setRange(0.1, 1000)
         self.threshold.setDecimals(2)
@@ -94,18 +140,16 @@ class ModelPage(QtWidgets.QWidget):
         self.threshold.setKeyboardTracking(False)
         self.threshold.valueChanged.connect(self._edited)
         self.level = text_label("", "caption", wrap=True)
-        self.threshold_title = text_label("Threshold", "muted")
-        for row, (title, widgets) in enumerate(
+        clustering = _form()
+        _rows(
+            clustering,
             (
-                (self.noise_title, (self.noise, self.noise_source)),
-                (self.threshold_title, (self.threshold, self.level)),
-            )
-        ):
-            clustering.addWidget(title, row, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-            clustering.addLayout(_cell(*widgets), row, 1)
+                (self.titles[Setting.NOISE], (self.noise, self.noise_source)),
+                (self.titles[Setting.THRESHOLD], (self.threshold, self.level)),
+            ),
+        )
         layout.addLayout(clustering)
         section(layout, "Fit")
-        fit = _form()
         self.passes = QtWidgets.QSpinBox()
         self.passes.setRange(1, 20)
         self.passes.setAccessibleName("Optimizer passes")
@@ -113,21 +157,22 @@ class ModelPage(QtWidgets.QWidget):
         self.passes.valueChanged.connect(self._edited)
         self.passes.setToolTip("Cross-talk between clusters is updated between passes")
         self.schedule = text_label("", "", wrap=True)
-        self.passes_title = text_label("Passes", "muted")
         self.planes = text_label("", "", wrap=True)
-        self.planes_title = text_label("Planes", "muted")
-        for row, (title, widgets) in enumerate(
+        self.constraints = text_label("", "", wrap=True)
+        fit = _form()
+        _rows(
+            fit,
             (
-                (self.passes_title, (self.passes, self.schedule)),
-                (self.planes_title, (self.planes,)),
-            )
-        ):
-            fit.addWidget(title, row, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-            fit.addLayout(_cell(*widgets), row, 1)
+                (self.titles[Setting.PASSES], (self.passes, self.schedule)),
+                (self.titles[Setting.PLANES], (self.planes,)),
+                (self.titles[Setting.CONSTRAINTS], (self.constraints,)),
+            ),
+        )
         layout.addLayout(fit)
         self.limits_toggle = disclosure("Optimizer limits")
         self.limits_toggle.toggled.connect(lambda shown: self.limits.setVisible(shown))
         self.limits_differs = text_label(DIFFERS, "muted")
+        self.limits_differs.setToolTip("An optimizer limit differs from the active run's")
         self.limits_differs.hide()
         toggle_row = QtWidgets.QHBoxLayout()
         toggle_row.setSpacing(2)
@@ -146,19 +191,16 @@ class ModelPage(QtWidgets.QWidget):
         self.max_iterations.valueChanged.connect(self._edited)
         self.tolerance = QtWidgets.QLineEdit()
         self.tolerance.setAccessibleName("Optimizer tolerance")
-        self.tolerance.setValidator(ScaledValidator(1e-12, 0.1, self.tolerance))
+        self.tolerance.setValidator(ScaledValidator(*TOLERANCE_RANGE, self.tolerance))
         self.tolerance.editingFinished.connect(self._edited)
-        self.iterations_title = text_label("Iteration limit", "muted")
-        self.tolerance_title = text_label("Tolerance", "muted")
-        for row, (title, widget) in enumerate(
+        _rows(
+            limits,
             (
-                (text_label("Solver", "muted"), text_label(SOLVER, wrap=True)),
-                (self.iterations_title, self.max_iterations),
-                (self.tolerance_title, self.tolerance),
-            )
-        ):
-            limits.addWidget(title, row, 0)
-            limits.addWidget(widget, row, 1)
+                (text_label("Solver", "muted"), (text_label(SOLVER, wrap=True),)),
+                (self.titles[Setting.ITERATIONS], (self.max_iterations,)),
+                (self.titles[Setting.TOLERANCE], (self.tolerance,)),
+            ),
+        )
         self.limits.hide()
         layout.addWidget(self.limits)
         for control in (self.threshold, self.passes, self.max_iterations):
@@ -174,8 +216,9 @@ class ModelPage(QtWidgets.QWidget):
         self.regions.toggled.connect(self.regions_toggled)
         layout.addWidget(self.regions)
 
-    def set_axes(self, axes: list[AxisInfo]) -> None:
-        """Build the per-axis table for the dataset's spectral axes, once."""
+    def set_axes(self, axes: list[AxisInfo], planes: int) -> None:
+        """Build the per-axis table for the dataset's spectral axes, once; its plane count."""
+        self._planes = planes
         if self.axes is not None:
             return
         self.axes = AxisModelTable(axes)
@@ -193,28 +236,21 @@ class ModelPage(QtWidgets.QWidget):
         configuration: PeakFitConfig,
         preview: PreparedDatasetFit | None,
         error: str,
-        run: tuple[str, PeakFitConfig] | None = None,
+        run: RunSettings | None = None,
     ) -> None:
-        """Reflect working settings, their preparation and the active run's settings.
-
-        ``run`` is the active run's short ID and recorded settings; cheap when
-        nothing changed.
-        """
-        key = (configuration.model_dump_json(), id(preview), error, run and run[0], run and run[1])
+        """Reflect working settings, their preparation and the active run's settings."""
+        key = (configuration.model_dump_json(), id(preview), error, run)
         if key == self._key:
             return
         self._key = key
         self._configuration = configuration
         fitting = configuration.fitting
-        recorded = run[1] if run else None
-        labels = [row.axis.label for row in self.axes.rows] if self.axes is not None else []
-        axes, differs = self._differences(configuration, recorded, labels)
+        axes, differs = self._differences(configuration, run)
         if self.axes is not None:
             self.axes.show_model(fitting, axes)
-        self.differs.setText(
-            f"{DIFFERS} differs from run {run[0]}" if run and (axes or differs) else ""
-        )
-        self.differs.setVisible(bool(run and (axes or differs)))
+        marked = bool(run and (axes or differs))
+        self.differs.setText(f"{DIFFERS} differs from run {run.run}" if run and marked else "")
+        self.differs.setVisible(marked)
         # Unchanged values are left alone so an edit in progress keeps its text.
         for control, value in (
             (self.passes, fitting.refine_iterations),
@@ -232,7 +268,6 @@ class ModelPage(QtWidgets.QWidget):
         self.passes.setVisible(not steps)
         self.schedule.setVisible(bool(steps))
         self.schedule.setText(f"{len(steps)}-step schedule (imported)")
-        excluded = configuration.exclude_planes
         explicit = configuration.clustering.contour_level
         if preview is not None:
             self.noise.setText(formatting.scaled(preview.noise))
@@ -251,7 +286,8 @@ class ModelPage(QtWidgets.QWidget):
             self.noise.setText("–")
             self.level.setText("")
             self.preparation.setText("" if error else "Preparing…")
-        self._show_planes(excluded)
+        self._show_planes(configuration.exclude_planes)
+        self.constraints.setText(constraints_text(configuration.parameters, self._names()))
         # The usual case goes in the tooltip; an explicit value is worth saying.
         self.noise_source.setVisible(bool(configuration.noise_level))
         self.noise.setToolTip(
@@ -261,24 +297,14 @@ class ModelPage(QtWidgets.QWidget):
         )
         self.blocked.setText(f"Fit unavailable: {error}" if error else "")
         self.blocked.setVisible(bool(error))
-        for title, name, key_ in (
-            (self.noise_title, "Statistical noise", "noise"),
-            (self.threshold_title, "Threshold", "threshold"),
-            (self.passes_title, "Passes", "passes"),
-            (self.planes_title, "Planes", "planes"),
-            (self.iterations_title, "Iteration limit", "iterations"),
-            (self.tolerance_title, "Tolerance", "tolerance"),
-        ):
-            tip = differs.get(key_)
-            title.setText(f"{name} {DIFFERS}" if tip else name)
-            title.setToolTip(f"Run {run[0]} used {tip}" if run and tip else "")
-        limits = any(key_ in differs for key_ in ("iterations", "tolerance"))
-        self.limits_differs.setVisible(limits)
-        self.limits_differs.setToolTip("An optimizer limit differs from the active run's")
+        for setting, title in self.titles.items():
+            used = differs.get(setting)
+            title.setText(f"{setting.value} {DIFFERS}" if used else setting.value)
+            title.setToolTip(f"Run {run.run} used {used}" if run and used else "")
+        self.limits_differs.setVisible(any(setting in differs for setting in LIMITS))
 
-    def set_plane_count(self, planes: int) -> None:
-        """The dataset's plane count, for the Planes row."""
-        self._planes = planes
+    def _names(self) -> dict[str, str]:
+        return {row.axis.label: row.axis.name for row in self.axes.rows} if self.axes else {}
 
     def _show_planes(self, excluded: list[int]) -> None:
         total = self._planes
@@ -288,47 +314,54 @@ class ModelPage(QtWidgets.QWidget):
             return
         self.planes.setText(f"{formatting.grouped(total - len(excluded))} of {total} fitted")
         self.planes.setToolTip(
-            "Excluded by the settings: plane indices "
-            + ", ".join(str(i) for i in sorted(excluded))
-            + " (zero-based)"
+            f"Excluded by the settings: planes {format_planes(sorted(excluded))} (zero-based)"
         )
 
-    @staticmethod
     def _differences(
-        working: PeakFitConfig, recorded: PeakFitConfig | None, labels: list[str]
-    ) -> tuple[frozenset[str], dict[str, str]]:
-        """What differs from the run: the axes, and each other row with the run's value."""
-        if recorded is None:
-            return frozenset(), {}
-        rows: dict[str, str] = {}
+        self, working: PeakFitConfig, run: RunSettings | None
+    ) -> tuple[dict[str, str], dict[Setting, str]]:
+        """What differs from the run: by axis and by row, each with the run's value."""
+        if run is None:
+            return {}, {}
+        recorded = run.settings
         w, r = working.fitting, recorded.fitting
-        # Each axis's effective model, so a common family change marks every axis it moves.
-        axes = frozenset(label for label in labels if w.axis_model(label) != r.axis_model(label))
+        axes: dict[str, str] = {}
+        for row in self.axes.rows if self.axes else ():
+            label = row.axis.label
+            # Each axis's effective model, so a common family change marks every axis.
+            if w.axis_model(label) != r.axis_model(label):
+                used = axis_model_text(r.axis_model(label), row.axis.detected)
+                axes[label] = f"Run {run.run} used {used}"
+        rows: dict[Setting, str] = {}
         if working.noise_level != recorded.noise_level:
-            rows["noise"] = (
+            rows[Setting.NOISE] = (
                 formatting.scaled(recorded.noise_level) if recorded.noise_level else "the estimate"
             )
         wc, rc = working.clustering, recorded.clustering
         if (wc.contour_factor, wc.contour_level) != (rc.contour_factor, rc.contour_level):
-            rows["threshold"] = (
+            rows[Setting.THRESHOLD] = (
                 f"level {formatting.scaled(rc.contour_level)}"
                 if rc.contour_level is not None
                 else f"{formatting.setting(rc.contour_factor)} × noise"
             )
         if (w.refine_iterations, w.steps) != (r.refine_iterations, r.steps):
-            rows["passes"] = (
+            rows[Setting.PASSES] = (
                 f"a {len(r.steps)}-step schedule"
                 if r.steps
                 else formatting.count(r.refine_iterations, "pass", "passes")
             )
         if sorted(working.exclude_planes) != sorted(recorded.exclude_planes):
-            rows["planes"] = (
-                f"{len(recorded.exclude_planes)} excluded" if recorded.exclude_planes else "all"
+            rows[Setting.PLANES] = (
+                f"planes {format_planes(sorted(recorded.exclude_planes))} excluded"
+                if recorded.exclude_planes
+                else "every plane"
             )
+        if working.parameters != recorded.parameters:
+            rows[Setting.CONSTRAINTS] = constraints_text(recorded.parameters, self._names())
         if w.max_iterations != r.max_iterations:
-            rows["iterations"] = formatting.grouped(r.max_iterations)
+            rows[Setting.ITERATIONS] = formatting.grouped(r.max_iterations)
         if w.tolerance != r.tolerance:
-            rows["tolerance"] = formatting.setting(r.tolerance)
+            rows[Setting.TOLERANCE] = formatting.setting(r.tolerance)
         return axes, rows
 
     def _axes_edited(self, fitting) -> None:
@@ -349,7 +382,8 @@ class ModelPage(QtWidgets.QWidget):
             tolerance = formatting.parse_scaled(self.tolerance.text())
         except ValueError:
             tolerance = fitting.tolerance
-        if math.isfinite(tolerance) and 0 < tolerance <= 0.1:  # noqa: PLR2004
+        low, high = TOLERANCE_RANGE
+        if math.isfinite(tolerance) and low <= tolerance <= high:
             fitting.tolerance = tolerance
         factor = self.threshold.value()
         if factor != settings.clustering.contour_factor:

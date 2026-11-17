@@ -82,7 +82,7 @@ sits beyond it.
 
 | Area | Permanent responsibility |
 | --- | --- |
-| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin slices, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
+| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the Model page (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin slices, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
 | Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
 | Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). After a fit, the **Profiles** toggle in the toolbar can show the Profiles view here instead (below). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
@@ -130,7 +130,8 @@ The inspector shows one page, chosen by selection and never by hover:
   17 November 2026, W3). **Model** is shown before the first fit: the working
   settings (§7). **Run** comes forward when a run completes or an attempt fails:
   the last failed attempt, the active run's identity and outcome counts with the
-  warning action under them, the noise check as a one-line verdict, the changes
+  warning action under them, the noise check as a one-line verdict in every state
+  (consistent, inconclusive, not checked, or ▲ a mismatch), the changes
   from its parent run and the unexplained signal. The chosen page stays until the
   next run or failed attempt; Run is unavailable, and says so, until there is a
   run, a failed attempt or a fit in progress. Reachable at any time by clearing
@@ -176,12 +177,12 @@ The mockups below are drawn at 1280×800 from the bundled dataset and a real
 two-pass fit: real contours, positions, amplitudes, covariances and fitting regions.
 They are compositions, not production screenshots or new fit evidence.
 
-### A. Before the first fit: establish peaks and fit setup
+### A. Before the first fit: establish peaks and the model
 
 ![Before the first fit: Peaks navigator, cluster preview on the spectrum and fit setup in the inspector](images/gui-v2.1-before-fit.webp)
 
 The navigator shows Peaks. The spectrum shows experimental contours with visible
-markers. With nothing selected, the inspector shows the fit setup, which prepares
+markers. With nothing selected, the inspector shows the Model page, which prepares
 the exact fitting problem in the background and reports its cluster and sample
 counts (§7). Sampled fitting regions are drawn on the spectrum only on request;
 the mockup shows that optional display. Only Experimental is available; Overlay
@@ -555,7 +556,8 @@ once its J is entered. Invalid entries are explained under their axis and block
 Fit until corrected. Then statistical noise with its value (its method in the
 tooltip unless explicit); clustering threshold as a noise factor and as absolute
 intensity; optimizer passes (default two, cross-talk updates only between passes,
-as in the current GUI; CLI defaults are unaffected); the planes fitted.
+as in the current GUI; CLI defaults are unaffected); the planes fitted; axis-wide
+and per-peak constraints in one line.
 **Optimizer limits** discloses solver, iteration limit and tolerance; an imported
 multi-step schedule replaces the pass field rather than competing with it. A
 setting that differs from the active run's is marked •. Per-peak starts, bounds,
@@ -582,11 +584,11 @@ recorded ones while it is Current, labeled “Recorded in run N”, and otherwis
 the current preparation's, labeled “Preview for current settings”.
 
 **Running.** **Fit** (toolbar, Cmd/Ctrl+Return) commits valid drafts and submits
-the prepared snapshot that the setup describes; the executed snapshot is the
+the prepared snapshot that the Model page describes; the executed snapshot is the
 reviewed one. Safeguards replace the confirmation dialog: the first Fit of an
 analysis whose Model page has not been displayed in this session reveals it
 instead of running, and the next Fit runs; Fit is disabled, with the reason
-in the setup, when an automatic lineshape conflicts with processing metadata,
+on the Model page, when an automatic lineshape conflicts with processing metadata,
 when bounds are invalid, when statistical noise is not finite
 and positive, or when preparation reports newly omitted or ambiguous peaks. No peak
 is silently omitted. An automatic lineshape that falls back to the default model

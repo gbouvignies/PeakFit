@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, overload
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from peakfit.engine.domain.config import PHASED_FAMILIES
+from peakfit.engine.domain.config import PHASED_FAMILIES, LineshapeFamily
 from peakfit.engine.domain.coordinates import DimensionContext
 from peakfit.shared.typing import FloatArray
 
@@ -277,7 +277,11 @@ def format_planes(planes: Sequence[int]) -> str:
     return ", ".join(str(i) for i in planes)
 
 
-def determine_shape_name(dim_params: SpectralParameters) -> str:
+# The family an automatic axis falls back to when no apodization is recognized.
+DEFAULT_SHAPE: LineshapeFamily = "pvoigt"
+
+
+def determine_shape_name(dim_params: SpectralParameters) -> LineshapeFamily:
     """Infer default shape name for a dimension from apodization parameters."""
     sp2_apodq3 = 2.0
     if dim_params.apocode == 1.0:
@@ -287,7 +291,7 @@ def determine_shape_name(dim_params: SpectralParameters) -> str:
             return "sp2"
     if dim_params.apocode in {0.0, sp2_apodq3}:
         return "no_apod"
-    return "pvoigt"
+    return DEFAULT_SHAPE
 
 
 @dataclass(frozen=True)
@@ -358,6 +362,7 @@ def axis_lineshapes(config: FitConfig, spectra: Spectra) -> list[AxisLineshape]:
 Spectrum = Spectra
 
 __all__ = [
+    "DEFAULT_SHAPE",
     "AxisLineshape",
     "DimensionInfo",
     "Spectra",

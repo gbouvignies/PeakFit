@@ -64,7 +64,7 @@ def fitted(qapp, scientific):
     spectra, peaks, config, result = scientific
     w = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
     w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
-    w.fitting.setup_seen = True
+    w.fitting.model_seen = True
     w.resize(1280, 500)
     w.show()
     qapp.processEvents()

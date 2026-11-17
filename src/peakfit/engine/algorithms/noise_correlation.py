@@ -176,6 +176,15 @@ class NoiseModel:
         )
 
     @property
+    def power_inconclusive(self) -> tuple[str, ...]:
+        """The labels of the axes whose noise-power check could not tell."""
+        return tuple(
+            get_dimension_label(i)
+            for i, check in enumerate(self.power_check)
+            if check.status is NoisePowerStatus.INCONCLUSIVE
+        )
+
+    @property
     def power_finding(self) -> str | None:
         """What the noise-power check found and what to do, or None when nothing was.
 

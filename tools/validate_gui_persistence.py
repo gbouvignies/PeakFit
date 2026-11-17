@@ -119,7 +119,7 @@ def main():  # noqa: PLR0915
     window.show()
     w = window.workspace
     assert w is not None
-    w.fitting.setup_seen = True
+    w.fitting.model_seen = True
     mark_phase("fit")
     started = perf_counter()
     w.fitting.fit()
@@ -216,7 +216,7 @@ def main():  # noqa: PLR0915
         assert w.fitting.result is not None
         previous_run = w.fitting.result.run_id
         # The reopened workspace reveals the setup on its first Fit; run the fit itself.
-        w.fitting.setup_seen = True
+        w.fitting.model_seen = True
         w.fitting.fit()
         wait_until(lambda: not w.fitting.busy, timeout=120)
         assert w.fitting.result is not None

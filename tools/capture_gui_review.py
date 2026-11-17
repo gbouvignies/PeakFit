@@ -8,7 +8,7 @@ with ``QT_QPA_PLATFORM=offscreen``)::
 
 It opens the real window on the bundled ``02-advanced-fitting`` dataset through
 ``validate_gui_layout.Session`` and walks the review's states once, at 1280×800
-light unless a state says otherwise: the dialogs, the fit setup, a simulated
+light unless a state says otherwise: the dialogs, the Model page, a simulated
 failed first fit, the GUI's two-pass fit, the overview, the unexplained-signal
 list, the peak and cluster pages with every disclosure open, cluster focus in
 Overlay and Residual, Profiles, window sizes from 1160×720 to 1920×1080, the
@@ -205,7 +205,7 @@ class ReviewSession(Session):
     def noise_lines(self) -> list[int]:
         """Lines of each visible inspector label that contains the noise-check finding.
 
-        The Analysis page shows the finding as written; reports and explanations
+        The Run page's ⓘ holds the finding as written; reports and explanations
         quote it after a prefix, with its first letter lowercased, hence ``[1:]``.
         """
         result = self.w.fitting.result
@@ -226,7 +226,7 @@ def history_ready(dialog: QtWidgets.QWidget) -> bool:
 
 
 def before_fit(s: ReviewSession, record: dict[str, Any]) -> None:
-    """Dialogs, the fit setup and a failed first fit."""
+    """Dialogs, the Model page and a failed first fit."""
     win, w = s.window, s.w
     s.dialog("dialog-open-dataset", win.open_dialog)
     s.dialog("dialog-shortcuts", win.shortcuts)
@@ -242,7 +242,7 @@ def before_fit(s: ReviewSession, record: dict[str, Any]) -> None:
     s.page("page-fit-setup")
     w.panel.model_page.limits_toggle.setChecked(False)
     record["display_dialog"] = s.dialog("dialog-display", w.display_dialog)
-    # A first fit that fails: nothing is retained, which the analysis page must say.
+    # A first fit that fails: nothing is retained, which the Run page must say.
     w.fitting._finished(0, RuntimeError(FAILURE))
     w.show_run_page()
     settle(300)

@@ -119,7 +119,7 @@ context menus delete the selected peak as one Undo entry, without confirmation;
 the peak page has no Delete button. Right-clicking a marker selects it before the
 menu opens. Native modifier selection in the list permits one-step multi-delete.
 Undo/Redo restores exact records. In a clean coordinate
-field, Cmd/Ctrl+Z invokes peak Undo; within a draft, ordinary text Undo remains
+field, Cmd/Ctrl+Z invokes Undo (peak and settings edits); within a draft, ordinary text Undo remains
 available. Undo labels identify the edit.
 
 **File → Export working peaks…** writes canonical PeakFit CSV atomically, using
@@ -155,9 +155,10 @@ The **Run** page reads as label rows: Run (short ID and Current or Outdated, the
 full ID in the tooltip), Model, Converged and Usable as counts of clusters, Fitted
 (date and local time with its zone, and duration), Warnings when any cluster has
 one, with **Select next cluster with a warning** right under the rows, and Noise
-check when the run's noise-power check found a mismatch: a one-line verdict naming
-the axes and that the errors may be miscalibrated, with what was found and what to
-do behind its ⓘ, in the wording of the run line's tooltip. A recovery problem adds
+check as a one-line verdict: **Consistent with the recorded processing**,
+**Inconclusive on …** or **Not checked** (why, behind its ⓘ), or, for a mismatch,
+the axes and that the errors may be miscalibrated in the warning style, with what
+was found and what to do behind its ⓘ, in the wording of the run line's tooltip. A recovery problem adds
 a row in the warning style. The changes from the parent run and the unexplained
 signal follow (below). The summary names the run and whether it is Current; it
 gives cluster counts only when some cluster is unusable or not converged (always
@@ -172,13 +173,14 @@ recognized the row carries a caution under it (“No recognized apodization. Che
 that the pseudo-Voigt default suits these data, or choose a family.”), which does
 not block the fit. A single family for every axis is stored once, as
 `[fitting].family`; a family that differs from the others is stored on that axis.
-A singlet's J cell offers **+ J**: it opens the J field, and the doublet exists
-once a positive J in Hz is entered (an empty J cancels it). Its range, by default
+A singlet's J cell offers **+ J**: it opens the J field, with “Enter J in Hz; leave
+it empty to cancel.” under the axis, and the doublet exists once a positive J in
+Hz is entered (an empty J cancels it). Its range, by default
 [J/2, 2J], then sits on a line under the row, **J range [low] – [high] Hz**, with ×
 to remove the doublet; clearing **Fit J** holds J at its start and disables the
 range. **Phase** fits one phase per cluster on that axis and needs SP1, SP2 or No
-apodization. Tab reaches family, J and its bounds, ×, Fit J and Phase in that order,
-then the next axis; every control's name says which axis it changes. An invalid
+apodization. Tab reaches family, J, Fit J (which enables the range), the two
+bounds, × and Phase in that order, then the next axis; every control's name says which axis it changes. An invalid
 entry (a J outside its range, an empty range, a phase on a family without one) is
 explained under its axis, outlines the fields concerned and disables **Fit**, with
 the same reason in Fit's tooltip, until it is corrected; nothing invalid reaches
@@ -186,12 +188,13 @@ the settings. Below the table: **Clustering**, with the statistical noise (an
 explicit value says so; the estimate's method is in the tooltip) and the threshold
 as a factor of the noise with its absolute intensity; **Fit**, with optimizer passes
 (default **two**, with the neighbor correction update between passes; an imported
-step schedule replaces the field) and the planes fitted (excluding planes is W4);
+step schedule replaces the field), the planes fitted and the axis-wide and per-peak
+constraints in one line (both read-only; their controls are W4);
 and **Optimizer limits** (collapsed: solver, iteration limit, tolerance). Values use
 × 10ⁿ, never e notation; the tolerance reads 1 × 10⁻⁸ and accepts plain or
 scientific entry. Once a run exists, every setting whose working value differs from
-the one the run used is marked • (an axis on its name, a setting on its label, the
-run's value in the tooltip), and the page says “• differs from run 5d7b4768”.
+the one the run used is marked • (an axis on its name, a setting on its label, with
+what the run used in the tooltip), and the page says “• differs from run 5d7b4768”.
 
 Every committed settings change is one undoable edit in the same history as peak
 edits (**Undo settings change**), and marks an existing run Outdated; Undo restores

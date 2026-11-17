@@ -25,8 +25,9 @@ from peakfit.gui.editor.axis_table import AxisInfo
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting, default_settings
 from peakfit.gui.editor.focus import FocusBar
-from peakfit.gui.editor.inspector import Inspector, StartRow, parameter_order
+from peakfit.gui.editor.inspector import Inspector, Page, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
+from peakfit.gui.editor.model_page import RunSettings
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
@@ -218,16 +219,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         model = self.panel.model_page
-        model.set_axes(_axis_infos(dataset.spectra))
-        model.set_plane_count(int(dataset.spectra.data.shape[0]))
+        model.set_axes(_axis_infos(dataset.spectra), int(dataset.spectra.data.shape[0]))
         model.changed.connect(self.configure)
         model.invalid_changed.connect(lambda _text: self.render_fitting())
         model.regions_toggled.connect(self.canvas.set_regions_visible)
         self.panel.page_chosen.connect(self.choose_page)
         # The page the user chose, until a new run or failed attempt brings Run forward.
-        self._page: str | None = None
+        self._page: Page | None = None
+        # The active run and the last failure the page choice was made under.
         self._page_basis: tuple[str | None, str] = (None, "")
-        self._recorded: tuple[str, PeakFitConfig] | None = None
+        self._recorded: tuple[str, RunSettings] | None = None
         self.panel.plane_requested.connect(self.set_plane)
         self.canvas.selected.connect(self.select_peak)
         self.canvas.placed.connect(self.place_peak)
@@ -439,13 +440,13 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def show_model_page(self) -> None:
         """Clear the selection and open the inspector at the Model page."""
-        self._open_page("model")
+        self._open_page(Page.MODEL)
 
     def show_run_page(self) -> None:
         """Clear the selection and open the inspector at the Run page."""
-        self._open_page("run")
+        self._open_page(Page.RUN)
 
-    def _open_page(self, page: str) -> None:
+    def _open_page(self, page: Page) -> None:
         if not self.commit_fields():
             return
         self.inspector_button.setChecked(True)
@@ -453,14 +454,20 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.select_peak(None)
         self.choose_page(page)
 
-    def choose_page(self, page: str) -> None:
+    def choose_page(self, page: Page) -> None:
         """Show the Run or Model page and keep it until a new run or failure."""
-        if page == "run" and not self._run_available():
-            page = "model"
         self._page = page
-        self.panel.show_page(page)
-        if page == "model":
-            self.fitting.setup_seen = True
+        shown = self._shown_page()
+        self.panel.show_page(shown)
+        if shown is Page.MODEL:
+            self.fitting.model_seen = True
+
+    def _shown_page(self) -> Page:
+        """The chosen page, else Run once there is a run or a failure; Model without Run."""
+        fitting = self.fitting
+        default = Page.RUN if fitting.result is not None or fitting.failed else Page.MODEL
+        page = self._page or default
+        return page if page is Page.MODEL or self._run_available() else Page.MODEL
 
     def _run_available(self) -> bool:
         fitting = self.fitting
@@ -473,15 +480,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.edits.configure(settings, "settings change")
         self._refresh()
 
-    def _run_settings(self) -> tuple[str, PeakFitConfig] | None:
+    def _run_settings(self) -> RunSettings | None:
         """The active run's short ID and recorded settings, read once per run."""
         result = self.fitting.result
         if result is None:
             return None
         if self._recorded is None or self._recorded[0] != result.run_id:
             settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
-            self._recorded = (result.run_id, settings)
-        return result.run_id[:8], self._recorded[1]
+            self._recorded = (result.run_id, RunSettings(result.run_id[:8], settings))
+        return self._recorded[1]
 
     def _fitting_regions(self):
         """The active run's recorded regions, or else the current preparation's."""
@@ -1000,9 +1007,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         if basis != self._page_basis:
             self._page_basis = basis
             self._page = None
-        default = "run" if result is not None or fitting.failed else "model"
-        page = self._page or default
-        self.panel.show_page(page if page == "model" or self._run_available() else "model")
+        self.panel.show_page(self._shown_page())
         if self.selected_id is None:
             self.panel.run_page.show_changes(*self._run_changes())
             self._show_unexplained()
@@ -1691,7 +1696,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """A click on the run summary opens the Run page; showing Model shows the settings."""
         if watched is self.panel.model_page and event.type() == QtCore.QEvent.Type.Show:
-            self.fitting.setup_seen = True
+            self.fitting.model_seen = True
         if (
             watched is self.summary
             and event.type() == QtCore.QEvent.Type.MouseButtonRelease
@@ -2137,19 +2142,35 @@ def _run_rows(result, *, current: bool, warned: int, axes: dict[str, str]) -> li
                 tip="Clusters with numerical warnings",
             )
         )
-    noise = result.outcome.noise_model
-    if noise.power_finding:
-        # A caveat on the errors, never on the fit: what was found and what to do.
-        rows.append(
-            Row(
-                "Noise check",
-                f"▲ {', '.join(axes.get(a, a) for a in noise.power_mismatch)} · "
-                "errors may be miscalibrated",
-                style="warning",
-                info=noise.power_finding,
-            )
-        )
+    rows.append(_noise_verdict(result.outcome.noise_model, axes))
     return rows
+
+
+def _noise_verdict(noise: NoiseModel, axes: dict[str, str]) -> Row:
+    """The noise-power check in one line; a mismatch is a caveat on the errors, never the fit."""
+    if noise.power_finding:
+        return Row(
+            "Noise check",
+            f"▲ {', '.join(axes.get(a, a) for a in noise.power_mismatch)} · "
+            "errors may be miscalibrated",
+            style="warning",
+            info=noise.power_finding,
+        )
+    if not noise.power_check:
+        return Row("Noise check", "Not checked", info=noise.description)
+    if noise.power_inconclusive:
+        return Row(
+            "Noise check",
+            f"Inconclusive on {', '.join(axes.get(a, a) for a in noise.power_inconclusive)}",
+            info=NOISE_CHECK_INCONCLUSIVE,
+        )
+    return Row("Noise check", "Consistent with the recorded processing")
+
+
+NOISE_CHECK_INCONCLUSIVE = (
+    "Too few noise-only lines, or too much spread between them, to compare the noise "
+    "with the recorded processing. The errors assume the recorded processing."
+)
 
 
 def _noise_check(model: NoiseModel, names: dict[str, str]) -> str:

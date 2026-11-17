@@ -1586,8 +1586,9 @@ Short records of non‑obvious design choices and trade‑offs.
   fit but pushed Planes below the fold in five of six cases at 1280×800. The
   compact table keeps one row per axis and puts a doublet's J range on a line
   under it. Refinements asked for with the choice: **+ J** adds a doublet (it
-  exists once J is entered), × removes it, Tab reaches J and its bounds before
-  Fit J and Phase, an invalid entry is explained under its axis and blocks Fit,
+  exists once J is entered, with a neutral hint under the axis until then), ×
+  removes it, Tab reaches J, Fit J and the bounds before Phase (Fit J comes before
+  the bounds because it enables them), an invalid entry is explained under its axis and blocks Fit,
   and source captions that repeated the controls were dropped (Auto reads
   “Auto · SP2”; the pseudo-Voigt fallback caution stays). With the J range line
   the table needs 271 px for three doublet axes.
@@ -1597,7 +1598,8 @@ Short records of non‑obvious design choices and trade‑offs.
   Undo never recertifies a run: previously, setting a value back made the run
   Current again.
 - **Explanations once, behind ⓘ.** The noise check is a one-line verdict on the Run
-  page with what was found and what to do behind a keyboard-reachable ⓘ (also its
+  page in every state (it was a row only for a mismatch), with what was found and
+  what to do behind a keyboard-reachable ⓘ (also its
   accessible description); the unexplained-signal description moved from a tooltip
   to an ⓘ. Qualifications (“Diagnostic only”, the χ²ᵣ note, the apodization
   caution) stay visible.
@@ -1610,7 +1612,11 @@ Short records of non‑obvious design choices and trade‑offs.
   per-axis table; noise, threshold and level, passes or schedule → Model;
   Advanced (solver, iteration limit, tolerance) → Model's **Optimizer limits**;
   preparation counts, the blocked reason and **Show sampled fitting regions** →
-  the foot of Model. New on Model: the planes fitted (read-only until W4). Nothing
+  the foot of Model. New on Model: the planes fitted and the constraints, both
+  read-only until W4. Nothing
   scientific was removed.
+- **Same config as TOML.** The table's controls ship here, so their parametrised
+  check that each edit gives the engine config of the equivalent TOML ships with
+  them; W4 extends it to the controls it adds.
 - **Left to W4:** manual noise, an explicit clustering level, axis-wide
-  constraints and plane exclusion controls, and the parametrised GUI-vs-TOML test.
+  constraints and plane exclusion controls.

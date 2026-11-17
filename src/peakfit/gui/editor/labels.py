@@ -260,10 +260,9 @@ class InfoButton(QtWidgets.QToolButton):
         self.clicked.connect(self.open_popover)
 
     def set_text(self, text: str) -> None:
-        """Replace the explanation; an empty one hides the button."""
+        """Replace the explanation; the owner decides whether the button shows."""
         self.body.setText(text)
         self.setAccessibleDescription(text)
-        self.setVisible(bool(text))
 
     def open_popover(self) -> None:
         """Show the explanation below the button, kept on the button's screen."""

@@ -37,6 +37,8 @@ from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.axis_table import DIFFERS, AxisInfo, AxisModelTable
+from peakfit.gui.editor.inspector import Page
+from peakfit.gui.editor.model_page import Setting
 from peakfit.gui.editor.profile import (
     PeakProfile,
     ProfilePlot,
@@ -74,7 +76,7 @@ def workspace(qapp, scientific):
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
     widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
-    widget.fitting.setup_seen = True
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     qapp.processEvents()
@@ -258,13 +260,13 @@ def test_pinning_stays_available_in_focus_and_after_it(workspace, scientific):
     assert w.pin_button.isEnabled()
 
 
-def test_showing_the_dataset_page_counts_as_seeing_the_setup(workspace):
+def test_showing_the_model_page_counts_as_seeing_the_settings(workspace):
     w, fitting = workspace, workspace.fitting
     w.select_peak(w.peaks[0].id)
-    fitting.setup_seen = False
+    fitting.model_seen = False
     w.select_peak(None)
-    # The dataset page, with the fit setup, is on show: the first Fit runs directly.
-    assert fitting.setup_seen
+    # The Model page is on show before a fit: the first Fit runs directly.
+    assert fitting.model_seen
 
 
 def test_partial_usability_nonconvergence_and_free_pin(workspace, scientific):
@@ -419,7 +421,7 @@ def test_toolbar_title_and_close_share_one_unsaved_state(scientific, monkeypatch
     window.install_dataset(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
-    w.fitting.setup_seen = True
+    w.fitting.model_seen = True
 
     def shown():
         # The toolbar, the window title and the close prompt answer the same question.
@@ -730,7 +732,7 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     assert w.title.text() == "PeakFit"
     assert name in window.windowTitle()
     w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
-    w.fitting.setup_seen = True
+    w.fitting.model_seen = True
     qapp.processEvents()
     publish(w, _warned(result))
     warned = result.outcome.clusters[0].peak_names[0]
@@ -1166,7 +1168,7 @@ def _tinted(c, alpha: float) -> set[tuple[int, int]]:
 
 def test_first_fit_reveals_the_setup_then_runs_the_prepared_inputs(workspace, monkeypatch):
     w, fitting = workspace, workspace.fitting
-    fitting.setup_seen = False
+    fitting.model_seen = False
     w.select_peak(w.peaks[0].id)
     w.inspector_button.setChecked(False)
     w.toggle_inspector()
@@ -1222,14 +1224,15 @@ def test_model_edits_mark_the_run_outdated_and_undo_restores_them(workspace, sci
     wait_until(lambda: fitting.prepared is not None)
     assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
     # The setting that differs from the run is marked, and the page says so once.
-    assert model.passes_title.text() == f"Passes {DIFFERS}"
+    assert model.titles[Setting.PASSES].text() == f"Passes {DIFFERS}"
     assert f"{fitting.result.run_id[:8]}" in model.differs.text()
-    assert model.threshold_title.text() == "Threshold"
+    assert model.titles[Setting.THRESHOLD].text() == "Threshold"
     row = model.axes.rows[0]
     other = "lorentzian" if row.family.currentData() != "lorentzian" else "sp1"
     row.family.setCurrentIndex(row.family.findData(other))
     assert fitting.configuration.fitting.axis_model(row.axis.label).family == other
     assert row.name.text().endswith(DIFFERS)
+    assert row.name.toolTip().startswith(f"Run {fitting.result.run_id[:8]} used ")
     assert w.undo_action.text() == "Undo settings change"
     w.history(False)
     assert row.family.currentData() != other
@@ -1237,7 +1240,7 @@ def test_model_edits_mark_the_run_outdated_and_undo_restores_them(workspace, sci
     w.history(False)
     assert fitting.configuration.fitting.refine_iterations == passes
     assert model.passes.value() == passes
-    assert model.passes_title.text() == "Passes"
+    assert model.titles[Setting.PASSES].text() == "Passes"
     assert not fitting.current  # Undo never recertifies a run
 
 
@@ -2718,7 +2721,7 @@ def test_the_analysis_shows_model_before_a_fit_and_run_after_behind_one_switch(
     w.select_peak(None)
     w._update_inspector()
     # Before the first fit: the Model page, with Run unavailable and saying why.
-    assert panel.page == "model"
+    assert panel.page is Page.MODEL
     assert panel.model_tab.isChecked()
     assert not panel.run_page.isVisibleTo(panel)
     assert not panel.run_tab.isEnabled()
@@ -2730,7 +2733,7 @@ def test_the_analysis_shows_model_before_a_fit_and_run_after_behind_one_switch(
     )
     publish(w, scientific[-1])
     w.select_peak(None)
-    assert panel.page == "run"  # a new run brings Run forward
+    assert panel.page is Page.RUN  # a new run brings Run forward
     assert panel.run_page.unexplained_button.isVisible()
     w.select_peak(w.peaks[0].id)
     assert not panel.analysis_page.isVisible()
@@ -2738,18 +2741,18 @@ def test_the_analysis_shows_model_before_a_fit_and_run_after_behind_one_switch(
     QtTest.QTest.mouseClick(w.summary, QtCore.Qt.MouseButton.LeftButton)
     wait_until(lambda: panel.analysis_page.isVisible())
     assert w.selected_id is None
-    assert panel.page == "run"
+    assert panel.page is Page.RUN
     assert "Click to open the Run page" in w.summary.toolTip()
     review = panel.run_page.run_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
     assert 0 <= review < panel.viewport().height()
     # The settings chip opens Model; the choice holds while the run stays the same.
     QtTest.QTest.mouseClick(w.settings_button, QtCore.Qt.MouseButton.LeftButton)
-    assert panel.page == "model"
+    assert panel.page is Page.MODEL
     assert panel.model_page.isVisible()
     w._update_inspector()
-    assert panel.page == "model"
+    assert panel.page is Page.MODEL
     QtTest.QTest.mouseClick(panel.run_tab, QtCore.Qt.MouseButton.LeftButton)
-    assert panel.page == "run"
+    assert panel.page is Page.RUN
     assert panel.run_page.isVisible()
     assert not panel.model_page.isVisible()
 
@@ -2817,7 +2820,7 @@ def bundled_workspace(qapp):
             parameters=ParameterConfig.model_validate({"defaults": {"*.*.lw": {"value": 20.0}}}),
         ),
     )
-    widget.fitting.setup_seen = True
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     qapp.processEvents()
@@ -3066,13 +3069,40 @@ def test_a_noise_power_mismatch_is_shown_where_errors_are_read(workspace, scient
     assert str(model.power_warning) in profile.about.text()
 
 
-@pytest.mark.parametrize("status", [NoisePowerStatus.CONSISTENT, NoisePowerStatus.INCONCLUSIVE])
-def test_a_consistent_or_inconclusive_noise_check_shows_no_warning(workspace, scientific, status):
+def test_the_run_page_shows_its_first_warning_above_the_fold_at_1280x800(
+    qapp, workspace, scientific
+):
+    w = workspace
+    window = w.window()
+    window.resize(1280, 800)
+    qapp.processEvents()
+    publish(w, _with_noise_check(scientific[-1], NoisePowerStatus.MISMATCH))
+    w.select_peak(None)
+    panel = w.panel
+    assert panel.page is Page.RUN
+    cell = _review_cell(panel.run_page.run_rows, "Noise check")
+    assert cell.objectName() == "warning"
+    bottom = cell.mapTo(panel.viewport(), QtCore.QPoint(0, cell.height())).y()
+    assert 0 < bottom <= panel.viewport().height()
+
+
+@pytest.mark.parametrize(
+    ("status", "verdict"),
+    [
+        (NoisePowerStatus.CONSISTENT, "Consistent with the recorded processing"),
+        (NoisePowerStatus.INCONCLUSIVE, "Inconclusive on F2"),
+    ],
+)
+def test_a_consistent_or_inconclusive_noise_check_shows_no_warning(
+    workspace, scientific, status, verdict
+):
     w = workspace
     checked = _with_noise_check(scientific[-1], status)
     publish(w, checked)
-    with pytest.raises(KeyError):
-        _review_cell(w.panel.run_page.run_rows, "Noise check")
+    # The Run page still gives the check its one-line verdict, never as a warning.
+    cell = _review_cell(w.panel.run_page.run_rows, "Noise check")
+    assert cell.text() == verdict
+    assert cell.objectName() != "warning"
     assert "Noise check" not in w.summary.text()
     cluster = next(c for c in checked.outcome.clusters if c.usable)
     identities = {i.engine_name: i.working_id for i in checked.inputs.identities}

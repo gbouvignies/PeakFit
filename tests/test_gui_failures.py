@@ -15,6 +15,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.fitting import FailureStage
+from peakfit.gui.editor.inspector import Page
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.failures import (
@@ -131,7 +132,7 @@ def workspace(qapp, scientific):
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
     widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
-    widget.fitting.setup_seen = True
+    widget.fitting.model_seen = True
     widget.resize(1280, 750)
     widget.show()
     qapp.processEvents()
@@ -237,20 +238,23 @@ def _row_values(grid: QtWidgets.QGridLayout) -> dict[str, str]:
     for row in range(grid.rowCount()):
         label, value = (grid.itemAtPosition(row, c) for c in (0, 1))
         if label is not None and value is not None:
-            title, shown = label.widget(), value.widget()
+            title = label.widget()
+            # A value with an ⓘ shares its cell with the button: the label comes first.
+            cell = value.layout()
+            shown = value.widget() or (cell.itemAt(0).widget() if cell else None)  # ty: ignore[possibly-missing-attribute]
             assert isinstance(title, QtWidgets.QLabel)
             assert isinstance(shown, QtWidgets.QLabel)
             values[title.text()] = shown.text()
     return values
 
 
-def test_the_failure_is_the_first_section_of_the_analysis_page(workspace, scientific, monkeypatch):
+def test_the_failure_is_the_first_section_of_the_run_page(workspace, scientific, monkeypatch):
     panel = workspace.panel
     assert panel.run_page.failure_block not in _analysis_sections(panel)
     assert not panel.run_tab.isEnabled()  # nothing to show on Run before an attempt
     _failed_fit(workspace, monkeypatch)
     # A failed first attempt brings the Run page forward, the failure leading it.
-    assert panel.page == "run"
+    assert panel.page is Page.RUN
     assert _analysis_sections(panel)[0] is panel.run_page.failure_block
     rows = _row_values(panel.run_page.failure_rows)
     assert rows["Status"] == "▲ Failed · no result yet"

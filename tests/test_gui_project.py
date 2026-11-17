@@ -667,7 +667,7 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     w = window.workspace
     assert w is not None
     w.fitting.fit()  # The first Fit of a session reveals the setup instead of running.
-    assert (w.fitting.setup_seen, w.fitting.busy, w.selected_id) == (True, False, None)
+    assert (w.fitting.model_seen, w.fitting.busy, w.selected_id) == (True, False, None)
     w.fitting.fit()  # Fresh preparation and a real optimizer invocation after reopening.
     wait_until(lambda: not w.fitting.busy, timeout=COMPLETION)
     assert w.fitting.current, w.fitting.failure

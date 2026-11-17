@@ -52,7 +52,7 @@ def _window(qapp, scientific, size=(1280, 800)):
     w = window.workspace
     assert w is not None
     w.edits = WorkingEdits(w.peaks, config.model_copy(deep=True))
-    w.fitting.setup_seen = True
+    w.fitting.model_seen = True
     qapp.processEvents()
     return window, w
 

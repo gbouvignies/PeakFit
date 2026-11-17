@@ -39,7 +39,7 @@ APPEARANCES = ("Light", "Dark")
 PEAKS = ("158EN-H", "53N-H", "22N-H")
 CLUSTER = "22N-H"
 REFERENCE = (0,)  # the off-resonance reference plane of the CEST series
-PASSES = 2  # the default fit setup
+PASSES = 2  # the default model settings
 FAILURE = "Validation tool: simulated worker failure on a first fit"
 STALL = 300.0  # seconds one state may take before the watchdog ends the run
 FIT_STALL = 900.0  # the real two-pass fit of the whole dataset
@@ -264,12 +264,12 @@ class Session:
         arm_watchdog(self.stall)
 
     def before_fit(self, size: str, appearance: str) -> None:
-        """Loaded, unfitted: the inspector opens at the fit setup."""
+        """Loaded, unfitted: the inspector opens at the Model page."""
         self.w.show_model_page()
         self.capture("fit-setup", size, appearance, spectral=self.spectral())
 
     def failure(self, size: str, appearance: str) -> None:
-        """The Analysis page after a failed fit."""
+        """The Run page after a failed fit."""
         self.w.show_run_page()
         # Label and value texts of the failure rows, in reading order.
         rows = self.w.panel.run_page.failure_rows

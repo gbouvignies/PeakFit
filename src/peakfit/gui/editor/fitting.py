@@ -100,7 +100,7 @@ class DatasetFitting(QtCore.QObject):
         super().__init__(workspace)
         self.workspace = workspace
         # The first Fit of a session reveals the Model page unless it was already shown.
-        self.setup_seen = False
+        self.model_seen = False
         # Preparation of the working inputs, refreshed after every committed change.
         self.preview: PreparedDatasetFit | None = None
         self.preview_error = ""
@@ -331,7 +331,7 @@ class DatasetFitting(QtCore.QObject):
         w = self.workspace
         if self.busy or w.inputs_loading or not w.peaks or not w.commit_fields():
             return
-        if not self.setup_seen or self.blocked or w.panel.model_page.invalid:
+        if not self.model_seen or self.blocked or w.panel.model_page.invalid:
             w.show_model_page()
             return
         w.cancel_gesture()

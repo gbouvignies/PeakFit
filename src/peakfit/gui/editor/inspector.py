@@ -9,6 +9,7 @@ never refits, re-solves amplitudes or recomputes statistics.
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -49,6 +50,15 @@ if TYPE_CHECKING:
     from peakfit.gui.peaks import WorkingPeak
 
 _KINDS = {"cs": "δ", "lw": "LW"}
+
+
+class Page(Enum):
+    """The analysis page shown with nothing selected."""
+
+    RUN = "run"
+    MODEL = "model"
+
+
 NBSP = "\u00a0"
 
 
@@ -283,7 +293,7 @@ class Inspector(QtWidgets.QScrollArea):
     focus_requested = QtCore.Signal()
     unexplained_requested = QtCore.Signal()
     region_chosen = QtCore.Signal(int)  # index in the unexplained-signal list
-    page_chosen = QtCore.Signal(str)  # "run" or "model", from the switch
+    page_chosen = QtCore.Signal(object)  # Page, from the switch
 
     def __init__(self, x_axis, y_axis) -> None:  # noqa: PLR0915
         super().__init__()
@@ -416,10 +426,12 @@ class Inspector(QtWidgets.QScrollArea):
         self.run_tab = themes.segment("Run", "first")
         self.model_tab = themes.segment("Model", "last")
         self.model_tab.setToolTip("The working fit settings (Analysis ▸ Model settings)")
+        self.run_tab.setAccessibleName("Run page")
+        self.model_tab.setAccessibleName("Model page")
+        self._tabs = {Page.RUN: self.run_tab, Page.MODEL: self.model_tab}
         self._pages = QtWidgets.QButtonGroup(self)
-        for page, button in (("run", self.run_tab), ("model", self.model_tab)):
+        for page, button in self._tabs.items():
             button.setCheckable(True)
-            button.setAccessibleName(f"{page.capitalize()} page")
             self._pages.addButton(button)
             switch.addWidget(button)
             button.clicked.connect(lambda _checked=False, p=page: self.page_chosen.emit(p))
@@ -433,7 +445,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.model_page = ModelPage()
         analysis.addWidget(self.run_page)
         analysis.addWidget(self.model_page)
-        self.page = "model"
+        self.page = Page.MODEL
         self._reveal = False
         self.verticalScrollBar().rangeChanged.connect(self._scroll_to_unexplained)
         self.verticalScrollBar().actionTriggered.connect(self._stop_reveal)
@@ -550,13 +562,13 @@ class Inspector(QtWidgets.QScrollArea):
             else "Available after the first fit"
         )
 
-    def show_page(self, page: str) -> None:
+    def show_page(self, page: Page) -> None:
         """Show the Run or the Model page; a different page opens at its top."""
         changed = page != self.page or self.run_page.isHidden() == self.model_page.isHidden()
         self.page = page
-        (self.run_tab if page == "run" else self.model_tab).setChecked(True)
-        self.run_page.setVisible(page == "run")
-        self.model_page.setVisible(page == "model")
+        self._tabs[page].setChecked(True)
+        self.run_page.setVisible(page is Page.RUN)
+        self.model_page.setVisible(page is Page.MODEL)
         if changed and self._peak is None:
             self._reveal = False
             QtCore.QTimer.singleShot(0, self, lambda: self.verticalScrollBar().setValue(0))

@@ -44,7 +44,7 @@ def workspace(request, qapp, scientific):
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
     widget.edits = WorkingEdits(widget.peaks, config.model_copy(deep=True))
-    widget.fitting.setup_seen = True
+    widget.fitting.model_seen = True
     themes.apply(widget, request.param)
     widget.apply_theme(request.param)
     widget.resize(1280, 750)
