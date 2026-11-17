@@ -18,6 +18,14 @@ if TYPE_CHECKING:
 _CLUSTER_DATA_NDIM = 2
 
 
+class MissingDerivativeError(Exception):
+    """A varied parameter whose lineshape returns no derivative.
+
+    Not a lineshape evaluation error: nothing may absorb it as one, since the fit
+    would otherwise leave the parameter unfitted while reporting success.
+    """
+
+
 @dataclass(slots=True)
 class Cluster:
     """Grouped peaks sharing a contiguous spectral segment."""
@@ -203,7 +211,9 @@ class Cluster:
 
                 for param_type, indices in p_map.items():
                     if param_type not in deriv_map:
-                        _require_no_varied(peaks[0].shapes[d], param_type, indices, param_map)
+                        _refuse_varied_without_derivative(
+                            peaks[0].shapes[d], param_type, indices, param_map
+                        )
                         continue
                     deriv_total = deriv_map[param_type] * others_prod
                     _accumulate_derivatives(d_matrix, indices, deriv_total)
@@ -266,7 +276,7 @@ def _evaluate_single_dimension(
     return result.values, result.derivatives, cluster_params.index_map
 
 
-def _require_no_varied(
+def _refuse_varied_without_derivative(
     shape: Shape, param_type: str, indices: IntArray, param_map: ParameterMap | None
 ) -> None:
     """Refuse a varied parameter whose lineshape returned no derivative.
@@ -283,7 +293,7 @@ def _require_no_varied(
         f"Varied parameter {names} has no derivative: the {shape.shape_name} lineshape "
         f"on {shape.axis} returns none for '{param_type}'."
     )
-    raise ValueError(msg)
+    raise MissingDerivativeError(msg)
 
 
 def _accumulate_derivatives(

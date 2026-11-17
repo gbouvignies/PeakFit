@@ -16,10 +16,10 @@ from peakfit.engine.algorithms.evaluation import (
 )
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.algorithms.varpro import VarProOptimizer, _calculate_errors, fit_cluster
-from peakfit.engine.domain.cluster import Cluster
+from peakfit.engine.domain.cluster import Cluster, MissingDerivativeError
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.param_map import ParameterMap
-from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.domain.params_scalar import Parameter, Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes import models
@@ -190,7 +190,7 @@ def test_a_varied_parameter_without_a_derivative_fails_fast(monkeypatch) -> None
     _drop_j_derivative(monkeypatch)
     names = params.get_vary_names()
     d_matrix = np.zeros((len(names), cluster.n_points))
-    with pytest.raises(ValueError, match=r"A\.F2\.j.*no derivative"):
+    with pytest.raises(MissingDerivativeError, match=r"A\.F2\.j.*no derivative"):
         cluster.evaluate(
             params,
             cluster.grid_indices,
@@ -289,3 +289,31 @@ def test_a_determined_coupling_keeps_the_profile_uncertainty() -> None:
     assert np.isfinite(
         profile_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
     ).all()
+
+
+def test_a_missing_derivative_is_not_absorbed_by_the_evaluation(monkeypatch) -> None:
+    # The profile-σ path withholds on lineshape errors; a missing derivative is not one.
+    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=35.0, lw_hz=8.0, noise=0.5)
+    _drop_j_derivative(monkeypatch)
+    with pytest.raises(MissingDerivativeError):
+        evaluate_analytical_model(cluster, params, 0.5, not_modelled("synthetic"))
+
+
+def test_a_coupling_collapsed_onto_its_bound_withholds_the_profile_uncertainty() -> None:
+    # The low-SNR failure of an unresolved doublet: J at its lower bound has no σ, and
+    # the profile σ would be conditional on that arbitrary bound.
+    cluster, params = _doublet_cluster("lorentzian_doublet", j_hz=5.0, lw_hz=20.0, noise=5.0)
+    j_name = next(name for name in params if name.endswith(".j"))
+    params[j_name].value = params[j_name].min
+    params[j_name].stderr = np.nan
+    evaluation = evaluate_analytical_model(cluster, params, 5.0, not_modelled("synthetic"))
+    assert isinstance(evaluation, AnalyticalModelEvaluation)
+    assert not evaluation.covariance_factors.available
+    assert evaluation.uncertainty_warning is not None
+
+
+def test_a_coupling_is_recognised_without_a_structured_identifier() -> None:
+    # Parameters rebuilt by name (sampling, continuation, reopened projects) carry none.
+    assert Parameter(name="A.F2.j", value=5.0).is_coupling
+    assert Parameter(name="cluster_1.F2.phase", value=0.0).is_coupling is False
+    assert Parameter(name="A.F2.lw", value=5.0).is_coupling is False

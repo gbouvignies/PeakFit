@@ -13,7 +13,7 @@ from peakfit.engine.algorithms.covariance_factors import (
 )
 from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
 from peakfit.engine.algorithms.noise_correlation import modelled_correlation
-from peakfit.engine.algorithms.varpro import at_active_bound, is_coupling
+from peakfit.engine.algorithms.varpro import at_active_bound
 from peakfit.engine.results import (
     compute_chi_squared,
     compute_degrees_of_freedom,
@@ -169,8 +169,8 @@ def _evaluate_analytical_model(
         chi_squared,
     )
     uncertainty_warning = None
-    if not np.all(np.isfinite(amplitude_errors)) or any(
-        params[name].vary and not np.isfinite(params[name].stderr) for name in nonlinear_names
+    if not np.all(np.isfinite(amplitude_errors)) or nonlinear_errors_withheld(
+        params, nonlinear_names
     ):
         uncertainty_warning = (
             "Unreliable local uncertainties: overlapping or unidentifiable parameters, "
@@ -207,17 +207,30 @@ def _covariance_factors(
 ) -> CovarianceFactors:
     """The factors, withheld rather than failing the evaluation on a numerical error.
 
-    Also withheld when a free J coupling has no first-order σ: the factors propagate
-    the same first-order uncertainty through it.
+    Also withheld when a varied J coupling has no first-order σ, whether unresolved or
+    at a bound: the factors propagate the same first-order uncertainty through it, or
+    condition on an arbitrary bound.
     """
-    free = _free(params, nonlinear_names)
-    if any(is_coupling(params[name]) and not np.isfinite(params[name].stderr) for name in free):
+    if nonlinear_errors_withheld(params, nonlinear_names, couplings_only=True):
         return CovarianceFactors(covariance, None, None, None)
+    free = _free(params, nonlinear_names)
     try:
         derivatives = peak_derivatives(cluster, params, free)
     except _LINESHAPE_ERRORS:
         return CovarianceFactors(covariance, None, None, None)
     return covariance_factors(shapes, derivatives, amplitudes, covariance, noise, correlation)
+
+
+def nonlinear_errors_withheld(
+    params: Parameters, names: list[str], *, couplings_only: bool = False
+) -> bool:
+    """Whether a varied nonlinear parameter (only J couplings, if asked) has no σ."""
+    return any(
+        params[name].vary
+        and (params[name].is_coupling or not couplings_only)
+        and not np.isfinite(params[name].stderr)
+        for name in names
+    )
 
 
 def _free(params: Parameters, names: list[str]) -> list[str]:

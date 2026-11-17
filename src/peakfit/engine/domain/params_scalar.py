@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 
 _BOUND_DISPLAY_THRESHOLD = 1e10
+COUPLING_LABEL = "j"  # a doublet's J coupling, in Hz
 
 
 class Parameter(BaseModel):
@@ -70,6 +71,16 @@ class Parameter(BaseModel):
             )
             raise ValueError(msg)
         return self
+
+    @property
+    def is_coupling(self) -> bool:
+        """Whether this is a doublet's J coupling.
+
+        From the structured identifier, else from the name's last part, for
+        parameters rebuilt by name (sampling, continuation, reopened projects).
+        """
+        label = self.param_id.label if self.param_id is not None else self.name.split(".")[-1]
+        return label == COUPLING_LABEL
 
     def __repr__(self) -> str:
         """Return a string representation of the parameter."""

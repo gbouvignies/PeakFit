@@ -53,6 +53,19 @@ A peak position along a spectral axis, expressed in parts per million (ppm).
 The full width at half maximum (FWHM), in hertz, for one peak axis. For an
 apodized lineshape, it is the FWHM the model would have without apodization.
 
+**Doublet**:
+A lineshape of two equal components split by a J coupling on one axis. Its
+chemical shift is the centre of the two components.
+
+**J coupling**:
+The splitting between a doublet's components, in hertz.
+_Avoid_: J-coupling constant, splitting width
+
+**Unresolved coupling**:
+A J coupling too small against the linewidth, at the data's signal-to-noise
+ratio, for a first-order σ: σ(J)/J exceeds the reliability limit (0.1). Its σ
+and the cluster's profile σ are withheld.
+
 **Fitting parameter**:
 A named model quantity that may be fixed, constrained, varied, or computed
 during a fit.
