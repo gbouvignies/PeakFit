@@ -13,7 +13,7 @@ from peakfit.engine.algorithms.covariance_factors import (
 )
 from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
 from peakfit.engine.algorithms.noise_correlation import modelled_correlation
-from peakfit.engine.algorithms.varpro import at_active_bound
+from peakfit.engine.algorithms.varpro import at_active_bound, is_coupling
 from peakfit.engine.results import (
     compute_chi_squared,
     compute_degrees_of_freedom,
@@ -205,9 +205,16 @@ def _covariance_factors(
     noise: float,
     correlation: FloatArray | None,
 ) -> CovarianceFactors:
-    """The factors, withheld rather than failing the evaluation on a numerical error."""
+    """The factors, withheld rather than failing the evaluation on a numerical error.
+
+    Also withheld when a free J coupling has no first-order σ: the factors propagate
+    the same first-order uncertainty through it.
+    """
+    free = _free(params, nonlinear_names)
+    if any(is_coupling(params[name]) and not np.isfinite(params[name].stderr) for name in free):
+        return CovarianceFactors(covariance, None, None, None)
     try:
-        derivatives = peak_derivatives(cluster, params, _free(params, nonlinear_names))
+        derivatives = peak_derivatives(cluster, params, free)
     except _LINESHAPE_ERRORS:
         return CovarianceFactors(covariance, None, None, None)
     return covariance_factors(shapes, derivatives, amplitudes, covariance, noise, correlation)

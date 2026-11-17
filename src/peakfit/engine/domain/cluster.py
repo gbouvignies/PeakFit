@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.param_map import ParameterMap
     from peakfit.engine.domain.params_scalar import Parameters
+    from peakfit.engine.types import Shape
 
 _CLUSTER_DATA_NDIM = 2
 
@@ -201,9 +202,11 @@ class Cluster:
                 deriv_map = dim_deriv_maps[d]
 
                 for param_type, indices in p_map.items():
-                    if param_type in deriv_map:
-                        deriv_total = deriv_map[param_type] * others_prod
-                        _accumulate_derivatives(d_matrix, indices, deriv_total)
+                    if param_type not in deriv_map:
+                        _require_no_varied(peaks[0].shapes[d], param_type, indices, param_map)
+                        continue
+                    deriv_total = deriv_map[param_type] * others_prod
+                    _accumulate_derivatives(d_matrix, indices, deriv_total)
 
         return accum_val.T
 
@@ -261,6 +264,26 @@ def _evaluate_single_dimension(
     )
 
     return result.values, result.derivatives, cluster_params.index_map
+
+
+def _require_no_varied(
+    shape: Shape, param_type: str, indices: IntArray, param_map: ParameterMap | None
+) -> None:
+    """Refuse a varied parameter whose lineshape returned no derivative.
+
+    Its Jacobian column would silently stay zero: the optimizer could not move it on
+    the data's evidence, and its uncertainty would be withheld for the wrong reason.
+    """
+    varied = indices[indices >= 0]
+    if varied.size == 0 or param_map is None:
+        return
+    by_index = {index: name for name, index in param_map.name_to_index.items()}
+    names = ", ".join(by_index[int(i)] for i in varied)
+    msg = (
+        f"Varied parameter {names} has no derivative: the {shape.shape_name} lineshape "
+        f"on {shape.axis} returns none for '{param_type}'."
+    )
+    raise ValueError(msg)
 
 
 def _accumulate_derivatives(

@@ -16,7 +16,7 @@ from peakfit.engine.results import FitResult
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.params_scalar import Parameters
+    from peakfit.engine.domain.params_scalar import Parameter, Parameters
     from peakfit.shared.typing import FloatArray
 
 
@@ -235,7 +235,22 @@ def _calculate_errors(
     # Symmetric local errors are not meaningful at a constrained optimum.
     active = at_active_bound(x, lower, upper)
     stderrs[active | (stderrs > np.minimum(x - lower, upper - x))] = np.nan
+    couplings = np.array([is_coupling(optimizer.params_template[name]) for name in optimizer.names])
+    if couplings.any():
+        resolved = stderrs <= COUPLING_RELIABILITY_LIMIT * np.abs(x)
+        stderrs[couplings & ~resolved] = np.nan
     return stderrs
+
+
+# A doublet's shape is even in J, so near J = 0 it depends on J²: the first-order σ(J)
+# is valid only while σ(J) ≪ J. Beyond this ratio it is withheld, as is every
+# first-order propagation through it (docs/validation/doublet-j.md).
+COUPLING_RELIABILITY_LIMIT = 0.1
+
+
+def is_coupling(parameter: Parameter) -> bool:
+    """Whether ``parameter`` is a doublet's J coupling."""
+    return parameter.param_id is not None and parameter.param_id.label == "j"
 
 
 def at_active_bound(values: FloatArray, lower: FloatArray, upper: FloatArray) -> np.ndarray:

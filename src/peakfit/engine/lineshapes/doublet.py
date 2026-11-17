@@ -31,7 +31,11 @@ def doublet_kernel_with_derivs(
     kernel_with_derivs: Callable[..., tuple[Any, dict[str, Any]]],
     kernel_args: tuple[Any, ...] = (),
 ) -> tuple[Any, dict[str, Any]]:
-    """Combine +/- J/2 components with derivative aggregation."""
+    """Combine +/- J/2 components with derivative aggregation.
+
+    The components sit at cs ± J/2, so their offsets move by ∓1/2 Hz per Hz of J:
+    ∂/∂J = ½(s₋ ∂k/∂Δω₋ − s₊ ∂k/∂Δω₊), from the kernel's own offset derivative.
+    """
     dw_p, sign_p, dw_m, sign_m = doublet_offsets(x, cs, j, grid)
     v_p, d_p = kernel_with_derivs(dw_p, *kernel_args)
     v_m, d_m = kernel_with_derivs(dw_m, *kernel_args)
@@ -39,6 +43,7 @@ def doublet_kernel_with_derivs(
     derivs: dict[str, Any] = {}
     for key in d_p.keys() & d_m.keys():
         derivs[key] = sign_p * d_p[key] + sign_m * d_m[key]
+    derivs["j"] = 0.5 * (sign_m * d_m["dw"] - sign_p * d_p["dw"])
     return values, derivs
 
 

@@ -466,7 +466,9 @@ refitting and changes no error.
      it is numerically accurate whenever finite; no further threshold applies.
   4. a lineshape covariance withheld: the cluster's lineshape covariance factors
      (§3.1) are withheld by the fit's own rule, its rank and conditioning rule on
-     the projected Jacobian (`covariance_factors`).
+     the projected Jacobian (`covariance_factors`). They are also withheld when a
+     free doublet J has no first-order σ, for example an unresolved coupling
+     ([doublet J](validation/doublet-j.md)).
   - **Why the fourth reason (decided 2026-11-14).** It is a conservative
     fit-quality safeguard, not a mathematical requirement of the statistic: q uses
     only c_ll, which stays finite and accurate. But numerical accuracy is not

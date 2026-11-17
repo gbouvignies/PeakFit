@@ -176,6 +176,8 @@ def _reference_doublet_cluster(
     z_derivs = {
         "lw": sign_p * d_p["lw"] + sign_m * d_m["lw"],
         "dw": sign_p * d_p["dw"] + sign_m * d_m["dw"],
+        # The components sit at cs ± J/2: their offsets move by ∓½ Hz per Hz of J.
+        "j": 0.5 * (sign_m * d_m["dw"] - sign_p * d_p["dw"]),
     }
 
     values, derivs = apply_phase_with_derivs(z_values, z_derivs, phase, aq)
@@ -214,6 +216,7 @@ def _reference_real_doublet_with_derivs(
     derivs: dict[str, np.ndarray] = {}
     for key in d_p.keys() & d_m.keys():
         derivs[key] = sign_p * d_p[key] + sign_m * d_m[key]
+    derivs["j"] = 0.5 * (sign_m * d_m["dw"] - sign_p * d_p["dw"])
     return values, derivs
 
 
@@ -465,6 +468,7 @@ def test_real_doublet_derivatives_equivalence() -> None:
     gauss_expected = {
         "cs": gauss_derivs["dw"] * (-grid.spec_params.ppm2hz(1.0)),
         "lw": gauss_derivs["lw"],
+        "j": gauss_derivs["j"],
     }
 
     lorentz_values, lorentz_derivs = _reference_real_doublet_with_derivs(
@@ -478,6 +482,7 @@ def test_real_doublet_derivatives_equivalence() -> None:
     lorentz_expected = {
         "cs": lorentz_derivs["dw"] * (-grid.spec_params.ppm2hz(1.0)),
         "lw": lorentz_derivs["lw"],
+        "j": lorentz_derivs["j"],
     }
 
     pvoigt_values, pvoigt_derivs = _reference_real_doublet_with_derivs(
@@ -492,6 +497,7 @@ def test_real_doublet_derivatives_equivalence() -> None:
         "cs": pvoigt_derivs["dw"] * (-grid.spec_params.ppm2hz(1.0)),
         "lw": pvoigt_derivs["lw"],
         "eta": pvoigt_derivs["eta"],
+        "j": pvoigt_derivs["j"],
     }
 
     _assert_values_close(gaussian_result.values, gauss_values)
