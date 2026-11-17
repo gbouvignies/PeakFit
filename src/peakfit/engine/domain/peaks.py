@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.domain.param_id import ParameterId
+from peakfit.engine.domain.params_scalar import COUPLING_LABEL, Parameters
 from peakfit.engine.types import Shape
 from peakfit.shared.typing import FloatArray, IntArray
 
@@ -68,6 +69,22 @@ class Peak:
         result = f"# Name: {self.name}\n"
         result += "\n".join(shape.print(params) for shape in self.shapes)
         return result
+
+    def footprint_i(self, params: Parameters) -> tuple[IntArray, ...]:
+        """Per axis, the points this peak's components can reach (``ShapeBase.footprint_i``).
+
+        A doublet's J may move up to the upper bound it has in ``params``, which carry
+        the fit's constraints; the footprint spans that range, so the fitting region
+        holds both components wherever J settles.
+        """
+        footprints = []
+        for shape in self.shapes:
+            j_max = None
+            if shape.doublet:
+                name = ParameterId(peak_name=self.name, axis=shape.axis, label=COUPLING_LABEL)
+                j_max = params[name.name].max
+            footprints.append(shape.footprint_i(j_max))
+        return tuple(footprints)
 
     @property
     def positions_i(self) -> IntArray:

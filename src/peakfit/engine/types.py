@@ -158,8 +158,17 @@ class Shape(Protocol):
         ...
 
     @property
+    def doublet(self) -> bool:
+        """Whether the shape is a doublet, its J taken from the axis model."""
+        ...
+
+    @property
     def center_i(self) -> int:
         """Get the integer index of the center position."""
+        ...
+
+    def footprint_i(self, j_max: float | None = None) -> IntArray:
+        """The axis points the shape's components can reach (a doublet's J up to j_max)."""
         ...
 
     @property

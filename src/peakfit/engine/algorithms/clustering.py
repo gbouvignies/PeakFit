@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
@@ -8,6 +8,8 @@ from scipy.sparse.csgraph import connected_components as connected_comps
 
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.cluster import Cluster
+from peakfit.engine.domain.constraints import apply_constraints
+from peakfit.engine.domain.params_scalar import Parameters
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -16,15 +18,6 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.shared.typing import FloatArray, IntArray
-
-
-class PeakLike(Protocol):
-    """Minimal interface required for segmentation."""
-
-    @property
-    def positions_i(self) -> IntArray:
-        """Return index positions for shapes in the peak."""
-        ...
 
 
 def group_connected_pairs(pairs: Iterable[tuple[int, int]]) -> list[list[int]]:
@@ -101,18 +94,22 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
 def segment_data(
     data: FloatArray,
     contour_level: float,
-    peaks: Sequence[PeakLike],
+    footprints: Sequence[Sequence[IntArray]],
 ) -> IntArray:
-    """Segment the spectral data based on the contour level."""
+    """Segment the spectral data based on the contour level.
+
+    Each footprint (per axis, the points a peak's components can reach) is marked,
+    dilated by one point and joined to the points above the contour. A singlet's
+    footprint is its centre point. A doublet's spans its components' whole range, so
+    that its two components, each its own contour island, fall in one segment.
+    """
     # 1. Threshold Mask
     data_above_threshold = np.any(np.abs(data) >= contour_level, axis=0)
 
-    # 2. Peak Position Mask
+    # 2. Peak Footprint Mask
     data_around_peaks = np.zeros_like(data_above_threshold, dtype=bool)
-    for peak in peaks:
-        pos = peak.positions_i
-        pos_tup = tuple(int(x) for x in pos) if isinstance(pos, np.ndarray) else pos
-        data_around_peaks[pos_tup] = True
+    for footprint in footprints:
+        data_around_peaks[np.ix_(*footprint)] = True
 
     # 3. Dilate Peak Mask
     connectivity = data.ndim - 1
@@ -147,7 +144,8 @@ def prepare_clusters(
     """Noise, clustering threshold and clusters: the fit preparation of the CLI and GUI.
 
     The threshold is the configured contour level, else ``contour_factor`` × noise,
-    and must be positive and finite.
+    and must be positive and finite. Doublet footprints take J's upper bound after the
+    configured parameter constraints, the bound the fit itself uses.
     """
     noise = prepare_noise_level(config.noise_level, spectra)
     threshold = config.clustering.contour_level
@@ -159,12 +157,26 @@ def prepare_clusters(
             "set a positive contour level."
         )
         raise ValueError(msg)
-    return noise, float(threshold), create_clusters(spectra, peaks, threshold)
+    bounds = apply_constraints(Parameters.from_peaks(peaks), config.parameters)
+    return noise, float(threshold), create_clusters(spectra, peaks, threshold, bounds)
 
 
-def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -> list[Cluster]:
-    """Create clusters from spectral data based on peaks and contour levels."""
-    segments = segment_data(spectra.data, contour_level, peaks)
+def create_clusters(
+    spectra: Spectra,
+    peaks: list[Peak],
+    contour_level: float,
+    bounds: Parameters | None = None,
+) -> list[Cluster]:
+    """Create clusters from spectral data based on peaks and contour levels.
+
+    ``bounds`` are the peaks' parameters as the fit will bound them; a doublet's
+    footprint spans cs ± J_max/2 with J_max its J's upper bound there. Without them,
+    each axis model's own J bound applies.
+    """
+    if bounds is None:
+        bounds = Parameters.from_peaks(peaks)
+    footprints = [peak.footprint_i(bounds) for peak in peaks]
+    segments = segment_data(spectra.data, contour_level, footprints)
     peak_segments_dict = assign_peaks_to_segments(peaks, segments)
 
     clusters: list[Cluster] = []

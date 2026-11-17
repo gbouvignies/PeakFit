@@ -9,11 +9,12 @@ import numpy as np
 from peakfit.engine.algorithms.covariance_factors import (
     CovarianceFactors,
     covariance_factors,
+    free_parameters,
+    lineshape_order,
     peak_derivatives,
 )
 from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
 from peakfit.engine.algorithms.noise_correlation import modelled_correlation
-from peakfit.engine.algorithms.varpro import at_active_bound
 from peakfit.engine.results import (
     compute_chi_squared,
     compute_degrees_of_freedom,
@@ -213,7 +214,10 @@ def _covariance_factors(
     """
     if nonlinear_errors_withheld(params, nonlinear_names, couplings_only=True):
         return CovarianceFactors(covariance, None, None, None)
-    free = _free(params, nonlinear_names)
+    # θ in the shapes' order (``lineshape_order``), which names the recorded rows.
+    present = set(nonlinear_names)
+    order = [name for name in lineshape_order(cluster.peaks) if name in present]
+    free = free_parameters([params[name] for name in order])
     try:
         derivatives = peak_derivatives(cluster, params, free)
     except _LINESHAPE_ERRORS:
@@ -231,17 +235,6 @@ def nonlinear_errors_withheld(
         and not np.isfinite(params[name].stderr)
         for name in names
     )
-
-
-def _free(params: Parameters, names: list[str]) -> list[str]:
-    """The varied parameters not held at an active bound: the free lineshape θ."""
-    varied = [name for name in names if params[name].vary]
-    values, lower, upper = (
-        np.array([getattr(params[name], field) for name in varied], dtype=np.float64)
-        for field in ("value", "min", "max")
-    )
-    active = at_active_bound(values, lower, upper)
-    return [name for name, held in zip(varied, active, strict=True) if not held]
 
 
 def _evaluate_inputs(
