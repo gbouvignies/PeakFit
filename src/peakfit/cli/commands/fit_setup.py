@@ -29,7 +29,7 @@ def build_fit_config(
     headless: bool | None,
     noise: float | None,
     contour_level: float | None,
-    lineshape: dict[str, Any],
+    lineshapes: FitConfig,
     refine: int,
     exclude: list[int] | None,
 ) -> PeakFitConfig:
@@ -59,7 +59,7 @@ def build_fit_config(
         output_config.directory = output
 
     return PeakFitConfig(
-        fitting=FitConfig(refine_iterations=refine, **lineshape),
+        fitting=lineshapes.model_copy(update={"refine_iterations": refine}),
         clustering=ClusterConfig(contour_level=contour_level),
         output=output_config,
         noise_level=noise,
@@ -72,8 +72,8 @@ def lineshape_options(
     doublets: list[str] | None,
     fixed_j: list[str] | None,
     phases: list[str] | None,
-) -> dict[str, Any]:
-    """``FitConfig`` fields from the per-axis lineshape options.
+) -> FitConfig:
+    """The lineshape model (``family`` and ``axes``) from the per-axis options.
 
     ``--family NAME`` sets every axis and ``--family F2=NAME`` one axis;
     ``--doublet F2=J`` or ``F2=J,MIN,MAX`` adds a doublet with its J start (Hz);
@@ -119,11 +119,10 @@ def lineshape_options(
     for value in phases or []:
         axes.setdefault(value.strip().upper(), {})["phase"] = True
     try:
-        FitConfig.model_validate({"family": family, "axes": axes})
+        return FitConfig.model_validate({"family": family, "axes": axes})
     except ValidationError as exc:
         messages = "; ".join(error["msg"].removeprefix("Value error, ") for error in exc.errors())
         raise typer.BadParameter(messages) from exc
-    return {"family": family, "axes": axes}
 
 
 def normalize_output_formats(formats: list[str] | None) -> list[OutputFormat] | None:

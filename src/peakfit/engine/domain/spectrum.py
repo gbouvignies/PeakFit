@@ -268,6 +268,23 @@ class AxisLineshape:
     phase: bool = False
     detected: bool = False
 
+    @property
+    def details(self) -> str:
+        """Its splitting and phase as display text (see ``model_details``)."""
+        return model_details(self.doublet, phase=self.phase)
+
+
+def model_details(doublet: Doublet | None, *, phase: bool) -> str:
+    """An axis model's splitting and phase: `` doublet (J 92 Hz in [46, 184]), phase fitted``.
+
+    Empty for a singlet without phase; the family goes before it, in each interface's words.
+    """
+    text = ""
+    if doublet is not None:
+        fixed = ", fixed" if not doublet.vary else ""
+        text += f" doublet (J {doublet.j:g}\u00a0Hz in [{doublet.min:g}, {doublet.max:g}]{fixed})"
+    return f"{text}, phase fitted" if phase else text
+
 
 def axis_lineshapes(config: FitConfig, spectra: Spectra) -> list[AxisLineshape]:
     """The lineshape model of each spectral axis, in axis order.
@@ -293,7 +310,8 @@ def axis_lineshapes(config: FitConfig, spectra: Spectra) -> list[AxisLineshape]:
         if model.phase and family not in PHASED_FAMILIES:
             how = "detected from the apodization" if detected else "configured"
             msg = (
-                f"{label}: phase fitting needs a phased lineshape (no_apod, sp1, sp2), "
+                f"{label}: phase fitting needs a phased lineshape "
+                f"({', '.join(sorted(PHASED_FAMILIES))}), "
                 f"but the {how} family is {family}. Choose a phased family on {label} "
                 "or turn its phase off."
             )
@@ -313,4 +331,5 @@ __all__ = [
     "axis_lineshapes",
     "determine_shape_name",
     "get_dimension_label",
+    "model_details",
 ]

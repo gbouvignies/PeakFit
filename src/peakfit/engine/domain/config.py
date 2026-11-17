@@ -17,6 +17,8 @@ PHASED_FAMILIES = frozenset({"sp1", "sp2", "no_apod"})
 DOUBLET_RANGE = 2.0
 OutputFormat = Literal["csv", "json", "txt"]
 _AXIS_LABEL = re.compile(r"F[1-9][0-9]*")
+# The J model every former ``*_doublet`` lineshape used, named when refusing one.
+OLD_DOUBLET = {"j": 5.0, "min": 1.0, "max": 10.0}
 
 
 def _around_start(factor: float):
@@ -86,7 +88,9 @@ def _replaced_fields(data: dict[str, Any]) -> list[str]:
             f'(one axis): write family = "{family}"'
             + (
                 ", and on each split axis a doublet with its J start in Hz, for example "
-                "[fitting.axes.F2] doublet = { j = 92.0 }"
+                "doublet = { j = 92.0 } under [fitting.axes.F2]. The former doublets "
+                f"started at {OLD_DOUBLET['j']:g} Hz within [{OLD_DOUBLET['min']:g}, "
+                f"{OLD_DOUBLET['max']:g}] Hz on every axis"
                 if doublet
                 else ""
             )
@@ -94,10 +98,10 @@ def _replaced_fields(data: dict[str, Any]) -> list[str]:
         )
     if "fit_phase" in data:
         axes = data["fit_phase"] if isinstance(data["fit_phase"], list) else []
-        example = " ".join(f"[fitting.axes.{axis}] phase = true" for axis in axes) or (
-            "[fitting.axes.F2] phase = true"
+        tables = " and ".join(f"[fitting.axes.{axis}]" for axis in axes) or "[fitting.axes.F2]"
+        reasons.append(
+            f"'fit_phase' was replaced by a per-axis phase: write phase = true under {tables}."
         )
-        reasons.append(f"'fit_phase' was replaced by a per-axis phase: write {example}.")
     return reasons
 
 

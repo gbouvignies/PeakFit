@@ -57,17 +57,8 @@ def _relative_path(path: Path) -> str:
 
 
 def describe_axis_lineshapes(lineshapes: Sequence[AxisLineshape]) -> str:
-    """Each axis's resolved model: ``F2 sp1 doublet (J 92 Hz) phase · F3 lorentzian``."""
-    parts = []
-    for model in lineshapes:
-        text = f"{model.axis} {model.family}"
-        if model.doublet is not None:
-            fixed = ", fixed" if not model.doublet.vary else ""
-            text += f" doublet (J {model.doublet.j:g} Hz{fixed})"
-        if model.phase:
-            text += " phase"
-        parts.append(text)
-    return " · ".join(parts)
+    """Each axis's resolved model: ``F2 sp1 doublet (J 92 Hz in [46, 184]) · F3 sp2``."""
+    return " · ".join(f"{m.axis} {m.family}{m.details}" for m in lineshapes)
 
 
 def show_prefit_check(

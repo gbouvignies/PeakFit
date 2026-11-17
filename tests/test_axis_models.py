@@ -8,7 +8,8 @@ doublet J (start, bounds, freedom) and phase.
 import itertools
 import json
 import tomllib
-from typing import get_args
+from pathlib import Path
+from typing import TYPE_CHECKING, cast, get_args
 from zipfile import ZipFile
 
 import numpy as np
@@ -32,18 +33,25 @@ from peakfit.engine.domain.config import (
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
-from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.engine.lineshapes.create import SHAPES, create_shapes
+from peakfit.engine.lineshapes.templates import PhasedSingletBase
+from peakfit.fit.fitting import load_data
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.editor.setup import PER_AXIS, FitSetup
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.spectrum import read_dataset
 from peakfit.io.config import generate_default_config, load_config
 from peakfit.io.readers.continuation import load_completed
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.scientific import BEFORE_AXIS_MODELS
 
+if TYPE_CHECKING:
+    from peakfit.engine.lineshapes.base import ShapeBase
+
+DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" / "data"
 FAMILIES = [f for f in get_args(LineshapeFamily) if f != "auto"]
 SPLITTINGS = [None, Doublet(j=7.0), Doublet(j=92.0, min=80.0, max=100.0, vary=False)]
 # NMRPipe apodization codes and what ``auto`` reads from them.
@@ -109,40 +117,59 @@ def test_a_doublet_needs_its_j_start_and_takes_bounds_around_it():
         Doublet(j=-5.0)
 
 
+# ``auto`` resolves from _spectra()'s apodization: sp1 on F2, sp2 on F3.
+DETECTED = {"F2": "sp1", "F3": "sp2"}
+
+
 @pytest.mark.parametrize(
-    ("family", "splitting", "phase"),
-    list(itertools.product(FAMILIES, SPLITTINGS, [False, True])),
+    ("axis", "family", "splitting", "phase"),
+    list(itertools.product(["F2", "F3"], ["auto", *FAMILIES], SPLITTINGS, [False, True])),
 )
 def test_every_family_splitting_and_phase_builds_its_own_shapes_and_parameters(
-    family, splitting, phase
+    axis, family, splitting, phase
 ):
-    # The model under test is on F2; F3 keeps a plain Gaussian singlet.
+    # The model under test is on one axis; the other keeps a plain Gaussian singlet.
+    other = "F3" if axis == "F2" else "F2"
     config = FitConfig(
-        family="gaussian", axes={"F2": AxisModel(family=family, doublet=splitting, phase=phase)}
+        family="gaussian", axes={axis: AxisModel(family=family, doublet=splitting, phase=phase)}
     )
-    if phase and family not in PHASED_FAMILIES:
+    resolved = DETECTED[axis] if family == "auto" else family
+    if phase and resolved not in PHASED_FAMILIES:
         with pytest.raises(
-            ValueError, match=rf"F2: phase fitting needs a phased lineshape.*{family}"
+            ValueError, match=rf"{axis}: phase fitting needs a phased lineshape.*{resolved}"
         ):
             axis_lineshapes(config, _spectra())
         return
     peak, params = _parameters(config)
-    f2, f3 = peak.shapes
-    assert (f2.shape_name, f2.doublet) == (family, splitting is not None)
-    assert (f3.shape_name, f3.doublet) == ("gaussian", False)
-    expected = {"A.F2.cs", "A.F2.lw", "A.F3.cs", "A.F3.lw"}
-    expected |= {"A.F2.eta"} if family == "pvoigt" else set()
-    expected |= {"A.F2.j"} if splitting is not None else set()
-    expected |= {"cluster_1.F2.phase"} if phase else set()
+    tested, plain = (s for s in sorted(peak.shapes, key=lambda s: s.axis != axis))
+    assert (tested.axis, tested.shape_name, tested.doublet) == (
+        axis,
+        resolved,
+        splitting is not None,
+    )
+    assert (plain.axis, plain.shape_name, plain.doublet) == (other, "gaussian", False)
+    expected = {f"A.{a}.{p}" for a in ("F2", "F3") for p in ("cs", "lw")}
+    expected |= {f"A.{axis}.eta"} if resolved == "pvoigt" else set()
+    expected |= {f"A.{axis}.j"} if splitting is not None else set()
+    expected |= {f"cluster_1.{axis}.phase"} if phase else set()
     assert set(params) == expected
     if splitting is not None:
-        j = params["A.F2.j"]
+        j = params[f"A.{axis}.j"]
         assert (j.value, j.min, j.max, j.vary) == (
             splitting.j,
             splitting.min,
             splitting.max,
             splitting.vary,
         )
+
+
+def test_the_phased_families_are_the_complex_lineshapes():
+    classes = {
+        f: cast("tuple[type[ShapeBase], type[ShapeBase]]", pair) for f, pair in SHAPES.items()
+    }
+    phased = {f for f, (singlet, _) in classes.items() if issubclass(singlet, PhasedSingletBase)}
+    assert phased == PHASED_FAMILIES
+    assert all(d.doublet and not s.doublet for s, d in classes.values())
 
 
 def test_a_doublet_on_one_axis_and_a_singlet_on_the_other():
@@ -273,7 +300,7 @@ def test_the_gui_family_applies_to_every_axis_and_keeps_doublets_and_phase(qapp,
     assert setup.lineshape.currentData() == "lorentzian"
 
 
-def test_cli_and_gui_preparations_build_the_same_parameters():
+def test_each_axis_doublet_sets_its_own_j_start_bounds_and_freedom():
     spectra, peaks, config, _prepared = two_cluster_dataset()
     config.fitting.axes = {
         "F2": AxisModel(doublet=Doublet(j=30.0, min=10.0, max=60.0)),
@@ -290,6 +317,40 @@ def test_cli_and_gui_preparations_build_the_same_parameters():
         config.fitting.axes["F2"].doublet,
         config.fitting.axes["F3"].doublet,
     ]
+
+
+def test_cli_and_gui_build_the_same_model_from_one_config():
+    # The bundled example: auto resolves sp2 on both axes, so phase may be fitted.
+    config = PeakFitConfig(
+        fitting=FitConfig(
+            axes={
+                "F2": AxisModel(doublet=Doublet(j=92.0, min=80.0, max=100.0)),
+                "F3": AxisModel(phase=True),
+            }
+        )
+    )
+    cli = load_data(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt", config)
+    dataset = read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+    gui = prepare_dataset_fit(dataset.spectra, dataset.peaks, config)
+    assert cli.lineshapes == list(gui.lineshapes)
+
+    def model(peaks, params):
+        """Every parameter's settings, by axis and label, independent of peak naming."""
+        rows = sorted(
+            (p.param_id.axis, p.param_id.label, p.value, p.min, p.max, p.vary)
+            for p in params.values()
+            if p.param_id is not None
+        )
+        shapes = sorted((s.axis, s.shape_name, s.doublet) for peak in peaks for s in peak.shapes)
+        return rows, shapes
+
+    cli_peaks = [peak for cluster in cli.clusters for peak in cluster.peaks]
+    gui_peaks = [peak for cluster in gui.clusters for peak in cluster.peaks]
+    assert model(cli_peaks, Parameters.from_peaks(cli_peaks)) == model(gui_peaks, gui.parameters)
+    ids = [p.param_id for p in gui.parameters.values() if p.param_id is not None]
+    labels = {(i.axis, i.label) for i in ids}
+    assert {("F2", "j"), ("F3", "phase")} <= labels
+    assert not {("F3", "j"), ("F2", "phase")} & labels
 
 
 # ----------------------------------------------------------------------- storage
@@ -369,9 +430,13 @@ def test_fit_json_from_before_per_axis_models_names_the_peakfit_that_opens_it():
         ),
         (
             'lineshape = "sp1_doublet"',
-            r"family = \"sp1\", and on each split axis a doublet.*doublet = \{ j = 92\.0 \}",
+            r"family = \"sp1\", and on each split axis a doublet.*doublet = \{ j = 92\.0 \}"
+            r".*started at 5 Hz within \[1, 10\] Hz",
         ),
-        ('fit_phase = ["F2", "F3"]', r"\[fitting\.axes\.F2\] phase = true \[fitting\.axes\.F3\]"),
+        (
+            'fit_phase = ["F2", "F3"]',
+            r"phase = true under \[fitting\.axes\.F2\] and \[fitting\.axes\.F3\]\.",
+        ),
     ],
 )
 def test_an_old_toml_field_is_refused_with_its_replacement(tmp_path, fitting, replacement):
@@ -389,7 +454,11 @@ def test_the_default_config_template_loads():
 @pytest.mark.parametrize(
     ("arguments", "replacement"),
     [
-        (["--lineshape", "lorentzian_doublet"], "use --family lorentzian plus --doublet AXIS=J"),
+        (
+            ["--lineshape", "lorentzian_doublet"],
+            "use --family lorentzian plus --doublet AXIS=J on each split axis (the former "
+            "doublets were --doublet AXIS=5,1,10)",
+        ),
         (["--phx", "--phy"], "use --phase F2 --phase F3"),
     ],
 )

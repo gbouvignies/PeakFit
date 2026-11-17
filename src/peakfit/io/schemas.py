@@ -227,7 +227,7 @@ class FitSummarySchema(_Schema):
             raise ValueError(
                 "Unsupported fit JSON schema version "
                 f"{value.get('schema_version')!r}; supported version is {OUTPUT_SCHEMA_VERSION!r}."
-                + opened_by(value.get("schema_version"), "9.0.0")
+                + opened_by(value.get("schema_version"), "fit JSON")
             )
         return value
 

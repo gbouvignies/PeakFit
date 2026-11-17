@@ -492,7 +492,7 @@ def _open_analysis(path, *, relink, progress, canceled):
         raise ValueError(
             f"Unsupported analysis version: {manifest.get('schema_version')!r} (this PeakFit "
             f"reads {VERSION}). Open the spectrum and peak list as a new analysis and refit."
-            + opened_by(manifest.get("schema_version"), "15.0.0")
+            + opened_by(manifest.get("schema_version"), "analysis project")
         )
     allowed = {
         "schema_version",

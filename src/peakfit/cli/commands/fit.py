@@ -7,11 +7,14 @@ from typing import TYPE_CHECKING, Annotated, Any
 import typer
 
 from peakfit.cli.commands.fit_setup import (
+    FAMILIES,
     build_fit_config,
     lineshape_options,
     resolve_output_dir,
 )
 from peakfit.engine.diagnostics.bounds import at_bound
+from peakfit.engine.domain.config import DOUBLET_RANGE, OLD_DOUBLET, PHASED_FAMILIES
+from peakfit.engine.domain.spectrum import model_details
 from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED, FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
@@ -86,14 +89,15 @@ def fit_command(
         typer.Option(
             "--family",
             help="Lineshape family: NAME for every axis or AXIS=NAME for one "
-            "(auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod)",
+            f"({', '.join(FAMILIES)})",
         ),
     ] = None,
     doublets: Annotated[
         list[str] | None,
         typer.Option(
             "--doublet",
-            help="Doublet on one axis: AXIS=J, or AXIS=J,MIN,MAX, in Hz (default bounds J/2 to 2J)",
+            help="Doublet on one axis: AXIS=J, or AXIS=J,MIN,MAX, in Hz "
+            f"(default bounds J/{DOUBLET_RANGE:g} to {DOUBLET_RANGE:g}J)",
         ),
     ] = None,
     fixed_j: Annotated[
@@ -102,7 +106,10 @@ def fit_command(
     ] = None,
     phases: Annotated[
         list[str] | None,
-        typer.Option("--phase", help="Fit the phase on this axis (sp1, sp2, no_apod)"),
+        typer.Option(
+            "--phase",
+            help=f"Fit the phase on this axis ({', '.join(sorted(PHASED_FAMILIES))})",
+        ),
     ] = None,
     replaced_lineshape: Annotated[
         str | None, typer.Option("--lineshape", "-l", hidden=True)
@@ -167,7 +174,7 @@ def fit_command(
         peakfit fit spectrum.ft2 peaks.list --config settings.toml
     """
     _refuse_replaced_options(replaced_lineshape, phx=replaced_phx, phy=replaced_phy)
-    lineshape = lineshape_options(families, doublets, fixed_j, phases)
+    lineshapes = lineshape_options(families, doublets, fixed_j, phases)
     start_time = datetime.datetime.now(datetime.UTC)
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
     reporter = ConsoleReporter()
@@ -186,7 +193,7 @@ def fit_command(
         headless=headless,
         noise=noise,
         contour_level=contour_level,
-        lineshape=lineshape,
+        lineshapes=lineshapes,
         refine=refine,
         exclude=exclude,
     )
@@ -263,7 +270,12 @@ def _refuse_replaced_options(lineshape: str | None, *, phx: bool, phy: bool) -> 
     reasons = []
     if lineshape is not None:
         family = lineshape.removesuffix("_doublet")
-        doublet = " plus --doublet AXIS=J on each split axis" if family != lineshape else ""
+        doublet = (
+            " plus --doublet AXIS=J on each split axis (the former doublets were "
+            f"--doublet AXIS={OLD_DOUBLET['j']:g},{OLD_DOUBLET['min']:g},{OLD_DOUBLET['max']:g})"
+            if family != lineshape
+            else ""
+        )
         reasons.append(f"--lineshape was replaced by --family: use --family {family}{doublet}.")
     if phx or phy:
         axes = [axis for axis, used in (("F2", phy), ("F3", phx)) if used]
@@ -280,15 +292,9 @@ def describe_lineshape_config(fitting: FitConfig) -> str:
     """The configured lineshapes: the default family, then each axis's own settings."""
     parts = [fitting.family]
     for axis, model in sorted(fitting.axes.items()):
-        details = [model.family] if model.family else []
-        if model.doublet is not None:
-            d = model.doublet
-            fixed = ", fixed" if not d.vary else ""
-            details.append(f"doublet J {d.j:g} Hz [{d.min:g}, {d.max:g}]{fixed}")
-        if model.phase:
-            details.append("phase")
-        if details:
-            parts.append(f"{axis}: {' '.join(details)}")
+        text = f"{model.family or ''}{model_details(model.doublet, phase=model.phase)}"
+        if text:
+            parts.append(f"{axis}: {text.strip()}")
     return " · ".join(parts)
 
 
