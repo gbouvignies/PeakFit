@@ -90,6 +90,17 @@ def _texts(root: QtWidgets.QWidget) -> list[str]:
     return found
 
 
+def _peak_page_state(w) -> str:
+    """What a failure needs to name its cause: panel, page, selection and Fitted rows."""
+    panel = w.panel
+    rows = [panel.fitted.itemAt(i).widget() for i in range(panel.fitted.count())]
+    return (
+        f"inspector visible {panel.isVisible()}, peak page {panel.peak_page.isVisible()}, "
+        f"selected {w.selected_id}, Fitted title {panel.fitted_title.isVisible()}, "
+        f"Fitted rows {[(r.text(), r.isVisible()) for r in rows if r is not None][:4]}"
+    )
+
+
 # ------------------------------------------------------------------ axis names
 @pytest.mark.parametrize(
     "nuclei",
@@ -116,7 +127,7 @@ def test_axis_names_are_distinct_and_identical_in_every_place(qapp, nuclei):
     texts = _texts(window)
     for name in names:
         assert f"{name} (ppm)" in texts  # editor field and peak-list heading
-        assert f"δ {name} (ppm)" in texts  # fitted row
+        assert f"δ {name} (ppm)" in texts, _peak_page_state(w)  # fitted row
     w.select_peak(w.peaks[FOCUS].id, cluster=True)
     qapp.processEvents()
     texts += _texts(window)
