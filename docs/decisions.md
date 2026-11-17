@@ -1585,8 +1585,7 @@ Short records of non‑obvious design choices and trade‑offs.
   engine warnings and highlights. What it could not reach, on the bundled example,
   was the correlated-profile flag (13 of 121 clusters, none with ▲ or ◇) and the
   amplitude decomposition, both shown only inside a cluster's pages.
-- **Decomposition is a numerical warning** (a default the user may override before
-  merge). It is an objective classification of the recorded shapes, computed like
+- **Decomposition is a numerical warning** (confirmed by the user). It is an objective classification of the recorded shapes, computed like
   At bound from recorded values, and the run comparison already marked it ▲. The
   toolbar and run-comparison warning counts now include it, and the cluster and peak
   pages list it under Warnings, beside the existing Collinear row.
