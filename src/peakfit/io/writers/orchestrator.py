@@ -14,8 +14,10 @@ from peakfit.io.writers.json import write_final_outcome_summary
 from peakfit.io.writers.markdown import write_final_outcome_report
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
+    from peakfit.engine.diagnostics.couplings import CouplingQualification
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
     from peakfit.engine.scientific.summary import RunSummary
     from peakfit.io.output_metadata import RunMetadata
@@ -59,6 +61,7 @@ def write_fit_outputs(
     metadata: RunMetadata | None = None,
     z_values: FloatArray | None = None,
     summary: RunSummary | None = None,
+    couplings: Mapping[str, CouplingQualification] | None = None,
 ) -> dict[str, Path]:
     """Write fit result artifacts to output files.
 
@@ -72,6 +75,7 @@ def write_fit_outputs(
         metadata: Operational run metadata required for JSON 9.0.0
         z_values: Every plane's value, in spectrum order, excluded planes included
         summary: Ticket-06 run summary required for the Markdown report
+        couplings: The fitted J couplings' qualifications, for the Markdown report
 
     Returns:
     -------
@@ -117,7 +121,9 @@ def write_fit_outputs(
     if report_md := plan.get("report"):
         if summary is None:
             raise ValueError("Markdown output requires the final-outcome RunSummary.")
-        written_files["report"] = write_final_outcome_report(final_outcome, report_md, summary, cfg)
+        written_files["report"] = write_final_outcome_report(
+            final_outcome, report_md, summary, cfg, couplings
+        )
 
     if shifts_csv := plan.get("shifts"):
         write_final_outcome_shifts(final_outcome, shifts_csv, cfg)

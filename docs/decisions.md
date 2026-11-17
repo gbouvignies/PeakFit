@@ -1574,6 +1574,71 @@ Short records of non‑obvious design choices and trade‑offs.
   `excluded_planes` and is refused as written by a development build, to be refit.
   A refused archive of another version names the PeakFit version that wrote it.
 
+## 2026-11-17: A doublet's region spans its J range; a J below its linewidth is qualified (#214)
+- **Footprint, undilated.** Clustering marks each peak's centre point, dilated by one
+  point as before, then each doublet's span cs ± J_max/2 as it is. J_max is J's
+  upper bound after the configured constraints, so the region holds both components
+  wherever J settles. The span connects the components' contour islands; it adds no
+  neighbourhood, so a span within the centre's 3 × 3 block changes nothing.
+- **Why not the dilated span.** It was tried first and passed the large-J gates, with
+  more precise SP1 ¹J phases (σ 0.73° against 1.13°). But it also grew small-J
+  regions, which raised the low-SNR J = ½ LW misleading σ(J) rate from 1.3 % to
+  6.7 % (7.8 % on 4000 more realizations). Small couplings had to stay unchanged.
+- **Below LW is a qualification.** A J below its linewidth means J and LW are
+  determined together. The peak page and report say so with ρ(J, LW), read from the
+  recorded C_θ (no format change). It is not a warning: σ(J) stays published where
+  the W2a rule keeps it.
+- **θ order made explicit.** The evaluation builds θ in the shapes' creation order
+  (`lineshape_order`), which readers recompute from the recorded model geometry. It
+  equalled the working order in every fit checked, so archives are unchanged.
+- **Open.** The validation fails two gates. The SP1 ¹H singlet linewidth under-covers;
+  an exploratory diagnosis points to its contour-selected region, singlets included.
+  At SNR 8 the qualification misses 3.6 % of J = ½ LW fits: 2.6 % have σ(J) withheld,
+  and 1.0 % land on a narrow resolved doublet with a confident, wrong σ(J)
+  ([validation](validation/large-j.md)).
+
+## 2026-11-17: Large-J validation accepted with two documented limitations (#214)
+- **Accepted by the user** after reviewing the validation in PR #224. The two
+  pre-registered gates that fail stay failed in the record; neither is a large-J
+  region defect.
+- **SP1 ¹H linewidth gate.** The ¹H singlet linewidth of the SP1 ¹J case under-covers
+  (±1.96σ 0.905, bias +0.19 Hz). It is accepted as the upward bias of contour-selected
+  fitting regions, which singlets show too, tracked in [#226](https://github.com/gbouvignies/PeakFit/issues/226).
+- **Below-LW qualification at SNR 8.** It is raised in 96.4 % of J = ½ LW fits, against
+  a 99 % gate. It is accepted as the W2a low-SNR residual for unresolved couplings: 2.6 %
+  of fits have σ(J) withheld, and 1.0 % land on a narrow resolved doublet with a
+  confident, wrong σ(J). MCMC is the remedy there.
+- **The dilated first footprint is rejected.** It gave a more precise SP1 ¹J phase
+  (σ 0.73° against 1.13°). But it grew small-J regions, which raised the low-SNR
+  J = ½ LW misleading-σ(J) rate from 1.3 % to 6.7 % (7.8 % on confirmation). The
+  undilated footprint keeps small couplings bit-identical.
+
+## 2026-11-17: W5 finds fit problems in the cluster list, not unexplained signal (#217)
+
+- **Scope changed by the user.** #217 asked for a Findings tab listing every
+  unexplained-signal region. A global unexplained-signal browser leans towards peak
+  picking, which is not on the roadmap; PeakFit fits peaks the researcher chose.
+  W5 instead makes the existing fit diagnostics findable. The per-plane unexplained
+  list on the Analysis page is unchanged.
+- **No new view.** The cluster list already sorted χ²ᵣ, |r|max and |ρ| and filtered
+  engine warnings and highlights. What it could not reach, on the bundled example,
+  was the correlated-profile flag (13 of 121 clusters, none with ▲ or ◇) and the
+  amplitude decomposition, both shown only inside a cluster's pages.
+- **Decomposition is a numerical warning** (confirmed by the user). It is an
+  objective classification of the recorded shapes, computed like At bound from
+  recorded values, and the run comparison already marked it ▲. The
+  toolbar and run-comparison warning counts now include it, and the cluster and peak
+  pages list it under Warnings, beside the existing Collinear row.
+- **Off the GUI thread.** The decomposition and ↔ take about 0.3 s per run on the
+  example, so `DatasetFitResult.diagnostics` keeps them per run, computed by the
+  workers that publish a fit, load a parent run or open a project.
+- **↔ is not a warning.** It states a limit of independent per-plane error bars,
+  not of the data (GLOSSARY), so it has its own subdued mark and Show choice, ranked
+  after ▲ and before ◇.
+- **N follows Show.** Spec §5 already said N moves through the rows matching the
+  active filters; with all clusters shown it keeps visiting warned clusters only,
+  and says so when there are none.
+
 ## 2026-11-17: Run and Model pages; the per-axis model as a compact table (#215)
 - **Two pages, one switch.** With nothing selected the inspector shows Run or Model.
   Model leads before the first fit; a completed run or a failed attempt brings Run
@@ -1613,7 +1678,11 @@ Short records of non‑obvious design choices and trade‑offs.
   Advanced (solver, iteration limit, tolerance) → Model's **Optimizer limits**;
   preparation counts, the blocked reason and **Show sampled fitting regions** →
   the foot of Model. New on Model: the planes fitted and the constraints, both
-  read-only until W4. Nothing
+  read-only until W4.
+  Merged alongside: W2c's J-below-linewidth caption stays on the peak page and W5's
+  marks and N/Shift+N in the cluster list; neither lands on Run or Model. Run's
+  changes list keeps the amplitude-decomposition warnings, now read from W5's
+  cluster reviews. Nothing
   scientific was removed.
 - **Same config as TOML.** The table's controls ship here, so their parametrised
   check that each edit gives the engine config of the equivalent TOML ships with

@@ -88,7 +88,8 @@ For non-position parameters, or when you need explicit bounds:
 A doublet's J start, bounds and freedom come from its axis model,
 `[fitting.axes.F2] doublet = { j = 92.0, min = 80.0, max = 100.0, vary = true }`
 ([ADR 0004](adr/0004-per-axis-lineshape-models.md)). A `*.F2.j` rule here applies
-after it, and a fit step's `vary` pattern can release a fixed J.
+after it, and a fit step's `vary` pattern can release a fixed J. J's upper bound, after
+these rules, also sets how far the doublet's fitting region extends: cs ± J_max/2.
 
 ### Pattern Syntax
 

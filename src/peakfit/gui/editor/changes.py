@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.diagnostics.identifiability import Cause, amplitude_identifiability
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 
@@ -95,21 +94,9 @@ class RunChanges:
     uncompared: int  # common peaks unusable in either run: no fitted position to compare
 
 
-_DECOMPOSITION = {
-    Cause.NULL_SPACE: "▲ Amplitudes not identifiable",
-    Cause.NEAR_COLLINEAR: "▲ Near-collinear shapes",
-    Cause.ILL_CONDITIONED: "▲ Ill-conditioned shapes",
-}
-
-
-def _marks(result: DatasetFitResult, review: ClusterReview) -> tuple[str, ...]:
-    """Engine warnings, the amplitude decomposition's status, then highlights."""
+def _marks(review: ClusterReview) -> tuple[str, ...]:
+    """Numerical warnings (the amplitude decomposition's included), then highlights."""
     warnings = {f"▲ {w.kind}" for w in review.warnings}
-    cluster = result.outcome.by_cluster_id.get(review.cluster_id)
-    evaluation = cluster.analytical_evaluation if cluster is not None else None
-    if cluster is not None and cluster.usable and evaluation is not None:
-        members = amplitude_identifiability(evaluation.shapes, evaluation.amplitudes)
-        warnings |= {_DECOMPOSITION[m.cause] for m in members if m.cause in _DECOMPOSITION}
     highlights = sorted({f"◇ {h.kind}" for h in review.highlights})
     return (*sorted(warnings), *highlights)
 
@@ -225,12 +212,12 @@ def compare_runs(
         if not sources:
             # Only peaks new to this run: its current marks, with nothing to compare.
             changes.append(
-                ClusterChange(review.ids, review.names, (), (), _marks(active, review), new=True)
+                ClusterChange(review.ids, review.names, (), (), _marks(review), new=True)
             )
             continue
         same = len(sources) == 1 and set(sources[0].ids) == set(review.ids)
-        before = tuple(dict.fromkeys(m for source in sources for m in _marks(parent, source)))
-        now = _marks(active, review)
+        before = tuple(dict.fromkeys(m for source in sources for m in _marks(source)))
+        now = _marks(review)
         touched = tuple(n for i, n in zip(review.ids, review.names, strict=True) if i in edited)
         if same and set(before) == set(now) and not touched:
             continue

@@ -260,8 +260,9 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   members were grouped differently. Clusters with newly reported warnings lead and
   are drawn in the warning style, then those whose warnings are no longer
   reported, then edited ones, then highlights and regroupings. Warnings include the
-  decomposition marks of the amplitude profile: **▲ Near-collinear shapes**,
-  **▲ Ill-conditioned shapes** and **▲ Amplitudes not identifiable**. With the same
+  decomposition marks of the amplitude profile, as in the cluster list:
+  **▲ Near-collinear shapes**, **▲ Ill-conditioned shapes** and **▲ Amplitudes not
+  identifiable**. With the same
   members, a mark is “now reported” or “no longer reported”. A regrouped cluster
   names the clusters it came from and lists its marks “Now” and “Before
   regrouping”; a mark that disappeared with regrouping is not presented as resolved.
@@ -377,9 +378,15 @@ The first completed run opens the navigator's **Clusters** tab: one row per
 recorded cluster with its members and three measures: χ²ᵣ, the largest |recorded
 residual| in σ (|r|max) and the largest |amplitude correlation| between members
 ("–" for a single peak, "n/a" when the covariance is unavailable). The first
-column shows an amber ▲ for a numerical warning (unusable, not converged,
-uncertainty unreliable, or a varied parameter at a recorded bound) or else a
-subdued ◇ for a highlight; its tooltip names each one. Highlights are descriptive
+column shows one mark, its tooltip naming every item. An amber ▲ is a numerical
+warning: unusable, not converged, uncertainty unreliable, a varied parameter at a
+recorded bound, or an amplitude split the fitted shapes do not determine
+(**Amplitudes not identifiable**, **Ill-conditioned shapes** or **Near-collinear
+shapes**, naming the members, whom the amplitude profile also withholds). Otherwise a subdued ↔ marks profile errors correlated across
+planes (the correlated-profile flag, a limit of independent error bars, not a
+warning), and else a subdued ◇ a highlight. Profiles tiles show the same mark.
+Every one of these is also on the cluster and peak pages; the list lets you find
+them without opening each cluster. Highlights are descriptive
 rules, never warnings: amplitude correlation |ρ| ≥ 0.9, and a fitted linewidth
 outside 0.5–2× the run's median for that axis over usable peaks. Each highlight
 states its rule and value, for example "LW 0.43 × median (¹H)". Movement from the
@@ -387,7 +394,8 @@ initial position is not highlighted: reaching the right position from a rough
 start is what the optimizer is for; initial and fitted positions remain on each
 peak page. **Display** sets the thresholds for this session; they change no results,
 warnings or run state. The menu above the list shows all clusters, any warning,
-any highlight, or one warning or highlight type, each with its count. Columns sort
+any highlight, one warning or highlight type, or, when any cluster carries it,
+**↔ Profile errors correlated**, each with its count. Columns sort
 on click; the default is χ²ᵣ, highest first. Choosing a
 row, or **N**, opens the inspector's **Cluster** page and selects one of its
 members (keeping the selected peak when it belongs to the cluster), so the cluster
@@ -444,11 +452,15 @@ header, under the cluster size (“PEAK · CLUSTER OF 3”), and opens its clust
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
-comparison mode or the total-model scope. **N** in the cluster list, or **Select next cluster with a warning** on
-the Run page, moves in list order to the next cluster with a numerical
-warning that the current filter shows; it never selects a hidden row. The
+comparison mode or the total-model scope. **N** (Shift+N backward) in the cluster
+list moves in list order to the next cluster the **Show** choice lists; with all
+clusters shown it moves to the next one with a numerical warning, and with none
+the status line says to choose a mark in Show. **Select next cluster with a
+warning** on the Run page always moves to a warned cluster. Neither ever
+selects a hidden row. The
 inspector's **Cluster review** keeps three families apart: numerical warnings
-(with the engine's own text), highlights (with their rule), and measures, as label
+(with the engine's own text, or the members whose amplitude split is undetermined),
+highlights (with their rule), and measures, as label
 rows: **Warnings** and **Highlights** (“none” when empty), **χ²ᵣ** (its sample count
 in the tooltip), **Max residual** with its guide √(2 ln N), the typical largest of
 N independent Gaussian values (a rough guide, not a threshold: correlated noise
@@ -458,7 +470,7 @@ the peak belongs to appear as **Collinear**. The cluster page uses the same rows
 Every inspector line starts on one left edge; forms, tables and review rows share
 one label column, and disclosures (▸ About …, Provenance) are quiet lines at the
 end of their section. The cluster list's footer appears only for a filter
-or numerical warnings, and its run line only when the run is Outdated: the
+or numerical warnings (“13 of 121 clusters · N: next”), and its run line only when the run is Outdated: the
 toolbar names the run. A peak page before any fit has no status line; the
 positions' “Unfolded ppm” qualifier is a tooltip unless the spectrum shows the
 peak at a displayed alias, which is then given beside it. Warnings and highlights that apply to the cluster stay in
@@ -468,7 +480,10 @@ samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
 and run identity. **Fitted** is a table of the peak's recorded parameters, one line
 each: positions then linewidths, the horizontal axis first, with unit, value and σ
-(“fixed” for a fixed parameter); parameters at a recorded bound are marked. Its last
+(“fixed” for a fixed parameter); parameters at a recorded bound are marked. Under the
+table, each fitted J has a caption: “J ¹⁵N F2 below LW: determined together” when J is
+below that axis's linewidth, then its recorded ρ(J, LW) and ρ(J, phase) where the run
+has them; the tooltip explains the qualification. Its last
 line, **Amplitude**, follows the current plane: the recorded amplitude ± its
 marginal σ, the uncertainty of that absolute amplitude including the lineshape
 uncertainty (`intensity_err_marginal`), as the caption under it says, starting with

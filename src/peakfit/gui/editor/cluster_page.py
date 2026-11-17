@@ -14,7 +14,6 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.engine.algorithms.covariance_factors import (
     PeakProfileCorrelation,
     ProfileCorrelation,
-    profile_correlations,
 )
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
@@ -39,6 +38,7 @@ from peakfit.gui.editor.profile import (
     partner_name,
 )
 from peakfit.gui.editor.review import correlation_matrix
+from peakfit.gui.run_diagnostics import profile_flags
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
@@ -135,12 +135,11 @@ def correlated_profiles(
     """Each member's correlated-profile flag and its most correlated partner, by name.
 
     ``engine_names`` and ``names`` list the members in the review's order. Empty
-    without an analytical evaluation or with one plane: there is no profile.
+    when the cluster has no profile (``run_diagnostics.profile_flags``).
     """
-    evaluation = cluster.analytical_evaluation
-    if evaluation is None or evaluation.amplitudes.shape[1] < 2:  # noqa: PLR2004
+    flags = profile_flags(cluster)
+    if not flags:
         return {}
-    flags = profile_correlations(evaluation.covariance_factors, evaluation.amplitudes)
     shown = dict(zip(engine_names, names, strict=True))
     by_index = [shown.get(name, name) for name in cluster.peak_names]
     return {

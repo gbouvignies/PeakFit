@@ -23,6 +23,13 @@ if TYPE_CHECKING:
     from peakfit.gui.editor.window import EditorWindow
 
 
+def _warmed(analysis):
+    """An opened analysis whose active run has what every view shares, computed off Qt."""
+    if analysis.completion is not None:
+        analysis.completion.result.warm()
+    return analysis
+
+
 class AnalysisActions:
     """One analysis lifecycle; fitting remains owned by the existing workspace."""
 
@@ -189,11 +196,13 @@ class AnalysisActions:
         self._analysis_worker.submit(
             "analysis",
             0,
-            lambda: project_operation(
-                "open",
-                path,
-                progress=self._analysis_progress.message.emit,
-                canceled=self._analysis_cancel.is_set,
+            lambda: _warmed(
+                project_operation(
+                    "open",
+                    path,
+                    progress=self._analysis_progress.message.emit,
+                    canceled=self._analysis_cancel.is_set,
+                )
             ),
         )
 
@@ -214,11 +223,13 @@ class AnalysisActions:
         self._analysis_worker.submit(
             "relink",
             0,
-            lambda: project_operation(
-                "relink",
-                (analysis, Path(filename)),
-                progress=self._analysis_progress.message.emit,
-                canceled=self._analysis_cancel.is_set,
+            lambda: _warmed(
+                project_operation(
+                    "relink",
+                    (analysis, Path(filename)),
+                    progress=self._analysis_progress.message.emit,
+                    canceled=self._analysis_cancel.is_set,
+                )
             ),
         )
 

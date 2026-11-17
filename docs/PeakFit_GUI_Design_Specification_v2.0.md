@@ -727,7 +727,8 @@ raster. No local-fit residual is presented as a total-model residual.
 
 There is no overall quality score, ranking formula or pass/fail verdict, in the UI
 or in exports. Review items belong to three families, kept visually and textually
-separate. Each item states its value, definition and source. Unavailable values say
+separate, and the correlated-profile flag, a limit of the error bars, stays apart
+from all three. Each item states its value, definition and source. Unavailable values say
 Unavailable with a reason, never zero; inapplicable items say so (for example a
 correlation for a one-peak cluster).
 
@@ -737,25 +738,29 @@ correlation for a one-peak cluster).
 | | Not converged | Usable non-converged classification with its termination message. |
 | | Uncertainty unreliable | The engine's recorded uncertainty warning. One message covers several causes today; recording them separately is a deferred storage decision (§14). |
 | | At bound | A varied recorded parameter within 10⁻⁶ of its range from a recorded bound; the parameter is named. |
+| | Amplitudes not identifiable · Ill-conditioned shapes · Near-collinear shapes | The engine's amplitude decomposition of the recorded fitted shapes (`amplitude_identifiability`) found members whose split the data do not determine; the members are named. The same classification withholds them from the amplitude profile. |
+| Error-bar limit (engine-computed, not a warning) | Correlated-profile flag ↔ | A member's errors are correlated across planes beyond the validated tolerance (`profile_correlations`, `correlated_profile`): independent per-plane error bars do not describe its profile's uncertainty. A limit of that approximation, not of the data. |
 | Review measure (descriptive number) | χ²ᵣ | Recorded statistic on corrected fitting samples; relative to the statistical-noise estimate, so it inherits that estimate's accuracy. An elevated value does not by itself mean a wrong assignment. |
 | | Largest recorded residual | Maximum \|normalized recorded residual\| in σ, shown with the sample count. Read it against that count: the largest of 10⁴ independent standard-normal values is typically about 4 σ. |
 | | Amplitude correlation | Largest \|ρ\| between members from the recorded amplitude covariance (one matrix per cluster, shared by all planes); the full matrix is on the cluster page. It is conditional on the fitted lineshape parameters. Unavailable when the recorded covariance is unavailable; not applicable for one-peak clusters. A small residual with \|ρ\| near 1 means the decomposition is not determined by the data. |
 | Heuristic (descriptive, adjustable threshold) | Linewidth outlier | Fitted linewidth relative to the run's median for that axis over usable peaks; default highlight outside 0.5–2×. |
 
 Numerical warnings appear as a warning glyph with text on every affected row and
-page; the toolbar summary counts only these. Measures are sortable navigator
+page; the toolbar summary counts only these. A cluster list row and a Profiles tile
+show one mark: ▲, else ↔, else ◇, with every item in the tooltip. Measures are sortable navigator
 columns. Optional highlight thresholds on measures and all heuristics use a
 subdued glyph labeled with the rule (“\|ρ\| ≥ 0.9”, “LW 0.43 × median”) and never
 the warning colour. Thresholds are application display preferences, shown with
 each highlight; changing them changes no scientific data or run state, and their
 definitions are versioned with this document. Thresholds are session-only; saving
 them with a project would be a storage decision (§14). A **Show** menu above the
-cluster list filters it: all clusters, “Any warning”, “Any highlight”, and each
-warning type and highlight rule present, each with its count; a menu rather than
-chips keeps every option and count legible in the narrow navigator. Warning
-navigation (**N**, or the Run page's “Select next cluster with a warning”)
-moves in list order through the warned clusters the filter shows and never selects
-a hidden one; when the filter shows none it says so and keeps the selection. The
+cluster list filters it: all clusters, “Any warning”, “Any highlight”, each
+warning type and highlight rule present, and ↔ when present, each with its count; a menu rather than
+chips keeps every option and count legible in the narrow navigator. **N** /
+**Shift+N** move in list order through the clusters the Show choice lists; with all
+clusters shown they move through the warned ones, as does the Run page's
+“Select next cluster with a warning”. Navigation never selects a hidden row; when
+there is nothing to reach it says so and keeps the selection. The
 default sort is reduced χ², highest first; any column sorts with one click. Measures and
 highlights cannot prove the absence of structured residuals, so whole-spectrum
 residuals remain one key away.

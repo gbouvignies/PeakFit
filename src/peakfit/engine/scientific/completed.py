@@ -5,9 +5,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import lineshape_order
+from peakfit.engine.diagnostics.couplings import coupling_qualifications
 from peakfit.engine.scientific.simulation import FinalModelSnapshot
 
 if TYPE_CHECKING:
+    from peakfit.engine.diagnostics.couplings import CouplingQualification
     from peakfit.engine.domain.state import FittingState
     from peakfit.engine.scientific.completion import CorrectionSnapshot
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
@@ -86,6 +89,30 @@ class CompletedFit:
                 )
             )
         return cls(outcome, model_snapshot, tuple(samples))
+
+    def couplings(self, cluster_id: int | None = None) -> dict[str, CouplingQualification]:
+        """The recorded J couplings' qualifications, by parameter name; one cluster's if given.
+
+        The recorded lineshape covariance's rows are named from each cluster's recorded
+        model geometry (``lineshape_order``); the values are the recorded ones.
+        """
+        geometry = {cluster.cluster_id: cluster for cluster in self.model_snapshot.clusters}
+        qualifications: dict[str, CouplingQualification] = {}
+        for cluster in self.outcome.clusters:
+            if cluster_id is not None and cluster.cluster_id != cluster_id:
+                continue
+            evaluation = cluster.analytical_evaluation
+            model = geometry.get(cluster.cluster_id)
+            if evaluation is None or model is None:
+                continue
+            qualifications.update(
+                coupling_qualifications(
+                    cluster.final_nonlinear_parameters,
+                    lineshape_order(model.peaks),
+                    evaluation.covariance_factors.parameter_covariance,
+                )
+            )
+        return qualifications
 
 
 def _copy_readonly[T: np.ndarray](values: T) -> T:

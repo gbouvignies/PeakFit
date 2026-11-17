@@ -44,6 +44,9 @@ from peakfit.gui.editor.review import correlation_matrix
 from peakfit.gui.editor.run_page import RunPage
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from peakfit.engine.diagnostics.couplings import CouplingQualification
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
     from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.editor.review import ClusterReview
@@ -60,6 +63,36 @@ class Page(Enum):
 
 
 NBSP = "\u00a0"
+COUPLING_TIP = (
+    "Below LW: J is smaller than this axis's fitted linewidth, so the two components "
+    "overlap at half height and a smaller J with a wider line draws nearly the same "
+    "multiplet; J and LW are determined together, not separately. ρ is first-order, "
+    "from the recorded lineshape covariance, and is withheld with σ(J)."
+)
+
+
+def coupling_shown(qualification: CouplingQualification) -> bool:
+    """Whether a fitted J has anything to say under the table."""
+    return qualification.below_linewidth or any(
+        value is not None
+        for value in (qualification.linewidth_correlation, qualification.phase_correlation)
+    )
+
+
+def coupling_caption(qualification: CouplingQualification, axis: str) -> str:
+    """One fitted J's qualification: below its linewidth, and its ρ with LW and phase."""
+    head = (
+        f"J {axis} below LW: determined together" if qualification.below_linewidth else f"J {axis}"
+    )
+    correlations = [
+        f"ρ(J, {partner}) {formatting.correlation(value)}"
+        for partner, value in (
+            ("LW", qualification.linewidth_correlation),
+            ("phase", qualification.phase_correlation),
+        )
+        if value is not None
+    ]
+    return " · ".join([head, *correlations])
 
 
 class PreciseInspector(PeakInspector):
@@ -641,7 +674,7 @@ class Inspector(QtWidgets.QScrollArea):
             + ("\n□ Fitted position not adopted · working position kept" if retained else "")
         )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
-        self._fill_parameters(engine, cluster)
+        self._fill_parameters(engine, cluster, result.index.couplings)
         self._fill_amplitude(engine, cluster, result, plane)
         start = next((p for p in result.inputs.snapshot.peaks if p.id == peak.id), None)
         if start is not None:
@@ -752,7 +785,12 @@ class Inspector(QtWidgets.QScrollArea):
             self.profile.show_profile(profile, plane)
             show_text(self.profile_reason, "" if current else "Recorded by an outdated run.")
 
-    def _fill_parameters(self, engine: str, cluster: FinalClusterOutcome) -> None:
+    def _fill_parameters(
+        self,
+        engine: str,
+        cluster: FinalClusterOutcome,
+        couplings: Mapping[str, CouplingQualification],
+    ) -> None:
         if cluster.analytical_evaluation is None:
             self.fitted.addWidget(
                 _label(cluster.unusable_reason or "No fitted values recorded", "muted", wrap=True),
@@ -764,8 +802,9 @@ class Inspector(QtWidgets.QScrollArea):
             return
         parameters = [p for p in cluster.final_nonlinear_parameters if p.name.startswith(engine)]
         order = parameter_order(self._axis_order)
+        parameters.sort(key=lambda p: order(*_dimension_and_kind(p.name)))
         rows = []
-        for parameter in sorted(parameters, key=lambda p: order(*_dimension_and_kind(p.name))):
+        for parameter in parameters:
             dim, kind = _dimension_and_kind(parameter.name)
             shown = formatting.fitted(
                 parameter.value, parameter.standard_error, parameter.unit, varied=parameter.vary
@@ -785,6 +824,17 @@ class Inspector(QtWidgets.QScrollArea):
                 )
             )
         parameter_table(self.fitted, ("Value", "± σ"), rows)
+        # Each J's qualification under the table: below its linewidth, and its ρ.
+        for parameter in parameters:
+            qualification = couplings.get(parameter.name)
+            if qualification is None or not coupling_shown(qualification):
+                continue
+            dim, _kind = _dimension_and_kind(parameter.name)
+            caption = _label(
+                coupling_caption(qualification, self._axes.get(dim, dim)), "caption", wrap=True
+            )
+            caption.setToolTip(COUPLING_TIP)
+            self.fitted.addWidget(caption, self.fitted.rowCount(), 0, 1, -1)
 
     def _fill_amplitude(
         self, engine: str, cluster: FinalClusterOutcome, result: DatasetFitResult, plane: int

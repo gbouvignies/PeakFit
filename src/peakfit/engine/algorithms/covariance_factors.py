@@ -28,11 +28,11 @@ and M R P⊥ E_m H⁻¹, and C_θ, together with the amplitudes.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
-from peakfit.engine.algorithms.varpro import identifiable_covariance
+from peakfit.engine.algorithms.varpro import at_active_bound, identifiable_covariance
 from peakfit.engine.domain.param_map import ParameterMap
 
 if TYPE_CHECKING:
@@ -40,7 +40,52 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.params_scalar import Parameters
+    from peakfit.engine.domain.peaks import Peak
     from peakfit.shared.typing import FloatArray
+
+
+class LineshapeParameter(Protocol):
+    """The fields that decide whether a parameter is free; working or recorded."""
+
+    @property
+    def name(self) -> str: ...
+    @property
+    def value(self) -> float: ...
+    @property
+    def min(self) -> float: ...
+    @property
+    def max(self) -> float: ...
+    @property
+    def vary(self) -> bool: ...
+
+
+def lineshape_order(peaks: Sequence[Peak]) -> list[str]:
+    """A cluster's nonlinear parameter names in the order its shapes create them.
+
+    Peaks in cluster order, each peak's shapes in axis order, each shape's parameters
+    in its spec order; a parameter shared by the cluster (its phase on an axis) where
+    it first appears. The free ones, in this order, are θ: the rows of
+    ``parameter_covariance``. The recorded parameters are sorted by name, so a
+    reader names those rows from the cluster's recorded model geometry with this.
+    """
+    names = (name for peak in peaks for shape in peak.shapes for name in shape.parameter_names())
+    return list(dict.fromkeys(names))
+
+
+def free_parameters(parameters: Sequence[LineshapeParameter]) -> list[str]:
+    """The free lineshape θ, in order: the varied parameters not at an active bound.
+
+    The same rule names the rows of ``parameter_covariance`` from a cluster's
+    working parameters, when the factors are computed, and from its recorded
+    parameters, when they are read back.
+    """
+    varied = [parameter for parameter in parameters if parameter.vary]
+    values, lower, upper = (
+        np.array([getattr(parameter, field) for parameter in varied], dtype=np.float64)
+        for field in ("value", "min", "max")
+    )
+    active = at_active_bound(values, lower, upper)
+    return [parameter.name for parameter, held in zip(varied, active, strict=True) if not held]
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +95,8 @@ class CovarianceFactors:
     ``conditional`` is σ²MRMᵀ, the published conditional amplitude covariance (L × L).
     The lineshape factors are None where withheld; otherwise, with n_θ free lineshape
     parameters, ``shape_gain[m]`` is M E_m and ``cross_gain[m]`` σ²M R P⊥ E_m H⁻¹, both
-    L × n_θ, and ``parameter_covariance`` is σ²C_θ (n_θ × n_θ).
+    L × n_θ, and ``parameter_covariance`` is σ²C_θ (n_θ × n_θ), its rows and columns
+    the ``free_parameters`` of the cluster's nonlinear parameters, in their order.
     """
 
     conditional: FloatArray
@@ -385,6 +431,8 @@ __all__ = [
     "ProfileCorrelation",
     "covariance_between_planes",
     "covariance_factors",
+    "free_parameters",
+    "lineshape_order",
     "marginal_standard_errors",
     "peak_covariances_between_planes",
     "peak_derivatives",

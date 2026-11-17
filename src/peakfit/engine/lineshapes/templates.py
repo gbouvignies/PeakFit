@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
 
+from peakfit.engine.domain.params_scalar import LINEWIDTH_LABEL
 from peakfit.engine.lineshapes.base import ShapeBase
 from peakfit.engine.lineshapes.doublet import doublet_kernel, doublet_kernel_with_derivs
 from peakfit.engine.lineshapes.utils import (
@@ -93,7 +94,9 @@ def parameter_specs(lw_default: float, *extras: str) -> Callable[..., tuple[Para
                 max_val=center + window,
                 unit="ppm",
             ),
-            ParamSpec(name="lw", default=lw_default, min_val=0.1, max_val=200.0, unit="Hz"),
+            ParamSpec(
+                name=LINEWIDTH_LABEL, default=lw_default, min_val=0.1, max_val=200.0, unit="Hz"
+            ),
             *(_extra_spec(name, doublet) for name in extras),
         )
 
