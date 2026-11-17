@@ -452,7 +452,10 @@ samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
 and run identity. **Fitted** is a table of the peak's recorded parameters, one line
 each: positions then linewidths, the horizontal axis first, with unit, value and σ
-(“fixed” for a fixed parameter); parameters at a recorded bound are marked. Its last
+(“fixed” for a fixed parameter); parameters at a recorded bound are marked. Under the
+table, each fitted J has a caption: “J ¹⁵N F2 below LW: determined together” when J is
+below that axis's linewidth, then its recorded ρ(J, LW) and ρ(J, phase) where the run
+has them; the tooltip explains the qualification. Its last
 line, **Amplitude**, follows the current plane: the recorded amplitude ± its
 marginal σ, the uncertainty of that absolute amplitude including the lineshape
 uncertainty (`intensity_err_marginal`), as the caption under it says, starting with

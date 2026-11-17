@@ -77,4 +77,15 @@ class ParameterId(BaseModel):
         return hash(self.name)
 
 
-__all__ = ["PSEUDO_AXIS", "ParameterId"]
+def name_parts(name: str) -> tuple[str, str, str]:
+    """(peak or ``cluster_N``, axis, label) of a ``peak.axis.label`` name.
+
+    Peak names may themselves contain dots, so the axis and label are taken from the
+    right. A name with fewer parts leaves the missing ones empty.
+    """
+    owner, _, label = name.rpartition(".")
+    owner, _, axis = owner.rpartition(".")
+    return owner, axis, label
+
+
+__all__ = ["PSEUDO_AXIS", "ParameterId", "name_parts"]
