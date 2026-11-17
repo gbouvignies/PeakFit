@@ -140,7 +140,7 @@ def test_active_bound_uncertainty_is_unavailable() -> None:
 
 
 def test_shared_cluster_phase_jacobian_sums_each_peaks_signed_contribution() -> None:
-    cluster, params = peak_pair(6.0, noise=0.01, lineshape="no_apod", fit_phase=("F2",))
+    cluster, params = peak_pair(6.0, noise=0.01, family="no_apod", phase=True)
     # One cluster-scoped phase parameter drives both peaks' shapes.
     assert [name for name in params if name.endswith(".phase")] == ["cluster_1.F2.phase"]
     params["cluster_1.F2.phase"].value = 4.0

@@ -44,7 +44,7 @@ def main():
             data_path / "pseudo3d.ft2", data_path / "b1_offsets.txt", []
         )
         noise = noise_api.prepare_noise_level(config, spectra)
-        peaks = peaklist.read_list(spectra, spectra_api.get_shape_names(config, spectra), config)
+        peaks = peaklist.read_list(spectra, spectra_api.axis_lineshapes(config, spectra))
         clusters = clustering.create_clusters(spectra, peaks, 5 * noise)
         all_params = lf.Parameters()
         records = []

@@ -83,10 +83,10 @@ from peakfit.engine.algorithms.evaluation import (
 from peakfit.engine.algorithms.noise_correlation import NoiseModel, cluster_correlation
 from peakfit.engine.algorithms.varpro import fit_cluster
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, LineshapeName
+from peakfit.engine.domain.config import AxisModel, FitConfig, LineshapeFamily
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.profiles import Normalized, normalize, r2eff
 
@@ -109,7 +109,7 @@ Z95 = 1.96
 SCATTER_GATE = (0.95, 1.05)
 COVERAGE_SE_GATE = 3.0
 COVERAGE_POOLED_GATE = 0.01
-CHAINS: dict[LineshapeName, tuple[Axis, Axis]] = {"sp1": SP1, "sp2": SP2, "no_apod": NO_APOD}
+CHAINS: dict[LineshapeFamily, tuple[Axis, Axis]] = {"sp1": SP1, "sp2": SP2, "no_apod": NO_APOD}
 
 
 # ---------------------------------------------------------------- profiles
@@ -249,7 +249,7 @@ def downstream_fit(
 class Case:
     """One cluster configuration: lineshape, geometry, profile and shared phase."""
 
-    lineshape: LineshapeName
+    lineshape: LineshapeFamily
     separation: tuple[float, float] | None  # (¹⁵N, ¹H) points; None: one peak
     profile: str
     partner: float = 1.0  # height of the second peak relative to its profile
@@ -269,7 +269,7 @@ def build(case: Case) -> tuple[Cluster, Parameters, np.ndarray, NoiseModel]:
 
 
 def build_cluster(
-    lineshape: LineshapeName,
+    lineshape: LineshapeFamily,
     separation: tuple[float, float] | None,
     heights: np.ndarray,
     *,
@@ -296,14 +296,14 @@ def build_cluster(
     centre = (shape[1] / 2, shape[2] / 2)
     separation = separation or (0.0, 0.0)
     offsets = [(-separation[0] / 2, -separation[1] / 2), (separation[0] / 2, separation[1] / 2)]
-    config = FitConfig(lineshape=lineshape, fit_phase=["F2"] if shared_phase else [])
+    config = FitConfig(family=lineshape, axes={"F2": AxisModel(phase=shared_phase)})
     peaks = []
     for name, (d1, d2) in zip("AB"[:n_peaks], offsets, strict=False):
         position = [
             float(spectra.spectral_params[0].pts2ppm(centre[0] + d1)),
             float(spectra.spectral_params[1].pts2ppm(centre[1] + d2)),
         ]
-        shapes = create_shapes(spectra, config, name, position, [lineshape] * 2)
+        shapes = create_shapes(spectra, axis_lineshapes(config, spectra), name, position)
         peak = Peak(name, np.array(position), shapes)
         peak.set_cluster_id(1)
         peaks.append(peak)

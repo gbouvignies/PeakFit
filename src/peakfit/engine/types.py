@@ -29,6 +29,7 @@ class ParamSpec:
     min_val: float
     max_val: float
     unit: str
+    vary: bool = True
 
 
 @dataclass(slots=True)

@@ -6,17 +6,18 @@ submits, never from display contours.
 """
 
 import math
-from typing import TYPE_CHECKING, cast, get_args
+from typing import TYPE_CHECKING, get_args
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.domain.config import LineshapeName
+from peakfit.engine.domain.config import LineshapeFamily
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.labels import LABEL_WIDTH, disclosure, text_label
 
 if TYPE_CHECKING:
-    from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+    from peakfit.engine.domain.spectrum import AxisLineshape
     from peakfit.gui.fitting import PreparedDatasetFit
 
 _LINESHAPES = {
@@ -34,11 +35,23 @@ _LINESHAPES = {
 DEFAULT_SOURCE = "no recognized apodization; default model"
 
 
-def lineshape_text(name: str) -> str:
-    """Readable model name; doublet variants keep their base name."""
-    base = name.removesuffix("_doublet")
-    text = _LINESHAPES.get(base, base)
-    return f"{text} doublet" if name.endswith("_doublet") else text
+# Shown when the settings give some axis its own family (an imported TOML); the
+# per-axis controls come with W4.
+PER_AXIS = "Per axis"
+
+
+def lineshape_text(lineshape: AxisLineshape) -> str:
+    """Readable model of one axis: family, then doublet and phase when present."""
+    text = _LINESHAPES.get(lineshape.family, lineshape.family)
+    if lineshape.doublet is not None:
+        fixed = ", fixed" if not lineshape.doublet.vary else ""
+        text += f" doublet (J {lineshape.doublet.j:g}\u00a0Hz{fixed})"  # no break before Hz
+    return f"{text}, phase fitted" if lineshape.phase else text
+
+
+def common_family(fitting: FitConfig) -> str | None:
+    """The family every axis takes, or None when some axis sets its own."""
+    return None if any(m.family for m in fitting.axes.values()) else fitting.family
 
 
 class FitSetup(QtWidgets.QWidget):
@@ -62,8 +75,12 @@ class FitSetup(QtWidgets.QWidget):
         layout.addLayout(form)
         self.lineshape = QtWidgets.QComboBox()
         self.lineshape.setAccessibleName("Lineshape model")
-        for name in get_args(LineshapeName):
-            self.lineshape.addItem(lineshape_text(name), name)
+        for name in get_args(LineshapeFamily):
+            self.lineshape.addItem(_LINESHAPES[name], name)
+        self.lineshape.addItem(PER_AXIS, None)
+        # Shown, never chosen: it only reports per-axis families from the settings.
+        per_axis = self.lineshape.model().item(self.lineshape.count() - 1)  # ty: ignore[unresolved-attribute]
+        per_axis.setEnabled(False)
         self.lineshape.currentIndexChanged.connect(self._edited)
         self.shapes = text_label("", "caption", wrap=True)
         self.shape_caution = text_label("", "warning", wrap=True)
@@ -167,7 +184,9 @@ class FitSetup(QtWidgets.QWidget):
         self._configuration = configuration
         fitting = configuration.fitting
         with QtCore.QSignalBlocker(self.lineshape):
-            self.lineshape.setCurrentIndex(self.lineshape.findData(fitting.lineshape))
+            family = common_family(fitting)
+            index = self.lineshape.findData(family) if family else self.lineshape.count() - 1
+            self.lineshape.setCurrentIndex(index)
         # Unchanged values are left alone so an edit in progress keeps its text.
         for control, value in (
             (self.passes, fitting.refine_iterations),
@@ -238,7 +257,14 @@ class FitSetup(QtWidgets.QWidget):
             return
         settings = self._configuration.model_copy(deep=True)
         fitting = settings.fitting
-        fitting.lineshape = cast("LineshapeName", self.lineshape.currentData())
+        # A family applies to every axis; doublets and phases stay as configured.
+        family = self.lineshape.currentData()
+        if family is not None and family != common_family(fitting):
+            fitting.family = family
+            fitting.axes = {
+                axis: model.model_copy(update={"family": None})
+                for axis, model in fitting.axes.items()
+            }
         fitting.refine_iterations = self.passes.value()
         fitting.max_iterations = self.max_iterations.value()
         try:

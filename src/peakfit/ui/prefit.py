@@ -7,7 +7,10 @@ from typing import TYPE_CHECKING
 from peakfit.ui.branding import show_command_summary
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.engine.domain.spectrum import AxisLineshape
     from peakfit.fit.fitting import LoadedData
 
 
@@ -51,6 +54,20 @@ def _relative_path(path: Path) -> str:
         return str(resolved.relative_to(cwd))
     except Exception:
         return str(resolved)
+
+
+def describe_axis_lineshapes(lineshapes: Sequence[AxisLineshape]) -> str:
+    """Each axis's resolved model: ``F2 sp1 doublet (J 92 Hz) phase · F3 lorentzian``."""
+    parts = []
+    for model in lineshapes:
+        text = f"{model.axis} {model.family}"
+        if model.doublet is not None:
+            fixed = ", fixed" if not model.doublet.vary else ""
+            text += f" doublet (J {model.doublet.j:g} Hz{fixed})"
+        if model.phase:
+            text += " phase"
+        parts.append(text)
+    return " · ".join(parts)
 
 
 def show_prefit_check(
@@ -97,6 +114,7 @@ def show_prefit_check(
                 "Run Setup",
                 {
                     "Method": method_str,
+                    "Lineshapes": describe_axis_lineshapes(loaded_data.lineshapes),
                     "Contour": contour_str,
                     "Clusters": str(n_clusters),
                     "Refine": refine_str,

@@ -95,7 +95,7 @@ def test_amplitude_draws_are_reproducible_from_the_seed(isolated):
 @pytest.mark.parametrize(("separation", "flagged"), [(2.0, True), (8.0, False)])
 def test_strongly_correlated_amplitudes_are_flagged_and_summed(separation, flagged):
     cluster, params = peak_pair(separation, noise=0.05)
-    config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
+    config = PeakFitConfig(fitting=FitConfig(family="gaussian"))
     completed = run_pipeline(
         config, [cluster], 0.05, params, noise_model=not_modelled("synthetic spectrum")
     ).completed_fit

@@ -46,7 +46,7 @@ def _assert_same(result, shape):
 def test_grid_model_equals_pointwise_model_with_a_folded_peak(lineshape):
     # p_0 lies one spectral width outside the window: its aliased tails wrap in.
     spectra, peaks, config, _ = two_cluster_dataset()
-    config.fitting.lineshape = lineshape
+    config.fitting.family = lineshape
     result = _fit(spectra, peaks, config)
     _assert_same(result, spectra.data.shape[1:])
 

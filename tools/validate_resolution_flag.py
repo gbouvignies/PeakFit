@@ -52,10 +52,10 @@ from validate_sandwich_errors import HEIGHTS, NO_APOD, PLANES, SP1, SP2, Axis
 from peakfit.engine.algorithms.noise_correlation import cluster_correlation
 from peakfit.engine.algorithms.varpro import VarProOptimizer, identifiable_covariance
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, LineshapeFamily, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.fit.pipeline import run_pipeline
@@ -73,7 +73,7 @@ Z95 = 1.96
 class Config:
     """One sweep cell. ``separation`` is Euclidean, in apodized widths at the truth."""
 
-    lineshape: LineshapeName
+    lineshape: LineshapeFamily
     geometry: str  # "1H", "15N", "diagonal" or "none" (coincident)
     separation: float
     lw: float  # intrinsic linewidth on both axes, Hz
@@ -155,8 +155,8 @@ def make_peak(lineshape: str, name: str, points: np.ndarray) -> Peak:
     """A peak at grid ``points``; its position bounds centre on it, as in a peak list."""
     spectra = spectra_for(lineshape)
     position = [float(spectra.spectral_params[i].pts2ppm(points[i])) for i in range(2)]
-    config = FitConfig(lineshape=cast("LineshapeName", lineshape))
-    shapes = create_shapes(spectra, config, name, position, [lineshape] * 2)
+    config = FitConfig(family=cast("LineshapeFamily", lineshape))
+    shapes = create_shapes(spectra, axis_lineshapes(config, spectra), name, position)
     peak = Peak(name, np.array(position), shapes)
     peak.set_cluster_id(1)
     return peak
@@ -255,7 +255,7 @@ def _fit(config: Config, grid, data, model, start_points, lw: dict[str, float]):
     """PeakFit's fit from peaks at ``start_points`` (their bounds centre there)."""
     peaks = [make_peak(config.lineshape, n, p) for n, p in zip("AB", start_points, strict=True)]
     params = parameters(peaks, lw)
-    fit_config = PeakFitConfig(fitting=FitConfig(lineshape=config.lineshape))
+    fit_config = PeakFitConfig(fitting=FitConfig(family=config.lineshape))
     return run_pipeline(
         fit_config, [Cluster(1, peaks, grid, data)], config.sigma, params, noise_model=model
     ).completed_fit

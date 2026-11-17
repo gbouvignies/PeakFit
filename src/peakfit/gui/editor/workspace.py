@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, cast
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
+from peakfit.engine.domain.spectrum import axis_lineshapes, get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
@@ -400,10 +400,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         config = self.fitting.configuration
         try:
             shapes = " × ".join(
-                name.upper() for name in get_shape_names(config.fitting, self.dataset.spectra)
+                f"{m.family.upper()}{' doublet' if m.doublet else ''}"
+                for m in axis_lineshapes(config.fitting, self.dataset.spectra)
             )
         except (ValueError, KeyError, AttributeError):
-            shapes = config.fitting.lineshape
+            shapes = config.fitting.family
         level = config.clustering.contour_level
         threshold, clustering = (
             (f"{level:.3g}", f"clustering threshold {level:.6g} (explicit)")
@@ -446,19 +447,19 @@ class EditorWorkspace(QtWidgets.QWidget):
         config = self.fitting.configuration.fitting
         spectra = self.dataset.spectra
         try:
-            names = get_shape_names(config, spectra)
+            lineshapes = axis_lineshapes(config, spectra)
         except (ValueError, KeyError, AttributeError) as exc:
             return [("Lineshape", "unresolved", str(exc))]
         rows = []
-        for axis, name in zip(spectra.spectral_params, names, strict=True):
-            if config.lineshape != "auto":
+        for axis, lineshape in zip(spectra.spectral_params, lineshapes, strict=True):
+            if not lineshape.detected:
                 source = "explicit"
-            elif name == "pvoigt":
+            elif lineshape.family == "pvoigt":
                 source = DEFAULT_SOURCE
             else:
                 source = "from apodization"
             title = formatting.nucleus(axis.nucleus, axis.label)
-            rows.append((title, lineshape_text(name), source))
+            rows.append((title, lineshape_text(lineshape), source))
         return rows
 
     def _fitting_regions(self):

@@ -55,10 +55,10 @@ from peakfit.engine.algorithms.varpro import (
     identifiable_covariance,
 )
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, LineshapeFamily, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.fit.pipeline import run_pipeline
@@ -153,7 +153,7 @@ WHITE = (
 # processing of the signal (and of PeakFit's lineshape), and the processing the header
 # records and the noise follows. Only the white control differs between the two.
 CASES: dict[
-    str, tuple[tuple[float, float] | None, LineshapeName, tuple[Axis, Axis], tuple[Axis, Axis]]
+    str, tuple[tuple[float, float] | None, LineshapeFamily, tuple[Axis, Axis], tuple[Axis, Axis]]
 ] = {
     "isolated peak": (None, "sp2", SP2, SP2),
     "overlapping pair": ((2.0, 2.0), "sp2", SP2, SP2),
@@ -200,8 +200,8 @@ def build(case: str, rng: np.random.Generator | None):
             float(spectra.spectral_params[0].pts2ppm(centre[0] + d1)),
             float(spectra.spectral_params[1].pts2ppm(centre[1] + d2)),
         ]
-        config = FitConfig(lineshape=lineshape)
-        shapes = create_shapes(spectra, config, name, position, [lineshape] * 2)
+        config = FitConfig(family=lineshape)
+        shapes = create_shapes(spectra, axis_lineshapes(config, spectra), name, position)
         peak = Peak(name, np.array(position), shapes)
         peak.set_cluster_id(1)
         peaks.append(peak)
@@ -236,7 +236,7 @@ def realization(case: str, index: int) -> dict:
     if not model.modelled:
         raise ValueError(model.reason)
     correlation = cluster_correlation(model, cluster.grid_indices)
-    config = PeakFitConfig(fitting=FitConfig(lineshape=CASES[case][1]))
+    config = PeakFitConfig(fitting=FitConfig(family=CASES[case][1]))
     completed = run_pipeline(
         config, [cluster], SIGMA, truth.copy(), noise_model=model
     ).completed_fit

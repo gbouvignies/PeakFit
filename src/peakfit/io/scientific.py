@@ -41,7 +41,10 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "12.0.0"
+VERSION = "13.0.0"
+# The last PeakFit commit that reads the formats written before per-axis lineshape
+# models: scientific archive 12.0.0, fit JSON 9.0.0 and analysis project 15.0.0.
+BEFORE_AXIS_MODELS = "e4556a0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -53,6 +56,16 @@ MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2
 # What malformed archive input raises, besides a reader's own ``ValueError`` checks.
 MALFORMED = (BadZipFile, struct.error, KeyError, TypeError, ValueError)
+
+
+def opened_by(found, before_axis_models: str) -> str:
+    """Which PeakFit opens a format version written before per-axis lineshape models."""
+    if found != before_axis_models:
+        return ""
+    return (
+        f" Version {found} predates per-axis lineshape models; PeakFit at commit "
+        f"{BEFORE_AXIS_MODELS} opens it."
+    )
 
 
 def write_scientific(
@@ -303,7 +316,8 @@ def _read_scientific(path):
         ):
             raise ValueError(
                 f"Unsupported scientific result version {document.get('schema_version')!r} "
-                f"(this PeakFit reads {VERSION})"
+                f"(this PeakFit reads {VERSION})."
+                + opened_by(document.get("schema_version"), "12.0.0")
             )
         evidence = document.get("evidence")
         if evidence not in {"results", "detailed", "full"}:

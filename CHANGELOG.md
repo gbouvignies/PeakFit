@@ -4,6 +4,27 @@ Notable user-facing and architecture changes are recorded here.
 
 ## Unreleased
 
+### Breaking
+
+- Lineshape models are set per spectral axis: a family, an optional doublet and an
+  optional fitted phase on each axis ([ADR 0004](docs/adr/0004-per-axis-lineshape-models.md)).
+    - **TOML:** `[fitting] family` sets every axis; `[fitting.axes.F2]` sets one
+      axis's `family`, `phase = true` and `doublet = { j = 92.0 }`. A doublet needs
+      its J start in Hz; its bounds default to [J/2, 2J]. `lineshape` and
+      `fit_phase` are refused, with their replacement in the message.
+    - **CLI:** `--family`, `--doublet AXIS=J[,MIN,MAX]`, `--fix-j AXIS` and
+      `--phase AXIS` replace `--lineshape`, `--phx` and `--phy`, which are refused
+      with their replacement.
+    - **Phase on a family without one** (Gaussian, Lorentzian, pseudo-Voigt) is now
+      refused instead of silently ignored, including when `auto` detected it.
+    - **Files:** scientific archive 13.0.0, fit JSON 10.0.0 and analysis project
+      16.0.0. Earlier files are refused; those written just before this change name
+      PeakFit commit `e4556a0`, which opens them.
+    - **GUI:** the lineshape control sets one family on every axis. The doublet
+      choice is gone until per-axis controls arrive; doublets and phases from an
+      imported TOML are kept and shown.
+    - **Results:** singlet and all-axes doublet fits are bit-identical.
+
 ### Fixed
 
 - Doublet lineshapes now fit J by its derivative. Before, every doublet lineshape

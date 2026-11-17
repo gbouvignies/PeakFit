@@ -6,9 +6,12 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 
-from peakfit.cli.commands.fit_setup import build_fit_config, resolve_output_dir
+from peakfit.cli.commands.fit_setup import (
+    build_fit_config,
+    lineshape_options,
+    resolve_output_dir,
+)
 from peakfit.engine.diagnostics.bounds import at_bound
-from peakfit.engine.domain.config import LineshapeName  # noqa: TC001 - Typer evaluates annotations.
 from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED, FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
@@ -29,7 +32,7 @@ from peakfit.ui.reporter import ConsoleReporter
 from peakfit.ui.views import display_post_fit_summary, live_fit_display
 
 if TYPE_CHECKING:
-    from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.engine.domain.config import FitConfig, PeakFitConfig
     from peakfit.fit.fitting import LoadedData
 
 
@@ -78,10 +81,34 @@ def fit_command(
             resolve_path=True,
         ),
     ] = None,
-    lineshape: Annotated[
-        LineshapeName,
-        typer.Option("--lineshape", "-l", help="Lineshape model"),
-    ] = "auto",
+    families: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--family",
+            help="Lineshape family: NAME for every axis or AXIS=NAME for one "
+            "(auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod)",
+        ),
+    ] = None,
+    doublets: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--doublet",
+            help="Doublet on one axis: AXIS=J, or AXIS=J,MIN,MAX, in Hz (default bounds J/2 to 2J)",
+        ),
+    ] = None,
+    fixed_j: Annotated[
+        list[str] | None,
+        typer.Option("--fix-j", help="Hold the doublet's J at its start on this axis"),
+    ] = None,
+    phases: Annotated[
+        list[str] | None,
+        typer.Option("--phase", help="Fit the phase on this axis (sp1, sp2, no_apod)"),
+    ] = None,
+    replaced_lineshape: Annotated[
+        str | None, typer.Option("--lineshape", "-l", hidden=True)
+    ] = None,
+    replaced_phx: Annotated[bool, typer.Option("--phx", hidden=True)] = False,
+    replaced_phy: Annotated[bool, typer.Option("--phy", hidden=True)] = False,
     refine: Annotated[
         int,
         typer.Option(
@@ -100,14 +127,6 @@ def fit_command(
         float | None,
         typer.Option("--noise", "-n", help="Manual noise level"),
     ] = None,
-    phx: Annotated[
-        bool,
-        typer.Option("--phx/--no-phx", help="Fit X phase"),
-    ] = False,
-    phy: Annotated[
-        bool,
-        typer.Option("--phy/--no-phy", help="Fit Y phase"),
-    ] = False,
     exclude: Annotated[
         list[int] | None,
         typer.Option("--exclude", "-e", help="Exclude plane indices"),
@@ -144,8 +163,11 @@ def fit_command(
     Examples:
         peakfit fit spectrum.ft2 peaks.list
         peakfit fit spectrum.ft2 peaks.list -z z_values.txt -o results/
+        peakfit fit spectrum.ft2 peaks.list --family sp1 --doublet F2=92 --phase F3
         peakfit fit spectrum.ft2 peaks.list --config settings.toml
     """
+    _refuse_replaced_options(replaced_lineshape, phx=replaced_phx, phy=replaced_phy)
+    lineshape = lineshape_options(families, doublets, fixed_j, phases)
     start_time = datetime.datetime.now(datetime.UTC)
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
     reporter = ConsoleReporter()
@@ -166,8 +188,6 @@ def fit_command(
         contour_level=contour_level,
         lineshape=lineshape,
         refine=refine,
-        phx=phx,
-        phy=phy,
         exclude=exclude,
     )
     if detailed_evidence:
@@ -238,6 +258,40 @@ def fit_command(
         raise typer.Exit(1) from e
 
 
+def _refuse_replaced_options(lineshape: str | None, *, phx: bool, phy: bool) -> None:
+    """Name the per-axis options that replaced ``--lineshape``, ``--phx`` and ``--phy``."""
+    reasons = []
+    if lineshape is not None:
+        family = lineshape.removesuffix("_doublet")
+        doublet = " plus --doublet AXIS=J on each split axis" if family != lineshape else ""
+        reasons.append(f"--lineshape was replaced by --family: use --family {family}{doublet}.")
+    if phx or phy:
+        axes = [axis for axis, used in (("F2", phy), ("F3", phx)) if used]
+        reasons.append(
+            "--phx and --phy were replaced by --phase AXIS: use "
+            + " ".join(f"--phase {axis}" for axis in axes)
+            + " (on a pseudo-3D, --phx was F3 and --phy F2)."
+        )
+    if reasons:
+        raise typer.BadParameter(" ".join(reasons))
+
+
+def describe_lineshape_config(fitting: FitConfig) -> str:
+    """The configured lineshapes: the default family, then each axis's own settings."""
+    parts = [fitting.family]
+    for axis, model in sorted(fitting.axes.items()):
+        details = [model.family] if model.family else []
+        if model.doublet is not None:
+            d = model.doublet
+            fixed = ", fixed" if not d.vary else ""
+            details.append(f"doublet J {d.j:g} Hz [{d.min:g}, {d.max:g}]{fixed}")
+        if model.phase:
+            details.append("phase")
+        if details:
+            parts.append(f"{axis}: {' '.join(details)}")
+    return " · ".join(parts)
+
+
 def _show_headless_command_summary(
     *,
     spectrum: Path,
@@ -262,7 +316,7 @@ def _show_headless_command_summary(
                 "Fitting",
                 {
                     "Optimizer": "varpro",
-                    "Lineshape": str(fit_config.fitting.lineshape),
+                    "Lineshapes": describe_lineshape_config(fit_config.fitting),
                     "Optimizer passes": str(fit_config.fitting.refine_iterations),
                     "Workers": "All CPUs" if workers == -1 else str(workers),
                 },

@@ -1,10 +1,12 @@
 """Domain models and helpers for spectra and spectral parameters."""
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from peakfit.engine.domain.config import PHASED_FAMILIES
 from peakfit.engine.domain.coordinates import DimensionContext
 from peakfit.shared.typing import FloatArray
 
@@ -13,7 +15,7 @@ _MIN_SPECTRA_NDIM = 2
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from peakfit.engine.domain.config import FitConfig
+    from peakfit.engine.domain.config import Doublet, FitConfig
 
 
 def get_dimension_label(dim_index: int) -> str:
@@ -253,28 +255,62 @@ def determine_shape_name(dim_params: SpectralParameters) -> str:
     return "pvoigt"
 
 
-def get_shape_names(config: FitConfig, spectra: Spectra) -> list[str]:
-    """Determine list of shape names per dimension.
+@dataclass(frozen=True)
+class AxisLineshape:
+    """The lineshape model on one spectral axis of a spectrum, ``auto`` resolved.
 
-    Logic:
-    - If config.lineshape is explicit, use it.
-    - If "auto", inspect detected processing parameters (params).
+    ``detected`` says the family came from the axis's apodization (``auto``).
     """
-    requested = config.lineshape
-    if requested != "auto":
-        return [requested] * spectra.n_spectral_dims
 
-    return [determine_shape_name(param) for param in spectra.spectral_params]
+    axis: str
+    family: str
+    doublet: Doublet | None = None
+    phase: bool = False
+    detected: bool = False
+
+
+def axis_lineshapes(config: FitConfig, spectra: Spectra) -> list[AxisLineshape]:
+    """The lineshape model of each spectral axis, in axis order.
+
+    ``auto`` takes the family from each axis's NMRPipe apodization. A configured
+    axis the spectrum lacks, or a phase on a family that has none, is refused.
+    """
+    labels = [
+        param.label or get_dimension_label(i) for i, param in enumerate(spectra.spectral_params)
+    ]
+    unknown = sorted(set(config.axes) - set(labels))
+    if unknown:
+        msg = (
+            f"[fitting.axes] names {', '.join(unknown)}, which this spectrum lacks; "
+            f"its spectral axes are {', '.join(labels)}."
+        )
+        raise ValueError(msg)
+    resolved = []
+    for label, param in zip(labels, spectra.spectral_params, strict=True):
+        model = config.axis_model(label)
+        detected = model.family == "auto"
+        family = determine_shape_name(param) if detected else str(model.family)
+        if model.phase and family not in PHASED_FAMILIES:
+            how = "detected from the apodization" if detected else "configured"
+            msg = (
+                f"{label}: phase fitting needs a phased lineshape (no_apod, sp1, sp2), "
+                f"but the {how} family is {family}. Choose a phased family on {label} "
+                "or turn its phase off."
+            )
+            raise ValueError(msg)
+        resolved.append(AxisLineshape(label, family, model.doublet, model.phase, detected))
+    return resolved
 
 
 Spectrum = Spectra
 
 __all__ = [
+    "AxisLineshape",
     "DimensionInfo",
     "Spectra",
     "SpectralParameters",
     "Spectrum",
+    "axis_lineshapes",
     "determine_shape_name",
     "get_dimension_label",
-    "get_shape_names",
 ]

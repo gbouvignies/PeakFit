@@ -13,7 +13,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import SHAPES, create_shapes
 from peakfit.engine.scientific.completed import CompletedFit, FinalClusterSamples
@@ -32,10 +32,24 @@ class UnavailableShape:
     """Recorded descriptor for numerical review, deliberately not evaluable geometry."""
 
     shape_name: str
+    doublet: bool
     center: float
     axis: str
     param_names: list[str]
     cluster_id: int = 0
+
+
+def metadata_spectra(spectral_parameters, plane_values) -> Spectra:
+    """A spectrum of recorded calibration and processing only, without samples.
+
+    Lineshape constructors and ``auto`` consult only these; nothing displays it.
+    """
+    return Spectra(
+        dic={},
+        data=np.empty((1, 1)),
+        z_values=np.array(plane_values),
+        params=[SpectralParameters.model_validate_json(p) for p in spectral_parameters],
+    )
 
 
 def restore_geometry(
@@ -43,13 +57,8 @@ def restore_geometry(
 ):
     """Restore recorded shapes and exact terminal inputs; no preparation or solve."""
     config = PeakFitConfig.model_validate(configuration)
-    # Constructors consult calibration/processing only; there is no synthetic spectrum display.
-    metadata = Spectra(
-        dic={},
-        data=np.empty((1, 1)),
-        z_values=np.array(plane_values),
-        params=[SpectralParameters.model_validate_json(p) for p in spectral_parameters],
-    )
+    metadata = metadata_spectra(spectral_parameters, plane_values)
+    lineshapes = axis_lineshapes(config.fitting, metadata)
     geometry, clusters = [], []
     for record, terminal, sample in zip(records, outcome.clusters, retained_samples, strict=True):
         cid = terminal.cluster_id
@@ -64,26 +73,28 @@ def restore_geometry(
                 raise ValueError("Retained sample coordinates exceed the source dimensions.")
         peaks = []
         for p in record["peaks"]:
-            if all(s["name"] in SHAPES for s in p["shapes"]):
+            if all(s["family"] in SHAPES for s in p["shapes"]):
                 shapes = create_shapes(
-                    metadata,
-                    config.fitting,
-                    p["name"],
-                    [s["center"] for s in p["shapes"]],
-                    [s["name"] for s in p["shapes"]],
+                    metadata, lineshapes, p["name"], [s["center"] for s in p["shapes"]]
                 )
             else:
                 shapes = [
                     cast(
                         "Shape",
-                        UnavailableShape(s["name"], s["center"], s["axis"], s["param_names"]),
+                        UnavailableShape(
+                            s["family"], s["doublet"], s["center"], s["axis"], s["param_names"]
+                        ),
                     )
                     for s in p["shapes"]
                 ]
 
             for shape, descriptor in zip(shapes, p["shapes"], strict=True):
-                if shape.axis != descriptor["axis"]:
-                    raise ValueError("Recorded model axis mismatch.")
+                if (shape.axis, shape.shape_name, shape.doublet) != (
+                    descriptor["axis"],
+                    descriptor["family"],
+                    descriptor["doublet"],
+                ):
+                    raise ValueError("Recorded model disagrees with its recorded configuration.")
                 shape.cluster_id = cid
                 shape.param_names = descriptor["param_names"]
             peaks.append(Peak(p["name"], np.array(p["positions"]), shapes))

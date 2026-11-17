@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
 
@@ -26,7 +26,7 @@ class LoadedData:
     noise: float
     noise_source: str
     noise_model: NoiseModel  # the processing-derived noise correlation, or why not
-    shape_names: list[str]
+    lineshapes: list[AxisLineshape]
     contour_level: float
     clusters: list[Cluster]
 

@@ -25,11 +25,11 @@ from peakfit.gui.project_results import (
     verify_model,
 )
 from peakfit.gui.spectrum import Dataset, read_dataset
-from peakfit.io.scientific import read_scientific, write_scientific
+from peakfit.io.scientific import opened_by, read_scientific, write_scientific
 from peakfit.shared.exceptions import ScientificIntegrityError
 from peakfit.shared.paths import format_path
 
-VERSION = "15.0.0"
+VERSION = "16.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3
@@ -492,6 +492,7 @@ def _open_analysis(path, *, relink, progress, canceled):
         raise ValueError(
             f"Unsupported analysis version: {manifest.get('schema_version')!r} (this PeakFit "
             f"reads {VERSION}). Open the spectrum and peak list as a new analysis and refit."
+            + opened_by(manifest.get("schema_version"), "15.0.0")
         )
     allowed = {
         "schema_version",

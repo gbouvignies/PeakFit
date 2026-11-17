@@ -32,7 +32,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters, axis_lineshapes
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.sampler import SamplerSettings, sample_posterior
 from peakfit.engine.scientific.sampling import sampling_problem
@@ -80,9 +80,11 @@ def _cluster(separation: float | None, rng: np.random.Generator):
     peaks = []
     for name, point in zip("AB", points, strict=False):
         center = float(spectra.spectral_params[0].pts2ppm(point))
-        config = FitConfig(lineshape="gaussian")
+        config = FitConfig(family="gaussian")
         peak = Peak(
-            name, np.array([center]), create_shapes(spectra, config, name, [center], ["gaussian"])
+            name,
+            np.array([center]),
+            create_shapes(spectra, axis_lineshapes(config, spectra), name, [center]),
         )
         peak.set_cluster_id(1)
         peaks.append(peak)
@@ -105,7 +107,7 @@ def realization(scenario: str, index: int) -> dict:
     """One simulated data set: its status, flags and the coverage of reported intervals."""
     rng = np.random.default_rng([20261104, index, list(SCENARIOS).index(scenario)])
     cluster, params, truth, amplitudes = _cluster(SCENARIOS[scenario], rng)
-    config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
+    config = PeakFitConfig(fitting=FitConfig(family="gaussian"))
     completed = run_pipeline(
         config, [cluster], NOISE, params, noise_model=not_modelled("synthetic spectrum")
     ).completed_fit

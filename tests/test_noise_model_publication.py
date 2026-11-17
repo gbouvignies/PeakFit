@@ -49,7 +49,7 @@ def tool():
 def _fit(tool, case, noise_model=None):
     spectra, cluster, truth, _ = tool.build(case, np.random.default_rng(11))
     model = read_noise_model(spectra.dic, spectra.data.shape)
-    config = PeakFitConfig(fitting=FitConfig(lineshape="sp2"))
+    config = PeakFitConfig(fitting=FitConfig(family="sp2"))
     completed = run_pipeline(
         config, [cluster], tool.SIGMA, truth.copy(), noise_model=noise_model or model
     ).completed_fit

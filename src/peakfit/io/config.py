@@ -46,11 +46,17 @@ def generate_default_config() -> str:
 # Generated automatically - edit as needed
 
 [fitting]
-lineshape = "auto"  # auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod
+family = "auto"  # every axis: auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod
 refine_iterations = 1
-fit_phase = []  # List of dimensions to fit phase for, e.g. ["F2"]
 max_iterations = 1000
 tolerance = 1e-8
+
+# Per-axis lineshape model; unset fields keep the defaults above.
+# [fitting.axes.F2]
+# family = "sp1"
+# phase = true                # fit this axis's phase (sp1, sp2, no_apod)
+# doublet = { j = 92.0 }      # J start in Hz; bounds default to [j/2, 2j]
+# doublet = { j = 92.0, min = 80.0, max = 100.0, vary = false }
 
 [clustering]
 contour_factor = 5.0

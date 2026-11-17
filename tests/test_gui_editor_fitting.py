@@ -1203,7 +1203,7 @@ def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scienti
     wait_until(lambda: fitting.prepared is not None)
     assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
     setup.lineshape.setCurrentIndex(setup.lineshape.findData("gaussian"))
-    assert fitting.configuration.fitting.lineshape == "gaussian"
+    assert fitting.configuration.fitting.family == "gaussian"
     assert "Gaussian · explicit" in setup.shapes.text()
 
 

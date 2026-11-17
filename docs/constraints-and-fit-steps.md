@@ -85,6 +85,11 @@ For non-position parameters, or when you need explicit bounds:
 "F3.lw" = { min = 10.0, max = 50.0 }  # Custom linewidth bounds
 ```
 
+A doublet's J start, bounds and freedom come from its axis model,
+`[fitting.axes.F2] doublet = { j = 92.0, min = 80.0, max = 100.0, vary = true }`
+([ADR 0004](adr/0004-per-axis-lineshape-models.md)). A `*.F2.j` rule here applies
+after it, and a fit step's `vary` pattern can release a fixed J.
+
 ### Pattern Syntax
 
 Patterns use glob-style matching:
@@ -185,7 +190,7 @@ update only between consecutive passes, including across step boundaries.
 # peakfit.toml - Complete example
 
 [fitting]
-lineshape = "auto"
+family = "auto"
 refine_iterations = 1  # One optimizer pass; ignored when steps are defined
 
 # Multi-step fit

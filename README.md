@@ -59,7 +59,11 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 Useful fit options:
 
 - `--config peakfit.toml` for reproducible settings.
-- `--lineshape auto|gaussian|lorentzian|pvoigt|sp1|sp2|no_apod`.
+- `--family auto|gaussian|lorentzian|pvoigt|sp1|sp2|no_apod` for every axis, or
+  `--family F2=sp1` for one axis.
+- `--doublet F2=92` (J start in Hz; bounds default to J/2–2J, or
+  `--doublet F2=92,80,100`), `--fix-j F2` to hold that J, and `--phase F3` to fit
+  an axis's phase (sp1, sp2, no_apod).
 - `--refine N` for exactly `N` optimizer passes; corrections update only between
   passes. Existing commands that relied on the former `N + 1` pass behavior
   should increment `N` by one.

@@ -160,7 +160,7 @@ def test_unchanged_peaks_continue_and_edited_or_new_peaks_start_from_defaults(sy
 def test_an_incompatible_model_never_inherits_fitted_values(synthetic):
     spectra, _peaks, config, first = synthetic
     other = config.model_copy(deep=True)
-    other.fitting.lineshape = "gaussian" if config.fitting.lineshape != "gaussian" else "lorentzian"
+    other.fitting.family = "gaussian" if config.fitting.family != "gaussian" else "lorentzian"
     prepared = prepare_dataset_fit(spectra, first.working_peaks, other, continuation_source(first))
     assert _provenance(prepared).continued == ()
     assert _provenance(prepared).reason == "lineshape models differ from that run"

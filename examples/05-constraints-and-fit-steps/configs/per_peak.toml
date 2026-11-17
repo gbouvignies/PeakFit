@@ -1,7 +1,7 @@
 # Scenario 2: Per-peak constraint overrides
 
 [fitting]
-lineshape = "auto"
+family = "auto"
 refine_iterations = 1
 
 [parameters]

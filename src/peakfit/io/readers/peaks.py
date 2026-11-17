@@ -11,17 +11,16 @@ from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Sequence
     from pathlib import Path
 
-    from peakfit.engine.domain.config import FitConfig
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
 
 _CCPN_ASSIGNMENT_PARTS = 4
 
 
 def _create_peak_list(
-    peaks: pd.DataFrame, spectra: Spectra, shape_names: list[str], config: FitConfig
+    peaks: pd.DataFrame, spectra: Spectra, lineshapes: Sequence[AxisLineshape]
 ) -> list[Peak]:
     """Create a list of Peak objects from a DataFrame.
 
@@ -35,7 +34,7 @@ def _create_peak_list(
         pos_values = tuple(float(p) for p in positions)
         pos_array = np.array(pos_values, dtype=np.float64)
 
-        shapes = create_shapes(spectra, config, str(name), pos_values, shape_names)
+        shapes = create_shapes(spectra, lineshapes, str(name), pos_values)
         peak_list.append(Peak(name=str(name), positions=pos_array, shapes=shapes))
 
     return peak_list
@@ -44,8 +43,7 @@ def _create_peak_list(
 def _create_peak_list_from_rows(
     rows: Iterable[tuple[str, ...]],
     spectra: Spectra,
-    shape_names: list[str],
-    config: FitConfig,
+    lineshapes: Sequence[AxisLineshape],
 ) -> list[Peak]:
     """Create peaks from whitespace-split rows (name + positions)."""
     peak_list: list[Peak] = []
@@ -55,14 +53,14 @@ def _create_peak_list_from_rows(
         pos_values = tuple(float(p) for p in positions)
         pos_array = np.array(pos_values, dtype=np.float64)
 
-        shapes = create_shapes(spectra, config, str(name), pos_values, shape_names)
+        shapes = create_shapes(spectra, lineshapes, str(name), pos_values)
         peak_list.append(Peak(name=str(name), positions=pos_array, shapes=shapes))
 
     return peak_list
 
 
 def read_sparky_list(
-    path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
+    path: Path, spectra: Spectra, lineshapes: Sequence[AxisLineshape]
 ) -> list[Peak]:
     """Read a Sparky list file and return a list of peaks.
 
@@ -92,7 +90,7 @@ def read_sparky_list(
             positions = parts[1 : n_spectral_dims + 1]
             rows.append((name, *positions))
 
-    return _create_peak_list_from_rows(rows, spectra, shape_names, config)
+    return _create_peak_list_from_rows(rows, spectra, lineshapes)
 
 
 def _make_names(row: pd.Series) -> str:
@@ -117,8 +115,7 @@ def _read_ccpn_list(
     path: Path,
     spectra: Spectra,
     read_func: Callable[[Path], pd.DataFrame],
-    shape_names: list[str],
-    config: FitConfig,
+    lineshapes: Sequence[AxisLineshape],
 ) -> list[Peak]:
     """Read a CCPN-style list file (CSV, JSON, Excel) and return a list of peaks.
 
@@ -178,12 +175,10 @@ def _read_ccpn_list(
             msg = f"Missing position column for dimension {i + 1} in {format_path(path)}"
             raise ValueError(msg)
 
-    return _create_peak_list(peaks, spectra, shape_names, config)
+    return _create_peak_list(peaks, spectra, lineshapes)
 
 
-def read_csv_list(
-    path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
-) -> list[Peak]:
+def read_csv_list(path: Path, spectra: Spectra, lineshapes: Sequence[AxisLineshape]) -> list[Peak]:
     """Read peaks from a CSV file and return a list of Peak objects."""
     return _read_ccpn_list(
         path,
@@ -191,38 +186,33 @@ def read_csv_list(
         partial(
             pd.read_csv, dtype={"name": str}, keep_default_na=False, float_precision="round_trip"
         ),
-        shape_names,
-        config,
+        lineshapes,
     )
 
 
-def read_json_list(
-    path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
-) -> list[Peak]:
+def read_json_list(path: Path, spectra: Spectra, lineshapes: Sequence[AxisLineshape]) -> list[Peak]:
     """Read peaks from a JSON file and return a list of Peak objects."""
-    return _read_ccpn_list(path, spectra, pd.read_json, shape_names, config)
+    return _read_ccpn_list(path, spectra, pd.read_json, lineshapes)
 
 
 def read_excel_list(
-    path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
+    path: Path, spectra: Spectra, lineshapes: Sequence[AxisLineshape]
 ) -> list[Peak]:
     """Read peaks from an Excel file (xlsx/xls) and return a list of Peak objects."""
-    return _read_ccpn_list(path, spectra, pd.read_excel, shape_names, config)
+    return _read_ccpn_list(path, spectra, pd.read_excel, lineshapes)
 
 
-def read_list(
-    path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
-) -> list[Peak]:
+def read_list(path: Path, spectra: Spectra, lineshapes: Sequence[AxisLineshape]) -> list[Peak]:
     """Read a list of peaks from a file based on its extension."""
     extension = path.suffix.lower().lstrip(".")
     if extension == "list":
-        return read_sparky_list(path, spectra, shape_names, config)
+        return read_sparky_list(path, spectra, lineshapes)
     if extension == "csv":
-        return read_csv_list(path, spectra, shape_names, config)
+        return read_csv_list(path, spectra, lineshapes)
     if extension == "json":
-        return read_json_list(path, spectra, shape_names, config)
+        return read_json_list(path, spectra, lineshapes)
     if extension in {"xlsx", "xls"}:
-        return read_excel_list(path, spectra, shape_names, config)
+        return read_excel_list(path, spectra, lineshapes)
 
     msg = f"Unsupported peak list extension: {extension}"
     raise ValueError(msg)

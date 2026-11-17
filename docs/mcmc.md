@@ -19,7 +19,7 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 
 If `--peaks` is omitted, all clusters are analyzed. A selected peak analyzes its
 whole overlap cluster. Sampling covers every fitted nonlinear parameter of the
-cluster, including a cluster's fitted phase (`--phx`/`--phy`).
+cluster, including a cluster's fitted phase (`--phase AXIS`).
 
 ## Inputs And Outputs
 
