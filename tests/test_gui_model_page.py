@@ -22,7 +22,7 @@ from peakfit.io.config import load_config
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
 
-pytestmark = pytest.mark.usefixtures("qapp", "app_look")
+pytestmark = pytest.mark.usefixtures("qapp", "windows")
 
 AXES = [AxisInfo("F2", "¹⁵N F2", "sp2"), AxisInfo("F3", "¹H F3", "sp2")]
 INSPECTOR_CONTENT = 288  # logical px: a 320 px inspector less its margins at 1280×800
@@ -30,12 +30,9 @@ _WINDOWS: list[QtWidgets.QWidget] = []
 
 
 @pytest.fixture
-def app_look(qapp):
-    font, palette = qapp.font(), qapp.palette()
+def windows():
     yield
     _WINDOWS.clear()
-    qapp.setFont(font)
-    qapp.setPalette(palette)
 
 
 @pytest.fixture(scope="module")
