@@ -51,6 +51,10 @@ Each baseline was captured at 1160×720, 1280×800 and 1920×1080, in light and 
   - One line names what is compared only against a run kept with full evidence.
   - No ▲ warnings row, measure or position is shown.
 
+Before (main at 430ac2d, a ¹H doublet refit): the parent's short ID, and the
+effects without the setting that caused them.
+
+![Before: Changes from parent run on main](gui-run-baseline/before-main-parent-only.webp)
 ![Parent baseline, 1280×800 light](gui-run-baseline/parent-1280x800-light-inspector.webp)
 ![Run 2 baseline, 1280×800 light](gui-run-baseline/run2-1280x800-light-inspector.webp)
 ![Summary-only baseline, 1160×720 dark](gui-run-baseline/summary-1160x720-dark-inspector.webp)
