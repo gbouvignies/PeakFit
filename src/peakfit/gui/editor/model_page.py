@@ -453,10 +453,11 @@ class ModelPage(QtWidgets.QWidget):
         self, configuration: PeakFitConfig, preview: PreparedDatasetFit | None, error: str
     ) -> None:
         """What the preparation resolved: noise, estimate, level and counts."""
-        # What Manual and Level start from: the values the page shows.
-        self._estimate = preview.estimated_noise if preview is not None else None
-        self._level = preview.contour_level if preview is not None else None
         if preview is not None:
+            # What Manual and Level start from: the last prepared values, kept while
+            # the next preparation runs.
+            self._estimate = preview.estimated_noise
+            self._level = preview.contour_level
             self.noise.setText(formatting.scaled(preview.noise))
             self.noise_estimate.setText(
                 f"estimate {formatting.scaled(preview.estimated_noise)}"
@@ -478,6 +479,16 @@ class ModelPage(QtWidgets.QWidget):
             self.noise_estimate.setText("")
             self.level.setText("")
             self.preparation.setText("" if error else "Preparing…")
+
+    def discard_drafts(self) -> None:
+        """Drop every value being typed: the next state shows the committed settings.
+
+        Undo and Redo replace the settings, so nothing typed against the old ones stays.
+        """
+        self._committed.clear()
+        self._key = None
+        if self.constraints is not None:
+            self.constraints.discard_drafts()
 
     def _show_committed(self, configuration: PeakFitConfig) -> None:
         """Show each field's committed value, replacing a draft only when the value changed."""

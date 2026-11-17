@@ -190,6 +190,9 @@ def run(output: Path) -> list[dict[str, Any]]:
     w.exclude_plane_action.trigger()
     wait_until(lambda: w.fitting.prepared is not None, timeout=120)
     c.matrix("06-plane-excluded")
+    blocked = model.invalid or w.fitting.blocked
+    if blocked or not w.fit_button.isEnabled():
+        raise RuntimeError(f"Fit is blocked before the fit: {blocked or w.fit_button.toolTip()}")
     c.session.fit()
     w.select_peak(None)
     w.show_run_page()

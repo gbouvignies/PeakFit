@@ -322,6 +322,10 @@ class ConstraintsEditor(QtWidgets.QWidget):
         self.peaks.setVisible(bool(count))
         self._render()
 
+    def discard_drafts(self) -> None:
+        """Drop rules and windows being typed; the next ``show_parameters`` shows them anew."""
+        self._parameters = None
+
     # ------------------------------------------------------------- edits
     def start_rule(self) -> None:
         """+ Rule: a draft that exists once it sets something."""

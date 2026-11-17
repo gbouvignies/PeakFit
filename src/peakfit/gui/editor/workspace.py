@@ -1332,6 +1332,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.edits.redo()
         else:
             self.edits.undo()
+        self.panel.model_page.discard_drafts()
         self._refresh()
 
     def start_placing(self) -> None:

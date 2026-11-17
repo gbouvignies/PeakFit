@@ -256,3 +256,23 @@ def test_a_saved_project_records_the_exclusion_and_reopens_current(
     window._saved_state = window._analysis_state()
     window.close()
     qapp.processEvents()
+
+
+def test_level_starts_from_the_last_level_while_preparing_and_undo_drops_drafts(workspace):
+    w = workspace
+    model = w.panel.model_page
+    wait_until(lambda: w.fitting.prepared is not None)
+    level = w.fitting.prepared.contour_level
+    model.noise_mode.setCurrentIndex(model.noise_mode.findData("estimated"))  # a commit
+    assert w.fitting.prepared is None  # preparing again
+    model.threshold_mode.setCurrentIndex(model.threshold_mode.findData("factor"))
+    model.threshold_mode.setCurrentIndex(model.threshold_mode.findData("level"))
+    assert model.level_value.text() == formatting.scaled(level)
+    assert not model.invalid
+    # An invalid draft is dropped by Undo, with every other draft of the page.
+    model.level_value.setText("−5")
+    model.level_value.editingFinished.emit()
+    assert model.invalid
+    w.history(False)
+    assert not model.invalid
+    assert model.level_value.text() != "−5"
