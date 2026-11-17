@@ -169,6 +169,44 @@ def test_both_doublet_components_lie_in_the_fitting_region(j_hz) -> None:
         assert point in region
 
 
+def _singlet_peak(spectra: Spectra, points=(128.3, 120.6)) -> Peak:
+    config = FitConfig(family="lorentzian")
+    position = [
+        float(axis.pts2ppm(p)) for axis, p in zip(spectra.spectral_params, points, strict=True)
+    ]
+    shapes = create_shapes(spectra, axis_lineshapes(config, spectra), "A", position)
+    return Peak("A", np.array(position), shapes)
+
+
+@pytest.mark.parametrize("fraction", [0.3, 0.6])
+def test_a_small_j_doublet_keeps_the_singlet_region(fraction) -> None:
+    """J_max/2 within the centre's 3 × 3 block: the region is exactly the former one.
+
+    The footprint joins the components' contour islands; it adds no neighbourhood of
+    its own, so a coupling small against the point spacing changes nothing.
+    """
+    spectra = _spectra()
+    peak = _doublet_peak(spectra, Doublet(j=6.0))  # J_max/2 = 6 Hz, 0.8 point on F2
+    _with_signal(spectra, peak, j_hz=6.0, widths={"F2": 20.0, "F3": 25.0})
+    level = fraction * HEIGHT * NOISE  # a contour this high leaves small islands
+    [doublet] = create_clusters(spectra, [peak], contour_level=level)
+    [singlet] = create_clusters(spectra, [_singlet_peak(spectra)], contour_level=level)
+    assert _region(doublet) == _region(singlet)
+
+
+def test_a_doublet_span_adds_only_its_own_points() -> None:
+    """J_max/2 of 1.3 points reaches one row past the centre's block, and only that."""
+    spectra = _spectra()
+    peak = _doublet_peak(spectra, Doublet(j=10.0))  # J_max/2 = 10 Hz, 1.28 points on F2
+    _with_signal(spectra, peak, j_hz=10.0, widths={"F2": 20.0, "F3": 25.0})
+    above = 2 * HEIGHT * NOISE  # no point above the contour: only the marks count
+    [doublet] = create_clusters(spectra, [peak], contour_level=above)
+    [singlet] = create_clusters(spectra, [_singlet_peak(spectra)], contour_level=above)
+    span = peak.footprint_i(Parameters.from_peaks([peak]))
+    assert span[0].tolist() == [127, 128, 129, 130]
+    assert _region(doublet) - _region(singlet) == {(130, int(span[1][0]))}
+
+
 def test_the_footprint_follows_the_constrained_j_bound() -> None:
     """A ``*.F2.j`` rule applies after the axis model, so it sets the footprint too."""
     spectra = _spectra()

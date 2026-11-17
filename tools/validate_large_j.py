@@ -203,8 +203,7 @@ def realization(case_index: int, index: int, seed: int = SEED) -> dict:
     components = _components(spectra, truth)
     region = set(zip(*(i.tolist() for i in clusters[0].grid_indices), strict=True))
     # The former rule: the centre point alone, dilated, joined to the contour.
-    centre = [[np.array([index]) for index in peak.positions_i]]
-    old = segment_data(spectra.data, config.clustering.contour_level, centre)
+    old = segment_data(spectra.data, config.clustering.contour_level, [peak.positions_i])
     old_label = old[tuple(peak.positions_i)]
     completed = run_pipeline(
         config,

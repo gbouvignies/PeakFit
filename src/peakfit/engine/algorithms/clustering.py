@@ -94,33 +94,39 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
 def segment_data(
     data: FloatArray,
     contour_level: float,
-    footprints: Sequence[Sequence[IntArray]],
+    centres: Sequence[IntArray],
+    footprints: Sequence[Sequence[IntArray]] = (),
 ) -> IntArray:
     """Segment the spectral data based on the contour level.
 
-    Each footprint (per axis, the points a peak's components can reach) is marked,
-    dilated by one point and joined to the points above the contour. A singlet's
-    footprint is its centre point. A doublet's spans its components' whole range, so
-    that its two components, each its own contour island, fall in one segment.
+    Each peak's centre point is marked and dilated by one point; each footprint (per
+    axis, the points a doublet's components can reach) is marked as it is; both are
+    joined to the points above the contour. The footprint only connects: a doublet's
+    two components, each its own contour island, fall in one segment with the centre,
+    and a footprint inside the centre's dilated block changes nothing.
     """
     # 1. Threshold Mask
     data_above_threshold = np.any(np.abs(data) >= contour_level, axis=0)
 
-    # 2. Peak Footprint Mask
+    # 2. Peak Position Mask
     data_around_peaks = np.zeros_like(data_above_threshold, dtype=bool)
-    for footprint in footprints:
-        data_around_peaks[np.ix_(*footprint)] = True
+    for centre in centres:
+        data_around_peaks[tuple(int(index) for index in centre)] = True
 
     # 3. Dilate Peak Mask
     connectivity = data.ndim - 1
     structuring_element = generate_binary_structure(connectivity, connectivity)
     data_around_peaks = binary_dilation(data_around_peaks, structuring_element)
 
-    # 4. Combine & Label
+    # 4. Doublet footprints, undilated
+    for footprint in footprints:
+        data_around_peaks[np.ix_(*footprint)] = True
+
+    # 5. Combine & Label
     data_selected = data_above_threshold | data_around_peaks
     labeled_segments, _ = label(data_selected, structure=structuring_element)
 
-    # 5. Merge Wrapping Segments
+    # 6. Merge Wrapping Segments
     return merge_connected_segments(np.asarray(labeled_segments, dtype=int))
 
 
@@ -175,8 +181,9 @@ def create_clusters(
     """
     if bounds is None:
         bounds = Parameters.from_peaks(peaks)
+    centres = [peak.positions_i for peak in peaks]
     footprints = [peak.footprint_i(bounds) for peak in peaks]
-    segments = segment_data(spectra.data, contour_level, footprints)
+    segments = segment_data(spectra.data, contour_level, centres, footprints)
     peak_segments_dict = assign_peaks_to_segments(peaks, segments)
 
     clusters: list[Cluster] = []
