@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from peakfit.engine.domain.param_id import ParameterId
-from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.domain.params_scalar import PHASE_LABEL, Parameters
 from peakfit.engine.lineshapes.grid import SpectralGrid
 from peakfit.engine.types import ClusterParameters, ParamSpec
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.param_map import ParameterMap
     from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
-    from peakfit.shared.typing import FloatArray
+    from peakfit.shared.typing import FloatArray, IntArray
 
 
 class ShapeBase:
@@ -23,7 +23,7 @@ class ShapeBase:
     shape_name: ClassVar[str]  # the lineshape family
     doublet: ClassVar[bool] = False
     param_specs: ClassVar[Callable[..., tuple[ParamSpec, ...]]]
-    phase_param_name: ClassVar[str] = "phase"
+    phase_param_name: ClassVar[str] = PHASE_LABEL
 
     def __init__(
         self,
@@ -56,6 +56,26 @@ class ShapeBase:
     def center_i(self) -> int:
         """Get the integer index of the center position."""
         return self._grid.dim_ctx.ppm2pt_i(self.center)
+
+    def footprint_i(self, j_max: float | None = None) -> IntArray:
+        """The points of this axis that the shape's components can reach, wrapped by size.
+
+        A singlet's is its centre point. A doublet's components sit at cs ± J/2 (its
+        position is the multiplet centre), so with J up to ``j_max`` hertz they reach
+        every point from cs − j_max/2 to cs + j_max/2; that whole span is returned.
+        """
+        if not self.doublet:
+            return np.array([self.center_i], dtype=np.intp)
+        if j_max is None or np.isnan(j_max) or j_max < 0:
+            msg = f"The footprint of doublet {self.name} on {self.axis} needs a J upper bound."
+            raise ValueError(msg)
+        spec = self._grid.spec_params
+        # An unbounded J, or one whose span reaches round the whole axis, can be anywhere.
+        if j_max >= spec.sw:
+            return np.arange(spec.size, dtype=np.intp)
+        half = spec.hz2ppm(0.5 * j_max)
+        ends = sorted(round(spec.ppm2pts(self.center + side * half)) for side in (-1, 1))
+        return np.arange(ends[0], ends[1] + 1, dtype=np.intp) % spec.size
 
     def __repr__(self) -> str:
         """Return a concise representation of the shape."""

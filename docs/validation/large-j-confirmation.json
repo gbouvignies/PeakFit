@@ -1,0 +1,459 @@
+{
+ "protocol": {
+  "seed": 2141117,
+  "first_index": 1000,
+  "realizations": 4000,
+  "blocks": 5,
+  "gate_se": 3.0,
+  "confirmed": [
+   [
+    "Lorentzian, one-bond coupling (J = 92 Hz)",
+    "coverage_1sigma:A.F3.lw"
+   ]
+  ]
+ },
+ "gates": [
+  {
+   "case": "Lorentzian, one-bond coupling (J = 92 Hz)",
+   "gate": "coverage_1sigma:A.F3.lw",
+   "first": {
+    "n": 1000,
+    "rate": 0.643,
+    "se": 0.014718040290745233,
+    "deviation_se": -2.697369976963814,
+    "passes": true,
+    "near_limit": true
+   },
+   "confirmation": {
+    "n": 4000,
+    "rate": 0.66475,
+    "se": 0.007359020145372617,
+    "deviation_se": -2.4391834300504067,
+    "passes": true,
+    "near_limit": false
+   },
+   "blocks_p": 0.09893812114788113
+  }
+ ],
+ "cases": [
+  {
+   "case": "Lorentzian, one-bond coupling (J = 92 Hz)",
+   "family": "lorentzian",
+   "true_j_hz": 92.0,
+   "linewidths_hz": [
+    20.0,
+    25.0
+   ],
+   "phase_deg": null,
+   "snr": 50.0,
+   "calibration_gated": true,
+   "realizations": 4000,
+   "one_cluster": 1.0,
+   "region_points_mean": 63.89825,
+   "both_in_old_region": 0.00975,
+   "below_linewidth": 0.0,
+   "parameters": {
+    "J": {
+     "name": "A.F2.j",
+     "truth": 92.0,
+     "bias": -0.003300510627992164,
+     "scatter": 0.14796505223467646,
+     "rms_sigma": 0.15135092831825883,
+     "withheld": 0.0
+    },
+    "\u03b4 F2": {
+     "name": "A.F2.cs",
+     "truth": -0.03854851973684248,
+     "bias": 0.004011965580985726,
+     "scatter": 0.07618206677431467,
+     "rms_sigma": 0.07646925857165265,
+     "withheld": 0.0
+    },
+    "\u03b4 F3": {
+     "name": "A.F3.cs",
+     "truth": 0.11562500000000009,
+     "bias": -0.0006433481615625916,
+     "scatter": 0.09212808080567075,
+     "rms_sigma": 0.09103161680798309,
+     "withheld": 0.0
+    },
+    "LW F2": {
+     "name": "A.F2.lw",
+     "truth": 20.0,
+     "bias": 0.06029884158903529,
+     "scatter": 0.23400460253581637,
+     "rms_sigma": 0.2305302356128167,
+     "withheld": 0.0
+    },
+    "LW F3": {
+     "name": "A.F3.lw",
+     "truth": 25.0,
+     "bias": 0.11683255029101668,
+     "scatter": 0.32100106526367633,
+     "rms_sigma": 0.32657661470606597,
+     "withheld": 0.0
+    }
+   },
+   "rho_j_lw": {
+    "n": 4000,
+    "recorded_mean": -0.004975493451369554,
+    "empirical": -0.0023155974040880056,
+    "empirical_ci95": [
+     -0.03330522784467238,
+     0.028678481300013076
+    ]
+   },
+   "rho_j_phase": null,
+   "gates": {
+    "region": {
+     "n": 4000,
+     "rate": 1.0,
+     "se": null,
+     "deviation_se": null,
+     "passes": true
+    },
+    "qualified": {
+     "n": 4000,
+     "rate": 0.0,
+     "se": 0.0015732132722552274,
+     "deviation_se": -6.356417261637282,
+     "passes": true,
+     "near_limit": false
+    },
+    "misleading": {
+     "n": 4000,
+     "rate": 0.046,
+     "se": 0.0034460121880225555,
+     "deviation_se": -1.1607620001760197,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma:A.F2.j": {
+     "n": 4000,
+     "rate": 0.69575,
+     "se": 0.007359020145372617,
+     "deviation_se": 1.773333914326339,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma:A.F2.j": {
+     "n": 4000,
+     "rate": 0.954,
+     "se": 0.003446012188022557,
+     "deviation_se": 1.160762000176019,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma:A.F2.cs": {
+     "n": 4000,
+     "rate": 0.68475,
+     "se": 0.007359020145372617,
+     "deviation_se": 0.2785696953539453,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma:A.F2.cs": {
+     "n": 4000,
+     "rate": 0.95025,
+     "se": 0.003446012188022557,
+     "deviation_se": 0.07254762501102535,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma:A.F3.cs": {
+     "n": 4000,
+     "rate": 0.672,
+     "se": 0.007359020145372617,
+     "deviation_se": -1.4539979220913177,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma:A.F3.cs": {
+     "n": 4000,
+     "rate": 0.9485,
+     "se": 0.003446012188022557,
+     "deviation_se": -0.4352857500659911,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma:A.F2.lw": {
+     "n": 4000,
+     "rate": 0.656,
+     "se": 0.007359020145372617,
+     "deviation_se": -3.6282004224147992,
+     "passes": false,
+     "near_limit": false
+    },
+    "coverage_1.96sigma:A.F2.lw": {
+     "n": 4000,
+     "rate": 0.942,
+     "se": 0.003446012188022557,
+     "deviation_se": -2.321524000352038,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1sigma:A.F3.lw": {
+     "n": 4000,
+     "rate": 0.66475,
+     "se": 0.007359020145372617,
+     "deviation_se": -2.4391834300504067,
+     "passes": true,
+     "near_limit": false
+    },
+    "coverage_1.96sigma:A.F3.lw": {
+     "n": 4000,
+     "rate": 0.941,
+     "se": 0.003446012188022557,
+     "deviation_se": -2.611714500396043,
+     "passes": true,
+     "near_limit": true
+    }
+   },
+   "blocks": {
+    "count": 5,
+    "consistency": {
+     "qualified": {
+      "rates": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "chi2": 0.0,
+      "p_value": 1.0
+     },
+     "misleading": {
+      "rates": [
+       0.06625,
+       0.04125,
+       0.04375,
+       0.0425,
+       0.03625
+      ],
+      "chi2": 9.178947368421055,
+      "p_value": 0.05677901052446706
+     },
+     "coverage_1sigma:A.F2.j": {
+      "rates": [
+       0.69875,
+       0.69125,
+       0.71125,
+       0.67625,
+       0.70125
+      ],
+      "chi2": 2.51130189721934,
+      "p_value": 0.6426131631499875
+     },
+     "coverage_1.96sigma:A.F2.j": {
+      "rates": [
+       0.93375,
+       0.95875,
+       0.95625,
+       0.9575,
+       0.96375
+      ],
+      "chi2": 9.178947368421069,
+      "p_value": 0.056779010524466725
+     },
+     "coverage_1sigma:A.F2.cs": {
+      "rates": [
+       0.68375,
+       0.685,
+       0.6875,
+       0.68,
+       0.6875
+      ],
+      "chi2": 0.1431072772312476,
+      "p_value": 0.9975589396787834
+     },
+     "coverage_1.96sigma:A.F2.cs": {
+      "rates": [
+       0.96375,
+       0.95375,
+       0.94875,
+       0.9375,
+       0.9475
+      ],
+      "chi2": 6.178947368421044,
+      "p_value": 0.18617700723462652
+     },
+     "coverage_1sigma:A.F3.cs": {
+      "rates": [
+       0.67375,
+       0.67875,
+       0.6675,
+       0.66375,
+       0.67625
+      ],
+      "chi2": 0.5724291089249978,
+      "p_value": 0.9660776123539907
+     },
+     "coverage_1.96sigma:A.F3.cs": {
+      "rates": [
+       0.9575,
+       0.945,
+       0.95,
+       0.93875,
+       0.95125
+      ],
+      "chi2": 3.3368421052631763,
+      "p_value": 0.5031162002236931
+     },
+     "coverage_1sigma:A.F2.lw": {
+      "rates": [
+       0.68875,
+       0.63,
+       0.63375,
+       0.66,
+       0.6675
+      ],
+      "chi2": 8.833412096193372,
+      "p_value": 0.06540097204228032
+     },
+     "coverage_1.96sigma:A.F2.lw": {
+      "rates": [
+       0.935,
+       0.93375,
+       0.94375,
+       0.95125,
+       0.94625
+      ],
+      "chi2": 3.7684210526315876,
+      "p_value": 0.4382528239398197
+     },
+     "coverage_1sigma:A.F3.lw": {
+      "rates": [
+       0.6875,
+       0.6675,
+       0.6625,
+       0.67875,
+       0.6275
+      ],
+      "chi2": 7.80627115477556,
+      "p_value": 0.09893812114788113
+     },
+     "coverage_1.96sigma:A.F3.lw": {
+      "rates": [
+       0.94375,
+       0.95125,
+       0.93375,
+       0.9375,
+       0.93875
+      ],
+      "chi2": 3.0736842105263347,
+      "p_value": 0.5455711434770891
+     }
+    },
+    "replication": {
+     "region": {
+      "n": 3200,
+      "rate": 1.0,
+      "se": null,
+      "deviation_se": null,
+      "passes": true
+     },
+     "qualified": {
+      "n": 3200,
+      "rate": 0.0,
+      "se": 0.0017589059099337861,
+      "deviation_se": -5.6853524361496115,
+      "passes": true,
+      "near_limit": false
+     },
+     "misleading": {
+      "n": 3200,
+      "rate": 0.0409375,
+      "se": 0.0038527587518556103,
+      "deviation_se": -2.3522106063960573,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma:A.F2.j": {
+      "n": 3200,
+      "rate": 0.695,
+      "se": 0.008227634646421778,
+      "deviation_se": 1.4949618606787898,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma:A.F2.j": {
+      "n": 3200,
+      "rate": 0.9590625,
+      "se": 0.003852758751855612,
+      "deviation_se": 2.3522106063960777,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma:A.F2.cs": {
+      "n": 3200,
+      "rate": 0.685,
+      "se": 0.008227634646421778,
+      "deviation_se": 0.27954571378547494,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma:A.F2.cs": {
+      "n": 3200,
+      "rate": 0.946875,
+      "se": 0.003852758751855612,
+      "deviation_se": -0.8111071056537951,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma:A.F3.cs": {
+      "n": 3200,
+      "rate": 0.6715625,
+      "se": 0.008227634646421778,
+      "deviation_se": -1.353669733602446,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1.96sigma:A.F3.cs": {
+      "n": 3200,
+      "rate": 0.94625,
+      "se": 0.003852758751855612,
+      "deviation_se": -0.9733285267845541,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma:A.F2.lw": {
+      "n": 3200,
+      "rate": 0.6478125,
+      "se": 0.008227634646421778,
+      "deviation_se": -4.2402830824740905,
+      "passes": false,
+      "near_limit": false
+     },
+     "coverage_1.96sigma:A.F2.lw": {
+      "n": 3200,
+      "rate": 0.94375,
+      "se": 0.003852758751855612,
+      "deviation_se": -1.6222142113076188,
+      "passes": true,
+      "near_limit": false
+     },
+     "coverage_1sigma:A.F3.lw": {
+      "n": 3200,
+      "rate": 0.6590625,
+      "se": 0.008227634646421778,
+      "deviation_se": -2.8729399172190995,
+      "passes": true,
+      "near_limit": true
+     },
+     "coverage_1.96sigma:A.F3.lw": {
+      "n": 3200,
+      "rate": 0.9403125,
+      "se": 0.003852758751855612,
+      "deviation_se": -2.5144320275268077,
+      "passes": true,
+      "near_limit": true
+     }
+    }
+   },
+   "passes": false,
+   "near_limit": true
+  }
+ ],
+ "passes": true
+}

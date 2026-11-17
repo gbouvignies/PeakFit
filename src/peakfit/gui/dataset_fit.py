@@ -19,6 +19,7 @@ from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
+    from peakfit.engine.diagnostics.couplings import CouplingQualification
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.engine.scientific.final_outcome import (
         FinalClusterOutcome,
@@ -50,6 +51,7 @@ class RunIndex:
     by_engine: Mapping[str, PeakIdentity]
     cluster_of: Mapping[str, FinalClusterOutcome]  # keyed by engine name
     parameters: Mapping[str, FinalParameter]  # every recorded nonlinear parameter, by name
+    couplings: Mapping[str, CouplingQualification]  # every recorded J's qualification
 
     @classmethod
     def build(cls, result: DatasetFitResult) -> RunIndex:
@@ -61,6 +63,7 @@ class RunIndex:
             {i.engine_name: i for i in identities},
             {name: c for c in clusters for name in c.peak_names},
             {p.name: p for c in clusters for p in c.final_nonlinear_parameters},
+            result.completed_fit.couplings(),
         )
 
     def find(self, working_id: str) -> tuple[str, FinalClusterOutcome] | None:
