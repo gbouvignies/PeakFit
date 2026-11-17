@@ -154,6 +154,18 @@ def test_ring_marks_keyboard_focus_only_like_focus_visible(workspace):
     assert _ring_pixels(w, after) > 0
 
 
+def test_focus_on_a_splitter_pane_never_adds_a_pane(workspace):
+    # A splitter adopts any child widget as a pane: a ring parented there took width
+    # from the navigator and the inspector (an empty Profiles view hands focus to the
+    # inspector). The ring sits over the splitter and still frames the inspector.
+    w = workspace
+    sizes = w.splitter.sizes()
+    _focus(w.panel)
+    assert w.splitter.count() == 3
+    assert w.splitter.sizes() == sizes
+    assert _ring_pixels(w, w.panel) >= 2 * _perimeter(w.panel) - 64
+
+
 def test_canvas_frames_its_plot_area_after_a_click_too(workspace):
     # Single-key shortcuts act on the spectrum after a click, so its frame shows then.
     w, c = workspace, workspace.canvas
