@@ -63,6 +63,11 @@ def workspace(qapp, scientific):
     qapp.processEvents()
 
 
+def _plain(text: str) -> str:
+    """A caption as read: no-break space and word joiners as typed text."""
+    return text.replace("\u00a0", " ").replace("\u2060", "")
+
+
 def _publish(workspace, result):
     fitting = workspace.fitting
     fitting._submitted_revision = workspace.edits.revision
@@ -87,7 +92,7 @@ def test_excluding_the_current_plane_is_one_undoable_edit_kept_in_navigation(wor
     assert action.text() == "Include plane 2 in the fit"
     model = w.panel.model_page
     assert model.excluded.text() == "2"
-    assert model.planes.text() == "2 of 3 fitted"
+    assert _plain(model.planes.text()) == "2 of 3 fitted · numbered 1–3"
     w.set_plane(1)
     assert not w.plane_excluded.isVisible()
     w.history(False)
@@ -156,9 +161,14 @@ def test_a_run_that_excluded_a_plane_shows_it_measured_not_fitted(workspace, sci
     w.set_plane(EXCLUDED + 1)
     w.set_mode(1)
     wait_until(lambda: not w.canvas.contour_pending)
-    label = w.canvas.pending_label
-    assert label.isVisible()
-    assert label.toPlainText() == "Plane 2 not fitted · experimental only"
+    # Said in the header strip, never over the contours; the plane strip says "not fitted".
+    assert not w.canvas.pending_label.isVisible()
+    assert w.canvas.caption.text().startswith("No model on this plane")
+    assert "no model" in w.canvas.readout.text()
+    # The Run page names the run by its number.
+    w.show_run_page()
+    title = w.panel.run_page.unexplained_title.text()
+    assert title == "Unavailable: plane 2 is measured but not fitted (run 1 excluded it)"
     with pytest.raises(ValueError, match="Plane 2 is measured but not fitted"):
         dataset_model_plane(result, spectra.spectral_params, EXCLUDED, cancel=Event())
     # Fitted planes map to their own columns.
@@ -196,9 +206,7 @@ def test_changing_the_exclusion_marks_the_run_outdated_and_the_planes_row(worksp
     model = w.panel.model_page
     w._update_inspector()
     assert model.titles[Setting.PLANES].text() == f"Planes {DIFFERS}"
-    assert model.titles[Setting.PLANES].toolTip() == (
-        f"Run {result.run_id[:8]} used planes 2 excluded"
-    )
+    assert model.titles[Setting.PLANES].toolTip() == ("Run 1 used planes 2 excluded")
     # The Outdated run stays comparable on the planes it fitted.
     assert w.fitting.comparison.result is result
     assert w.fitting.comparison.historical

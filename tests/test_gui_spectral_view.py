@@ -442,17 +442,19 @@ def test_readout_units_stay_on_the_line_of_their_value(fitted):
 
 
 def test_run_identity_is_not_repeated_where_the_toolbar_already_names_it(fitted):
-    run = fitted.fitting.result.run_id[:8]
-    assert run in fitted.summary.text()
-    assert run not in fitted.panel.status.text()
-    assert run.upper() not in fitted.panel.fitted_title.text()
+    identity = fitted.fitting.result.run_id
+    # Captions name the run by its number; its ID is one hover away.
+    assert fitted.summary.text().startswith("Run 1 · Current")
+    assert identity[:8] not in fitted.summary.text()
+    assert f"Run ID {identity}" in fitted.summary.toolTip()
+    assert "run" not in fitted.panel.status.text().lower()
+    assert "RUN" not in fitted.panel.fitted_title.text()
     fitted.open_focus(fitted.peaks[0].id)
     bar = fitted.focus_bar
-    assert run not in bar.note.text()
     assert bar.note.text() == ""  # nothing differs from the toolbar for a current run
     # The run stays one hover away on the always-visible title.
     assert bar.title.isVisible()
-    assert bar.title.toolTip() == f"Run {run} · Current"
+    assert bar.title.toolTip() == f"Run 1 · Current\nRun ID {identity}"
 
 
 def _shown_planes(c):

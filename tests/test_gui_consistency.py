@@ -173,6 +173,48 @@ def test_the_2d_plot_never_moves_between_comparison_modes(qapp, heteronuclear, s
     _close(qapp, window)
 
 
+@pytest.fixture(scope="module")
+def excluded_plane():
+    """The heteronuclear dataset fitted with plane 2 (index 1) excluded."""
+    spectra, peaks, config, _ = two_cluster_dataset()
+    for index, (axis, name) in enumerate(zip(spectra.spectral_params, ("15N", "1H"), strict=True)):
+        axis.nucleus = name
+        axis.label = get_dimension_label(index)
+    config = config.model_copy(update={"exclude_planes": [1]})
+    prepared = prepare_dataset_fit(spectra, peaks, config)
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    return spectra, peaks, config, result
+
+
+@pytest.mark.parametrize("size", [(1160, 720), (1280, 800)], ids=str)
+def test_an_excluded_plane_moves_neither_the_plot_nor_the_slices(qapp, excluded_plane, size):
+    window, w = _window(qapp, excluded_plane, size)
+    c = w.canvas
+    c.set_lanes(True)
+    _publish(w, excluded_plane[-1])
+    shapes = set()
+    for plane in (1, 2, 3, 2):  # one-based: plane 2 was not fitted
+        w.set_plane(plane)
+        for mode in (0, 1, 2):
+            w.set_mode(mode)
+            wait_until(lambda: not c.contour_pending)
+            qapp.processEvents()
+            shapes.add(
+                tuple(
+                    item.sceneBoundingRect().toRect().getRect()
+                    for item in (c.box, c.row_box, c.column_box, c.row_lane, c.column_lane)
+                )
+            )
+            # The status sits in the header strip, never over the contours.
+            if plane == 2 and mode:
+                assert not c.pending_label.isVisible()
+                missing = "No residual" if mode == 2 else "No model"
+                assert c.caption.text().startswith(f"{missing} on this plane"), c.caption.text()
+                assert "model" not in c.legend.text().replace("model ·", "")
+    assert len(shapes) == 1, shapes
+    _close(qapp, window)
+
+
 # ------------------------------------------------------------------ values
 _FROM_SUPERSCRIPT = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
 _KINDS = {"cs": "δ", "lw": "LW"}

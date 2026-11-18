@@ -231,7 +231,8 @@ def test_an_edit_labels_the_tiles_historical(workspace, scientific):
     peak = w.peaks[0]
     w.move_peak(peak.id, tuple(p + 0.001 for p in peak.positions))
     assert not w.fitting.current
-    assert f"Run {result.run_id[:8]} · historical" in w.profiles.caption.text()
+    assert "Run 1 · historical" in w.profiles.caption.text()
+    assert w.profiles.title.endswith(" · Run 1 (outdated)")
 
 
 def _tile(scientific, members):

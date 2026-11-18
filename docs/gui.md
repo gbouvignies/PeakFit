@@ -151,15 +151,15 @@ run summary (or **Analysis ▸ Active run**) choose the page, which then stays u
 the next run or failed attempt. Run is unavailable, and says so, until there is a
 run, a failed attempt or a fit in progress.
 
-The **Run** page reads as label rows: Run (short ID and Current or Outdated, the
-full ID in the tooltip), Model, Converged and Usable as counts of clusters, Fitted
+The **Run** page reads as label rows: Run (its number, short ID and Current or
+Outdated, the full ID in the tooltip), Model, Converged and Usable as counts of clusters, Fitted
 (date and local time with its zone, and duration), Warnings when any cluster has
 one, with **Select next cluster with a warning** right under the rows, and Noise
 check as a one-line verdict: **Consistent with the recorded processing**,
 **Inconclusive on …** or **Not checked** (why, behind its ⓘ), or, for a mismatch,
 the axes and that the errors may be miscalibrated in the warning style, with what
 was found and what to do behind its ⓘ, in the wording of the run line's tooltip. A recovery problem adds
-a row in the warning style. The changes from the parent run and the unexplained
+a row in the warning style. The changes from an earlier run and the unexplained
 signal follow (below). The summary names the run and whether it is Current; it
 gives cluster counts only when some cluster is unusable or not converged (always
 in its tooltip), and the run is named there only, with “Outdated” repeated where an
@@ -189,10 +189,15 @@ the settings. Below the table: **Clustering**, with the statistical noise,
 estimate as shown, and the estimate stays under the value), and the threshold, a
 **Factor** of the noise with the absolute level it gives, or an absolute **Level**
 with the factor it amounts to (choosing Level starts from the level the factor
-gave); **Fit**, with optimizer passes (default **two**, with the neighbor
+gave). The threshold selects the fitting regions, not only how peaks are grouped:
+the points above it, in regions around the peaks, are the points fitted, and peaks
+that share a region form one cluster. Each value reads on one line with its
+source after it as a ▾ menu (“1.192 × 10⁴ estimated ▾”, “5.00 × noise ▾”), and
+the derived value on the line under it. **Fit**, with optimizer passes (default **two**, with the neighbor
 correction update between passes; an imported step schedule replaces the field)
 and the planes **excluded**, by the plane numbers navigation shows (“1, 41–42”;
-the configuration's `exclude_planes` counts from 0), with how many are fitted;
+the configuration's `exclude_planes` counts from 0), with how many are fitted and
+the numbering (“128 of 131 fitted · numbered 1–131”);
 **Constraints** (collapsed, with a one-line summary): a position window per axis,
 how far a peak may move from its start in ppm, and rules on a parameter kind
 (linewidth or η) on one axis or all, each setting a start, a range or **Hold**,
@@ -210,9 +215,11 @@ positive, an exclusion that leaves no plane or names a plane that does not exist
 a rule whose start lies outside its range or whose range is empty, a rule that
 matches no parameter of the current model) is explained under its setting,
 outlines the field, keeps the committed value and disables **Fit** with the same
-reason, until it is corrected. Once a run exists, every setting whose working value differs from
+reason, until it is corrected. The reason starts “Not applied:”, and nothing derived
+from the setting in effect (the estimate under a manual noise, the factor or level
+a threshold amounts to, the planes fitted) shows beside an entry that is not applied. Once a run exists, every setting whose working value differs from
 the one the run used is marked • (an axis on its name, a setting on its label, with
-what the run used in the tooltip), and the page says “• differs from run 5d7b4768”.
+what the run used in the tooltip), and the page says “• differs from run 3”.
 
 Every committed settings change is one undoable edit in the same history as peak
 edits (**Undo settings change**), and marks an existing run Outdated; Undo restores
@@ -222,7 +229,9 @@ the setting but never makes the run Current again.
 menu) excludes the plane shown, or includes it again, as one such edit; the last
 fitted plane cannot be excluded. An excluded plane stays in plane navigation,
 which marks it **not fitted**, and stays measured: Overlay and Residual show its
-experimental contours with “plane N is measured but not fitted”, and the peak
+experimental contours, with “No model on this plane” (or “No residual”) in the
+header strip above the plot, never over the contours, and the spectrum and slices
+keep their place; the peak
 profiles and the Profiles view draw it as a faint dotted line with “plane N
 measured, not fitted”, never as a point. The Run page lists the settings each run
 was submitted with: its noise (a manual value as entered, an estimate as
@@ -280,13 +289,40 @@ recorded fit is kept as it is, and the amplitude profile withholds their
 individual amplitudes as not established (below). The next fit starts them from the configured defaults;
 moving either peak makes it an ordinary edited peak.
 
-After a refit, the Run page summarizes **Changes from parent run**, the run it was
-refitted from (named in its first row, **Parent run**), read from both recorded runs without refitting or judging either.
-Peaks are matched by stable ID, so renamed peaks still compare.
+Runs are numbered in the order they completed, **run 1**, **run 2**, …, from the
+analysis journal, so a number stays the same after save, reopen and recovery;
+failed and canceled attempts get no number. Every caption that names a run uses
+its number: the toolbar (“Run 4 · Current · …”), the focus bar, the Profiles title
+and caption, historical comparisons, the Model page and the progress of a save.
+The Run page's Run and Baseline rows add the short ID, and tooltips give the full
+ID. Recorded continuation reasons (“moved since run …”) keep the short ID they were
+recorded with.
 
-- **Clusters** first: each cluster whose numerical warnings or highlights changed,
-  that contains a peak moved, added or given other constraints of its own since the
-  parent run (“Edited: …”), or whose members were grouped differently. Clusters with newly reported warnings lead and
+After a refit, the Run page summarizes **Changes from run N ▾**: what differs
+between the active run and a baseline run, read from both recorded runs without
+refitting or judging either. The baseline is the run the active one was refitted
+from, its parent (for a run with no recorded parent, the newest other run),
+unless you choose another in the heading's menu, which lists
+every earlier completed run newest first with its time, “parent” and, for a pruned
+run, “summary only”. The first row, **Baseline**, names it. Choosing a baseline
+changes only this section: the active run, working peaks and settings, Current or
+Outdated, Undo and Modified stay as they were, and nothing is saved with the
+choice. A new run, or reopening the analysis, compares with the parent again. Use
+**File → Analysis history…** to inspect a historical run in detail. Peaks are
+matched by stable ID, so renamed peaks still compare.
+
+- **Settings** first: each setting that differs, as “baseline → active”, each
+  side read from that run's own recorded settings (the same comparison as the
+  Model page's • marks): the per-axis lineshape model, statistical noise,
+  threshold, passes, excluded planes, constraints, iteration limit and tolerance.
+  Identical settings read “Settings: identical”.
+
+- **Clusters**: each cluster whose numerical warnings or highlights changed,
+  that contains a peak moved, added or given other constraints of its own by hand
+  in a refit after the baseline and not set back to where the baseline left it
+  (“Edited: …”, from the edits each intermediate run recorded, so an edit undone
+  before fitting, or a position changed only by fitting, is never listed), or whose
+  members were grouped differently. Clusters with newly reported warnings lead and
   are drawn in the warning style, then those whose warnings are no longer
   reported, then edited ones, then highlights and regroupings. Warnings include the
   decomposition marks of the amplitude profile, as in the cluster list:
@@ -295,14 +331,17 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   members, a mark is “now reported” or “no longer reported”. A regrouped cluster
   names the clusters it came from and lists its marks “Now” and “Before
   regrouping”; a mark that disappeared with regrouping is not presented as resolved.
-  A cluster made only of peaks added since the parent run is listed as a new
+  A cluster made only of peaks added since the baseline is listed as a new
   cluster with its members and current marks, never as a regrouping, and without
   before → after values.
 - **Measures** (χ²ᵣ, |r|max, |ρ|) before → after appear only when both runs define
-  them identically: the same members, the same fitting samples, σ_stat and noise
-  model, and the same number of varied parameters. Otherwise the line names the
-  first difference, for example “Measures not compared: fitting samples changed
-  (67 → 68 per plane)”. A lower χ²ᵣ is never presented as a better fit.
+  them identically: the same members, the same fitted planes (plane values and
+  exclusions), the same lineshape model on every axis, the same constraints, the
+  same σ_stat and noise model, the same fitting samples and the same number of
+  varied parameters. Otherwise the line names the first difference in that order, for example
+  “Measures not compared: fitting samples changed (67 → 68 per plane)” or
+  “Measures not compared: lineshape model changed”, and shows no number. A lower
+  χ²ᵣ is never presented as a better fit.
 - **Whole run**, as rows: **Clusters** before → after with regroupings and peaks
   added or removed, and **With ▲ warnings** (clusters with engine warnings); a count
   that did not change reads “121, unchanged”. No run-level χ²ᵣ is shown: a
@@ -314,8 +353,12 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   do, one row reads “Positions: unchanged at display precision”.
 
 Each name opens its cluster or peak; at most six clusters are listed with a count of
-the rest. A stored parent run is read off Qt; one whose evidence is no longer
-retained is named as such. The first run has nothing to compare.
+the rest. A stored baseline is read off Qt. A Summary-only baseline keeps its
+recorded settings, clusters and peaks, so Settings and the **Clusters** count are
+compared; one line names what is compared only against a run kept with full
+evidence, which has the members, fitting samples and usability they need (cluster
+changes, ▲ warnings, measures and position differences), and no value is
+reconstructed for them. The first run has nothing to compare.
 
 **Signal not explained on this plane**, also on the Run page (what it is, behind its
 ⓘ), lists on request
@@ -329,7 +372,7 @@ count of the rest). Choosing a row frames the region with surrounding context an
 places the slices through its extreme, keeping the plane, the comparison mode and the
 selection. A list belongs to one plane, run and threshold: another plane needs
 another request. For an Outdated run the list is that run's historical residual,
-titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
+titled “· Run 3 · historical”; distances are to the current working peaks
 and follow each edit, and a nearest peak added since the run is marked ☆. The list is descriptive,
 captioned “Diagnostic only · residual beyond ±5 σ_stat”; the tooltip adds that it never
 adds or proposes peaks and never flags clusters, and that a signal may be left
@@ -447,8 +490,9 @@ cluster in **focus**: the same spectral view, reframed in place on the displayed
 member positions ± max(3 × fitted FWHM, 8 native samples), at most a quarter of the
 spectral width and within the spectrum, with residual lanes on. The frame does not
 depend on the optimizer's fitting samples; **Fitting region** in the focus bar tints
-them, together with the Model page's toggle. The bar names the cluster and its run
-(“run 5d7b4768 · Outdated · model and residual are historical”), and every mode,
+them, together with the Model page's toggle. The bar names the cluster (its run's number,
+currentness and full ID in the title's tooltip) and says what differs from the
+toolbar (“Outdated · model and residual are historical”), and every mode,
 mark, legend, pin and display setting works as in the overview, since it is the
 same view. **‹ Spectrum** or **Escape** (from the spectrum, the cluster list or the
 inspector) returns to the overview exactly as it was: viewport, slice sizes and
@@ -680,7 +724,7 @@ reference choice is kept, so the next well-determined peak is normalized again.
 
 Drafts retain the accepted comparison. A committed manual scientific change marks
 the run **Outdated**; Overlay and Residual stay selectable and keep showing that
-run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
+run's model as **historical** evidence, named “Run 3 · historical” in the
 legend, the pending label and the mode tooltips. On
 the spectrum, ☆ marks a working peak the model does not contain (legend
 “☆ not in this model”; ◇ is kept for review highlights), and × the
@@ -793,7 +837,10 @@ and export. **Relink source…** verifies your explicit candidate. An identical 
 file restores spectral views; a different spectrum cannot inherit the old results.
 Corrupt project evidence and unsupported project versions are explicit errors.
 
-**File → Analysis history…** inspects retained runs. The latest ten completed runs
+**File → Analysis history…** inspects retained runs in detail, named by run number
+as on the Run page; its status line names the active run (“Active run 4 · Current
+numerical evidence”), and failed or canceled attempts read as such, not as
+summaries. The latest ten completed runs
 retain full evidence; older runs have explicitly labeled Summary-only journal
 entries. **Keep full evidence** protects a full run from pruning. Historical evidence
 has a 1 GiB budget, excluding the active and protected runs; their costs appear in

@@ -568,7 +568,8 @@ class Inspector(QtWidgets.QScrollArea):
         """
         if self._peak is not None:
             return
-        self.kind.setText("ANALYSIS")
+        # The Run | Model switch says what this is; the dataset and its size suffice.
+        self.kind.hide()
         self.title.setText(title)
         self.status.setText(summary)
         self.run_tab.setEnabled(run_available)
@@ -597,13 +598,15 @@ class Inspector(QtWidgets.QScrollArea):
         busy: bool,
         plane_values: tuple[float, ...] | None,
         plane: int,
+        run_name: str,
         review: ClusterReview | None = None,
         retained: str | None = None,
     ) -> None:
         """Recorded profile, parameters and review of the selected peak's cluster.
 
-        ``retained`` is why the run kept this peak's working position instead of
-        adopting its fitted one, if it did.
+        ``run_name`` is how captions name the run (its number). ``retained`` is why the
+        run kept this peak's working position instead of adopting its fitted one, if
+        it did.
         """
         peak = self._peak
         if peak is None or self.cluster_view:
@@ -638,11 +641,12 @@ class Inspector(QtWidgets.QScrollArea):
         self._amplitude = None
         if result is None or found is None:
             self.kind.setText("PEAK")
+            self.kind.show()
             # Before any fit the toolbar already says Not fitted.
             self.status.setText(
                 ""
                 if result is None
-                else f"Not part of run {result.run_id[:8]}: added or renamed after that fit"
+                else f"Not part of run {run_name}: added or renamed after that fit"
             )
             self.status.setVisible(result is not None)
             self.profile.show_profile(None, plane)
@@ -652,6 +656,7 @@ class Inspector(QtWidgets.QScrollArea):
         engine, cluster = found
         members = len(cluster.peak_names)
         self.kind.setText(f"PEAK · CLUSTER OF {members}" if members > 1 else "PEAK")
+        self.kind.show()
         self.status.setText(
             _with_run(_state(cluster), run)
             + ("\n□ Fitted position not adopted · working position kept" if retained else "")
@@ -730,6 +735,7 @@ class Inspector(QtWidgets.QScrollArea):
         found = result.index.find(peak.id) if result is not None else None
         if result is None or found is None or review is None:
             self.kind.setText("CLUSTER")
+            self.kind.show()
             self.title.setText(peak.name)
             self.status.setText("Not part of the active run")
             return
@@ -737,6 +743,7 @@ class Inspector(QtWidgets.QScrollArea):
         names = review.names
         count = len(names)
         self.kind.setText(f"CLUSTER · {count} PEAK{'S' if count != 1 else ''}")
+        self.kind.show()
         self.title.setText(names[0] + (f"  +{count - 1}" if count > 1 else ""))
         self.status.setText(
             _with_run(_state(cluster), _run_text(result, current=current, busy=busy))

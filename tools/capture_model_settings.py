@@ -11,7 +11,8 @@ both appearances: the Model page as loaded; each new setting set (manual noise,
 an absolute level, excluded planes, a position window and a rule); each invalid;
 plane 41 excluded from the plane strip; then the GUI's own fit with that plane
 excluded, its Run page, the excluded plane in Overlay with a peak's profile, and
-Model edits that differ from the run. Each state is saved as the whole window
+Model edits that differ from the run, then Undo. ``--sizes`` limits the sizes, and
+``--body-px 17`` simulates a large system font. Each state is saved as the whole window
 (downscaled WebP) and the inspector alone (device pixels), with
 ``measurements.json``: inspector and viewport sizes, sideways scrolling, where the
 first setting sits, clipped labels and Fit's state.
@@ -45,6 +46,7 @@ class Capture:
             (output / folder).mkdir(parents=True, exist_ok=True)
         self.session = Session(output, stall=STALL)
         self.records: list[dict[str, Any]] = []
+        self.sizes = SIZES
 
     def measures(self) -> dict[str, Any]:
         """What the inspector shows at this state, in logical px."""
@@ -70,6 +72,7 @@ class Capture:
             "undo": w.undo_action.text(),
             "run_line": w.summary.text(),
             "clipped": [label["text"] for label in clipped_labels(panel)],
+            "cut_fields": cut_fields(panel),
         }
 
     def shot(self, state: str, size=None, appearance: str = "Light") -> None:
@@ -89,12 +92,16 @@ class Capture:
             )
         image.save(str(self.output / "full" / name), "WEBP", 82)
         w.panel.grab().save(str(self.output / "inspector" / name), "WEBP", 90)
-        self.records.append({"file": name, **self.measures()})
+        record = {"file": name, **self.measures()}
+        self.records.append(record)
+        # Acceptance, not just a record: nothing scrolls sideways or is cut.
+        if record["sideways_scroll"] or record["clipped"] or record["cut_fields"]:
+            raise RuntimeError(f"{name}: sideways scrolling or clipped text: {record}")
         arm_watchdog(STALL)
 
     def matrix(self, state: str, scroll_to: QtWidgets.QWidget | None = None) -> None:
         """Save ``state`` at every size and appearance, then return to 1280×800."""
-        for size in SIZES:
+        for size in self.sizes:
             for appearance in APPEARANCES:
                 for _ in range(2):  # a first resize past the screen can be clamped
                     self.session.window.resize(*size)
@@ -107,6 +114,17 @@ class Capture:
         settle(400)
 
 
+def cut_fields(root: QtWidgets.QWidget) -> list[str]:
+    """Visible fields whose text needs more room than they have (padding, border, margin)."""
+    return [
+        edit.text()
+        for edit in root.findChildren(QtWidgets.QLineEdit)
+        if edit.isVisible()
+        and not isinstance(edit.parent(), QtWidgets.QAbstractSpinBox)
+        and edit.fontMetrics().horizontalAdvance(edit.text()) + 18 > edit.width()
+    ]
+
+
 def _type(edit: QtWidgets.QLineEdit, text: str) -> None:
     edit.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
     edit.selectAll()
@@ -115,7 +133,7 @@ def _type(edit: QtWidgets.QLineEdit, text: str) -> None:
     settle(300)
 
 
-def _choose(combo: QtWidgets.QComboBox, data: str) -> None:
+def _choose(combo: QtWidgets.QComboBox | themes.MenuChoice, data: str) -> None:
     combo.setCurrentIndex(combo.findData(data))
     settle(300)
 
@@ -168,10 +186,33 @@ def _reset(c: Capture) -> None:
     settle(300)
 
 
-def run(output: Path) -> list[dict[str, Any]]:
+def _differs_and_undo(c: Capture) -> None:
+    """Model edits that differ from the run, then Undo of the last one."""
+    w = c.session.w
+    model = w.panel.model_page
+    w.set_mode(0)
+    w.select_peak(None)
+    w.show_model_page()
+    settle(300)
+    _choose(model.noise_mode, "manual")
+    _choose(model.threshold_mode, "level")
+    w.exclude_plane_action.trigger()  # include plane 41 again
+    model.constraints_toggle.setChecked(True)
+    settle(200)
+    assert model.constraints is not None
+    _type(model.constraints.windows["F3"], "0.05")
+    wait_until(lambda: w.fitting.prepared is not None, timeout=120)
+    c.matrix("09-model-differs-from-run")
+    w.history(False)  # Undo the window: the run stays Outdated
+    settle(600)
+    c.matrix("10-after-undo")
+
+
+def run(output: Path, sizes=SIZES) -> list[dict[str, Any]]:
     """Walk the workflow once and write the figures and ``measurements.json``."""
     install_log(output / "peakfit.log")  # as launch does
     c = Capture(output)
+    c.sizes = sizes
     w = c.session.w
     wait_until(lambda: w.fitting.prepared is not None, timeout=120)
     w.show_model_page()
@@ -203,19 +244,7 @@ def run(output: Path) -> list[dict[str, Any]]:
     w.select_peak(w.peaks[0].id, center=True)
     settle(1500)
     c.matrix("08-excluded-plane-overlay-profile")
-    w.set_mode(0)
-    w.select_peak(None)
-    w.show_model_page()
-    settle(300)
-    _choose(model.noise_mode, "manual")
-    _choose(model.threshold_mode, "level")
-    w.exclude_plane_action.trigger()  # include plane 41 again
-    model.constraints_toggle.setChecked(True)
-    settle(200)
-    assert model.constraints is not None
-    _type(model.constraints.windows["F3"], "0.05")
-    wait_until(lambda: w.fitting.prepared is not None, timeout=120)
-    c.matrix("09-model-differs-from-run")
+    _differs_and_undo(c)
     (output / "measurements.json").write_text(
         json.dumps(
             {"body_px": themes.type_scale().body, "captures": c.records},
@@ -234,6 +263,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Native captures of the W4 Model settings.")
     parser.add_argument("--output", type=Path, required=True, help="outside the repository")
     parser.add_argument("--body-px", type=int, metavar="PX", help="simulate a system font")
+    parser.add_argument(
+        "--sizes", nargs="+", default=[f"{w}x{h}" for w, h in SIZES], help="e.g. 1160x720"
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT):
@@ -241,7 +273,8 @@ def main() -> None:
     _app = QtWidgets.QApplication([])  # alive for the run
     if args.body_px:
         themes.use_type_scale(themes.TypeScale.for_body(args.body_px))
-    records = run(output)
+    sizes = tuple(tuple(int(v) for v in size.split("x")) for size in args.sizes)
+    records = run(output, sizes)
     print(f"Wrote {len(records)} captures to {output}")  # noqa: T201
 
 

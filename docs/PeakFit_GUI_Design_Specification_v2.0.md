@@ -135,7 +135,11 @@ The inspector shows one page, chosen by selection and never by hover:
   the last failed attempt, the active run's identity and outcome counts with the
   warning action under them, the noise check as a one-line verdict in every state
   (consistent, inconclusive, not checked, or ▲ a mismatch), the changes
-  from its parent run and the unexplained signal. The chosen page stays until the
+  from an earlier run and the unexplained signal. The changes compare the active
+  run with one retained run chosen in the section's heading, **Changes from run
+  N ▾**: its parent run by default, or any earlier completed run (revision
+  17 November 2026, W6). Choosing a baseline changes only what this section
+  compares; the active run stays the page's subject. The chosen page stays until the
   next run or failed attempt; Run is unavailable, and says so, until there is a
   run, a failed attempt or a fit in progress. Reachable at any time by clearing
   selection (Escape on the canvas), from the toolbar settings summary (Model), the
@@ -168,7 +172,9 @@ validation; errors identify the file, row/axis and remedy.
 Use ordinary splitters and layouts. Do not add detachable docks, a ribbon,
 per-plot toolbars, an extensible panel framework or freely arranged layouts. Wide
 future views (MCMC traces, run history) use a separate explicit window, never a
-permanent lower panel. The one exception is the **Profiles view** (revision
+permanent lower panel. There is no Runs tab in the navigator: detailed inspection
+of retained runs stays in the **Analysis history** window, and comparing the active
+run with an earlier one is the Run page's baseline menu. The one exception is the **Profiles view** (revision
 12 November 2026): profile review shares the navigator's order and the selection
 with the spectrum, so it replaces the spectral area rather than opening a window.
 It shows one tile per recorded cluster, every member's signed amplitudes on one
@@ -347,10 +353,10 @@ No “Use fitted positions/values as starts” command is needed for ordinary po
 Manual edits, including moving an optimized position, invalidate comparison and
 remain undoable. Undo restores exact working values but does not recertify the
 old run. Automatic adoption is not an ordinary Undo entry that silently restores
-pre-fit positions under a Current label. History provides **Restore working state
-from this run…** for deliberate restoration: it restores the recorded post-fit
-state with sources/settings verified, resets any incompatible edit history, and
-records the restoration. Exact pre-fit positions remain inspectable/exportable;
+pre-fit positions under a Current label. Historical runs are inspected and
+compared, never restored: no command copies a historical run's positions or
+settings into the working state, and choosing a run to compare with changes
+nothing that a fit or a save reads. Exact pre-fit positions remain inspectable/exportable;
 restoring them as working seeds is an explicit manual change and makes the fit
 Outdated. Reopening restores these relationships, never infers them from rounded values.
 
@@ -365,7 +371,9 @@ list rather than instantiate every row/payload.
 Every attempt has a compact project journal entry: run/parent identity, timestamp,
 settings, exact initial/final coordinate snapshots and final nonlinear parameter/
 error tables, status (completed/canceled/failed), concise diagnostics/statistics,
-and available evidence level. Completed
+and available evidence level. Completed runs are numbered in the order they
+completed (run 1, run 2, …), read from the journal, so a number survives save,
+reopen and recovery; failed and canceled attempts are not numbered. Completed
 full payloads are written to project storage or a recoverable temporary session
 store before older resident data are released. Saving moves/copies that journal
 and retained payloads into the analysis project; linked spectra remain external.
@@ -390,7 +398,11 @@ to meet a size target.
 
 No Save/Discard/Cancel interruption occurs on the third or any routine later fit.
 History shows the retention policy and each run's Full / Summary-only / Pinned
-status. Pruning happens only after successful publication, not on starting a
+status. The Run page compares the active run with any retained completed run: a
+run kept with full evidence supports every comparison of §9; against a
+Summary-only run only its recorded settings, cluster count and peaks are compared,
+and the page names the comparisons that need full evidence rather than
+reconstructing them. Pruning happens only after successful publication, not on starting a
 replacement; crash/cancel retains the old active result. Actual disk-full/write
 failure is actionable and blocks further evidence eviction rather than silently
 losing the sole result. Closing unsaved work retains the normal save guard.
@@ -560,7 +572,11 @@ once its J is entered. Invalid entries are explained under their axis and block
 Fit until corrected. Then statistical noise, Estimated (from the fitted planes) or
 Manual, the estimate staying visible under a manual value; clustering threshold,
 one setting chosen as a Factor of the noise (with the level it gives) or an
-absolute Level (with the factor it amounts to); optimizer passes (default two,
+absolute Level (with the factor it amounts to). The threshold selects the fitting
+regions: the points above it, around the peaks, are the points fitted, and peaks
+sharing a region form one cluster. Each value reads on one line with its source
+after it as a ▾ menu; an entry that is not applied hides what the setting in
+effect derives. Then optimizer passes (default two,
 cross-talk updates only between passes, as in the current GUI; CLI defaults are
 unaffected); the planes excluded, by one-based plane number, with the count fitted;
 Constraints, disclosed: a position window per axis and ordered rules on a
@@ -586,7 +602,8 @@ setting, keeps the committed value and blocks Fit.
 Analysis ▸ Exclude plane N from the fit (and the plane strip's menu) excludes a
 plane, undoably, and the run becomes Outdated. An excluded plane stays in plane
 navigation, marked not fitted, and in the profiles as a dotted line, never a
-point; Overlay and Residual show it as measured only. The run snapshot records
+point; Overlay and Residual show it as measured only, saying so in the plot's
+header strip, never over the contours. The run snapshot records
 the whole spectrum and its fitted planes; a reopened project is checked against
 the recorded exclusion.
 
@@ -838,9 +855,11 @@ new run in the same focus. The inspector labels **Working for next fit** and
 **Accepted · run N**; typed values are never presented as fitted. Changing a model
 rebuilds its applicable working fields with a preview of removed settings;
 incompatible bounds are errors rather than silently adjusted guesses. Each run shows
-its changes from the parent run, read from both recorded runs and matched by stable
-peak ID, to help the scientist understand what changed, not to judge the optimizer:
-median χ²ᵣ and clusters with numerical warnings before → after; clusters before →
+its changes from a baseline run (its parent by default, or any retained run chosen
+on the Run page), read from both recorded runs and matched by stable peak ID, to
+help the scientist understand what changed, not to judge the optimizer: first the
+settings that differ, each run's as recorded; then clusters with numerical warnings
+before → after; clusters before →
 after and how many were regrouped; clusters whose warnings, highlights or members
 changed, where a warning that disappears with regrouping is never called resolved;
 and the few largest fitted-position differences as neutral information (Δ in ppm

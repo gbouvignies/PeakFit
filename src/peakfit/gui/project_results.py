@@ -1,7 +1,12 @@
-"""Strict numerical restoration and evaluable geometry for analysis projects."""
+"""Strict numerical restoration and evaluable geometry for analysis projects.
+
+The journal records every run attempt in order. Completed runs are numbered by
+their place among its completed entries, and captions name runs by that number.
+"""
 
 import json
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -22,6 +27,9 @@ from peakfit.io.readers.continuation import (
     restore_geometry,
 )
 from peakfit.shared.exceptions import require_close
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 
 def read_peaks(records):
@@ -208,6 +216,26 @@ def run_record(result):
             for c in model_records(result.completed_fit.model_snapshot)
         ],
     }
+
+
+def completed(entry: Mapping[str, Any]) -> bool:
+    """Whether a journal entry is a completed run, not a failed or canceled attempt."""
+    return entry.get("status") == "completed"
+
+
+def run_numbers(journal: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    """Each completed run's number, 1-based in journal order; attempts get none."""
+    runs = (e["run_id"] for e in journal if completed(e))
+    return {identity: number for number, identity in enumerate(runs, 1)}
+
+
+def run_name(identity: str, journal: Iterable[Mapping[str, Any]]) -> str:
+    """How a caption names a run: its number, or its short ID if the journal has none.
+
+    Tooltips carry the full run ID; captions never show it.
+    """
+    number = run_numbers(journal).get(identity)
+    return str(number) if number else identity[:8]
 
 
 def journal_entry(completion):

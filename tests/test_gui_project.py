@@ -607,6 +607,16 @@ def test_disposable_project_process_uses_only_trusted_ipc(analysis, tmp_path):
     verify_model(loaded.completion.result)
 
 
+def test_saving_names_each_run_by_its_number(analysis, tmp_path):
+    completion = analysis.runs[0]
+    attempt = {"run_id": "f" * 32, "status": "failed"}  # attempts get no number
+    numbered = replace(analysis, journal=(attempt, journal_entry(completion)))
+    messages: list[str] = []
+    save_analysis(numbered, tmp_path / "numbered.peakfit", progress=messages.append)
+    assert "Saving fit evidence · run 1" in messages
+    assert not any(completion.result.run_id[:8] in m for m in messages)
+
+
 def test_source_unavailable_is_not_currentness_and_settings_outdate(analysis, tmp_path):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     loaded = open_analysis(path, canceled=lambda: True)

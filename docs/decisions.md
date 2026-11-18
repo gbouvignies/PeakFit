@@ -1728,6 +1728,21 @@ Short records of non‑obvious design choices and trade‑offs.
   (exactly 0.0031); it multiplied by a power of ten (0.0031000000000000003).
 - **Same config as TOML.** W3's parametrised test moved to the Model page and
   covers every Model control.
+- **Review pass at 1280×800.** Each value now reads on one line with its source
+  after it as a ▾ menu (the app's menu-button look), “1.192 × 10⁴ estimated ▾”,
+  “5.00 × noise ▾”. Measured natively, a combo then the value on one line did not
+  fit the 166 px cell of a scrolling inspector for a manual value, a level or the
+  factor with its unit (176–197 px); value then menu fits every state (148–165 px),
+  so the stacked choice line went. Value fields size to their text, so no number is
+  shown cut. An entry that is not applied says “Not applied:” and hides what the
+  setting in effect derives (estimate, factor or level, planes fitted). The planes
+  caption states the numbering. On an excluded plane, “No model on this plane”
+  sits in the plot's header strip, never over the contours. The analysis header
+  drops its “ANALYSIS” overline: the Run | Model switch says what the page is.
+  The source menu is caption-sized, 2 px from its value: in CI's DejaVu Sans the
+  manual noise row needed 293 px of 288; it needs 285 now (271 natively). The width
+  test also runs under DejaVu Sans, as Linux renders the UI font, and names the
+  widest row when it fails.
 
 ## 2026-11-17: A peak's own constraints belong to the working peak (#209)
 - **By stable working ID, not by assignment.** Per-peak starts, bounds, position
@@ -1758,7 +1773,42 @@ Short records of non‑obvious design choices and trade‑offs.
   cannot be used are drafts, explained under the parameter, as on the Model page.
 - **Continuation per peak.** A peak whose own limits changed since the run starts
   from the configured defaults (“constraints changed since run …”), as a moved peak
-  does; axis-wide rule changes still make the whole run incompatible.
+  does; axis-wide rule changes still make the whole run incompatible. Against any
+  baseline, the Run page lists such a peak as edited while its limits differ from
+  the baseline's (`edited_since`).
 - **Storage amended in place.** Project 15.0.0 working, submitted and post-fit peaks
   gain `limits`; nothing else changes. Projects written by development builds
   before this change are refused and refit.
+
+## 2026-11-17: Compare the active run with any retained run; no Runs tab (#218)
+- **A baseline menu, not a tab.** The Run page's changes section reads **Changes
+  from run N ▾**; its menu lists every other completed run, newest first, with its
+  time, "parent" and "summary only". The parent stays the default, and a new active
+  run, or reopening, returns to it. The choice is view state: it is never saved and
+  changes no working peak, setting, active run, Current/Outdated, Undo or Modified
+  (`tests/test_gui_run_baseline.py` hashes all of them before and after, across save
+  and reopen). A Runs navigator tab would hide the cluster list and put a historical
+  run beside the active one; detailed inspection stays in Analysis history.
+- **Run numbers from the journal.** A run's number is its place among the journal's
+  completed runs, so it needs no storage change and survives save, reopen and
+  recovery; failed and canceled attempts get none. The Run row, the Model page's
+  "differs from run N", the baseline menu and Analysis history use it; other
+  captions still name runs by short ID.
+- **Settings first, from each run's record.** `setting_differences` is the one
+  comparison behind the Model page's • marks and the Run page's Settings rows
+  (baseline → active).
+- **Edits along the recorded chain.** A peak is "edited" against a non-parent
+  baseline only when a refit after it recorded the peak as moved or added by hand
+  (`edited_since` follows the parent links) and the active run still started it
+  away from where the baseline left it; an edit undone before a fit, a peak moved
+  back by hand to the baseline's position, or a position changed only by fitting,
+  is never one. The reason prefixes have one home, where `gui.fitting` writes them.
+- **Stricter measure comparability, for every baseline.** Measures are also withheld
+  when the fitted planes (plane values or exclusions), the effective lineshape model
+  of an axis or the constraints differ; run-level differences are named before
+  cluster-level ones (samples, varied parameters). The parent comparison is now as
+  strict.
+- **Summary-only baselines.** Settings and the recorded cluster and peak counts
+  compare; cluster changes, ▲ warnings, measures and positions are named as
+  unavailable and never reconstructed. At most one historical result is held in
+  memory, so browsing baselines does not accumulate results.

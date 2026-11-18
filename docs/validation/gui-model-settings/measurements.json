@@ -8,20 +8,21 @@
         607
       ],
       "viewport": [
-        310,
+        320,
         607
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "01-model-as-loaded-1160x720-dark.webp",
@@ -30,20 +31,21 @@
         607
       ],
       "viewport": [
-        310,
+        320,
         607
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "01-model-as-loaded-1280x800-light.webp",
@@ -57,15 +59,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "01-model-as-loaded-1280x800-dark.webp",
@@ -79,15 +82,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "01-model-as-loaded-1920x1080-light.webp",
@@ -101,15 +105,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "01-model-as-loaded-1920x1080-dark.webp",
@@ -123,15 +128,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "02-settings-set-1160x720-light.webp",
@@ -145,15 +151,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "02-settings-set-1160x720-dark.webp",
@@ -167,15 +174,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "02-settings-set-1280x800-light.webp",
@@ -189,15 +197,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "02-settings-set-1280x800-dark.webp",
@@ -211,15 +220,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "02-settings-set-1920x1080-light.webp",
@@ -233,15 +243,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "02-settings-set-1920x1080-dark.webp",
@@ -255,15 +266,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "03-settings-set-constraints-1160x720-light.webp",
@@ -277,15 +289,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 20,
-      "noise_top": 130,
+      "page_min_width": 272,
+      "first_setting_top": 55,
+      "noise_top": 165,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "03-settings-set-constraints-1160x720-dark.webp",
@@ -299,15 +312,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 20,
-      "noise_top": 130,
+      "page_min_width": 272,
+      "first_setting_top": 55,
+      "noise_top": 165,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "03-settings-set-constraints-1280x800-light.webp",
@@ -321,15 +335,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 26,
-      "noise_top": 136,
+      "page_min_width": 272,
+      "first_setting_top": 61,
+      "noise_top": 171,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "03-settings-set-constraints-1280x800-dark.webp",
@@ -343,15 +358,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 26,
-      "noise_top": 136,
+      "page_min_width": 272,
+      "first_setting_top": 61,
+      "noise_top": 171,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "03-settings-set-constraints-1920x1080-light.webp",
@@ -365,15 +381,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "03-settings-set-constraints-1920x1080-dark.webp",
@@ -387,15 +404,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "04-settings-invalid-1160x720-light.webp",
@@ -409,15 +427,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "04-settings-invalid-1160x720-dark.webp",
@@ -431,15 +450,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "04-settings-invalid-1280x800-light.webp",
@@ -453,15 +473,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "04-settings-invalid-1280x800-dark.webp",
@@ -475,15 +496,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "04-settings-invalid-1920x1080-light.webp",
@@ -497,15 +519,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "04-settings-invalid-1920x1080-dark.webp",
@@ -519,15 +542,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 272,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "05-settings-invalid-constraints-1160x720-light.webp",
@@ -541,15 +565,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": -243,
-      "noise_top": -133,
+      "page_min_width": 272,
+      "first_setting_top": -182,
+      "noise_top": -72,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "05-settings-invalid-constraints-1160x720-dark.webp",
@@ -563,15 +588,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": -243,
-      "noise_top": -133,
+      "page_min_width": 272,
+      "first_setting_top": -182,
+      "noise_top": -72,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "05-settings-invalid-constraints-1280x800-light.webp",
@@ -585,15 +611,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": -237,
-      "noise_top": -127,
+      "page_min_width": 272,
+      "first_setting_top": -176,
+      "noise_top": -66,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "05-settings-invalid-constraints-1280x800-dark.webp",
@@ -607,15 +634,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": -237,
-      "noise_top": -127,
+      "page_min_width": 272,
+      "first_setting_top": -176,
+      "noise_top": -66,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "05-settings-invalid-constraints-1920x1080-light.webp",
@@ -629,15 +657,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 43,
-      "noise_top": 153,
+      "page_min_width": 272,
+      "first_setting_top": 104,
+      "noise_top": 214,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "05-settings-invalid-constraints-1920x1080-dark.webp",
@@ -651,15 +680,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 261,
-      "first_setting_top": 43,
-      "noise_top": 153,
+      "page_min_width": 272,
+      "first_setting_top": 104,
+      "noise_top": 214,
       "fit_enabled": false,
-      "fit_tooltip": "Fit unavailable: Statistical noise: Enter the statistical noise as a positive number.",
-      "invalid": "Statistical noise: Enter the statistical noise as a positive number.",
+      "fit_tooltip": "Fit unavailable: Statistical noise: enter the statistical noise as a positive number.",
+      "invalid": "Statistical noise: enter the statistical noise as a positive number.",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "06-plane-excluded-1160x720-light.webp",
@@ -668,20 +698,21 @@
         607
       ],
       "viewport": [
-        310,
+        320,
         607
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "06-plane-excluded-1160x720-dark.webp",
@@ -690,20 +721,21 @@
         607
       ],
       "viewport": [
-        310,
+        320,
         607
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "06-plane-excluded-1280x800-light.webp",
@@ -717,15 +749,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "06-plane-excluded-1280x800-dark.webp",
@@ -739,15 +772,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "06-plane-excluded-1920x1080-light.webp",
@@ -761,15 +795,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "06-plane-excluded-1920x1080-dark.webp",
@@ -783,15 +818,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 153,
-      "noise_top": 263,
+      "page_min_width": 269,
+      "first_setting_top": 132,
+      "noise_top": 242,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
       "run_line": "Not fitted",
-      "clipped": []
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "07-run-after-fit-1160x720-light.webp",
@@ -805,15 +841,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "07-run-after-fit-1160x720-dark.webp",
@@ -827,15 +864,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "07-run-after-fit-1280x800-light.webp",
@@ -849,15 +887,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "07-run-after-fit-1280x800-dark.webp",
@@ -871,15 +910,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "07-run-after-fit-1920x1080-light.webp",
@@ -893,15 +933,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "07-run-after-fit-1920x1080-dark.webp",
@@ -915,15 +956,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "08-excluded-plane-overlay-profile-1160x720-light.webp",
@@ -937,15 +979,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "08-excluded-plane-overlay-profile-1160x720-dark.webp",
@@ -959,15 +1002,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "08-excluded-plane-overlay-profile-1280x800-light.webp",
@@ -981,15 +1025,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "08-excluded-plane-overlay-profile-1280x800-dark.webp",
@@ -1003,15 +1048,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "08-excluded-plane-overlay-profile-1920x1080-light.webp",
@@ -1025,15 +1071,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "08-excluded-plane-overlay-profile-1920x1080-dark.webp",
@@ -1047,15 +1094,16 @@
       ],
       "sideways_scroll": false,
       "page": "run",
-      "page_min_width": 240,
+      "page_min_width": 253,
       "first_setting_top": null,
       "noise_top": null,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo edit",
-      "run_line": "Run 8927af92 · Current · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Current · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "09-model-differs-from-run-1160x720-light.webp",
@@ -1069,15 +1117,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 174,
-      "noise_top": 284,
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
-      "run_line": "Run 8927af92 · Outdated · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "09-model-differs-from-run-1160x720-dark.webp",
@@ -1091,15 +1140,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 174,
-      "noise_top": 284,
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
-      "run_line": "Run 8927af92 · Outdated · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "09-model-differs-from-run-1280x800-light.webp",
@@ -1113,15 +1163,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 174,
-      "noise_top": 284,
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
-      "run_line": "Run 8927af92 · Outdated · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "09-model-differs-from-run-1280x800-dark.webp",
@@ -1135,15 +1186,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 174,
-      "noise_top": 284,
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
-      "run_line": "Run 8927af92 · Outdated · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "09-model-differs-from-run-1920x1080-light.webp",
@@ -1157,15 +1209,16 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 174,
-      "noise_top": 284,
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
-      "run_line": "Run 8927af92 · Outdated · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     },
     {
       "file": "09-model-differs-from-run-1920x1080-dark.webp",
@@ -1179,15 +1232,154 @@
       ],
       "sideways_scroll": false,
       "page": "model",
-      "page_min_width": 240,
-      "first_setting_top": 174,
-      "noise_top": 284,
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
       "fit_enabled": true,
       "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
       "invalid": "",
       "undo": "Undo settings change",
-      "run_line": "Run 8927af92 · Outdated · ▲ Noise check (N F2) · all clusters usable",
-      "clipped": []
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
+    },
+    {
+      "file": "10-after-undo-1160x720-light.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "undo": "Undo settings change",
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
+    },
+    {
+      "file": "10-after-undo-1160x720-dark.webp",
+      "inspector": [
+        320,
+        607
+      ],
+      "viewport": [
+        310,
+        607
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "undo": "Undo settings change",
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
+    },
+    {
+      "file": "10-after-undo-1280x800-light.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "undo": "Undo settings change",
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
+    },
+    {
+      "file": "10-after-undo-1280x800-dark.webp",
+      "inspector": [
+        320,
+        687
+      ],
+      "viewport": [
+        310,
+        687
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "undo": "Undo settings change",
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
+    },
+    {
+      "file": "10-after-undo-1920x1080-light.webp",
+      "inspector": [
+        320,
+        967
+      ],
+      "viewport": [
+        320,
+        967
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "undo": "Undo settings change",
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
+    },
+    {
+      "file": "10-after-undo-1920x1080-dark.webp",
+      "inspector": [
+        320,
+        967
+      ],
+      "viewport": [
+        320,
+        967
+      ],
+      "sideways_scroll": false,
+      "page": "model",
+      "page_min_width": 272,
+      "first_setting_top": 153,
+      "noise_top": 263,
+      "fit_enabled": true,
+      "fit_tooltip": "Fit the complete dataset (Ctrl+Return)",
+      "invalid": "",
+      "undo": "Undo settings change",
+      "run_line": "Run 46c20eac · Outdated · ▲ Noise check (N F2) · all clusters usable",
+      "clipped": [],
+      "cut_fields": []
     }
   ]
 }

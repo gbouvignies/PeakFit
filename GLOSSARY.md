@@ -146,6 +146,18 @@ from that cluster's data before fitting.
 **Fit run**:
 One completed fitting workflow and its associated results.
 
+**Run number**:
+A completed fit run's place in the analysis journal, 1-based: run 1, run 2, …
+Failed and canceled attempts get none, so the number is stable across save,
+reopen and recovery. The short ID (first eight hex digits) still names a run where
+no journal is at hand.
+
+**Baseline run**:
+The retained run the active run is compared with on the Run page: its parent run
+(the one it was refitted from) unless the scientist chooses another. Choosing one
+changes nothing but the comparison.
+_Avoid_: confusing it with **Baseline replicates**, which are CEST planes
+
 **Near-collinear fitted shapes**:
 Two peaks whose recorded fitted shapes over a cluster's fitting samples satisfy
 1 − |cos| ≤ 10⁻⁴. Their per-plane amplitude split is ill-conditioned, so their
