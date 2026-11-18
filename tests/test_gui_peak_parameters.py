@@ -16,6 +16,7 @@ from gui_helpers import wait_until
 from PySide6 import QtWidgets
 
 from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.constraints import ParameterConstraint
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.axis_table import DIFFERS
@@ -133,6 +134,7 @@ def test_an_empty_field_shows_what_the_model_settings_give():
     position = _row(editor, "F2.cs")
     assert position.at.text() == "120.500"
     assert position.window_edit.placeholderText() == "0.04"
+    assert position.window_edit.toolTip().endswith("the Model settings give ± 0.04 ppm")
     assert not width.hold.isChecked()
     assert _row(editor, "F2.lw").hold.isChecked()  # the rule holds it
     assert not width.reset.isVisible()
@@ -175,6 +177,31 @@ def test_hold_and_reset():
     row.reset.click()
     assert shown[-1].limits == ()
     assert not row.reset.isVisible()
+
+
+def test_hold_back_to_what_the_model_settings_give_leaves_no_limit_of_its_own():
+    # Hold on then off is the Model settings again: no hidden vary=True that would
+    # restart the peak from defaults or keep a later Model-wide Hold off it.
+    editor, shown = _editor(PEAK)
+    width = _row(editor, "F3.lw")
+    width.hold.setChecked(True)
+    width.hold.setChecked(False)
+    assert shown[-1].limits == ()
+    assert not width.reset.isVisible()
+    # Against a rule that holds it, fitting is the peak's own; holding again is not.
+    held = _row(editor, "F2.lw")
+    held.hold.setChecked(False)
+    assert shown[-1].limits == (("F2.lw", ParameterLimit(vary=True)),)
+    held.hold.setChecked(True)
+    assert shown[-1].limits == ()
+
+
+def test_a_position_bounded_by_a_rules_range_names_it_rather_than_no_window():
+    rows = [ParameterRow("F2.cs", "δ ¹⁵N F2", "ppm", 120.5, 118.0, 122.0, True, None)]
+    editor, _shown = _editor(PEAK, rows=rows)
+    window = _row(editor, "F2.cs").window_edit
+    assert window.placeholderText() == "range"
+    assert window.toolTip().startswith("The Model settings bound it to 118.000–122.000 ppm")
 
 
 def test_each_own_limit_is_marked_when_it_differs_from_the_run():
@@ -313,6 +340,11 @@ def test_a_peak_edit_is_one_undoable_edit_that_outdates_the_run(workspace, scien
     w._update_inspector()
     assert not _row(w.panel.parameters, "F3.lw").low.text()
     assert not w.fitting.current  # Undo never recertifies a run
+    # Back to the limits the run used, the peak continues from its fitted values again.
+    wait_until(lambda: w.fitting.prepared is not None)
+    continuation = w.fitting.prepared.continuation
+    assert peak.id in continuation.continued
+    assert peak.id not in dict(continuation.reasons)
 
 
 def test_an_invalid_draft_blocks_fit_until_another_peak_is_chosen(workspace):
@@ -364,3 +396,73 @@ def test_the_run_page_lists_each_peaks_own_constraints(scientific):
     ]
     assert "1 peak with its own" in row.value
     assert f"{peaks[0].name} LW ¹H F3: range 5–∞ Hz · held" in row.detail
+
+
+def test_the_greyed_values_stay_the_model_settings_beside_the_peaks_own(workspace):
+    # Through a real preparation: own values are typed, the greyed ones are what the
+    # Model settings alone give, and the fit uses the peak's own.
+    w = workspace
+    peak = w.peaks[0]
+    w.constrain(
+        peak.id,
+        (
+            ("F2.cs", ParameterLimit(window=0.01)),
+            ("F3.lw", ParameterLimit(start=50.0, lower=40.0)),
+        ),
+    )
+    _open(w, peak.id)
+    width = _row(w.panel.parameters, "F3.lw")
+    fields = (width.start, width.low, width.high)
+    assert [e.placeholderText() for e in fields] == ["25", "0.1", "200"]
+    assert [e.text() for e in fields] == ["50", "40", ""]
+    position = _row(w.panel.parameters, "F2.cs").window_edit
+    assert (position.placeholderText(), position.text()) == ("0.04", "0.01")
+    engine = next(i.engine_name for i in w.fitting.prepared.identities if i.working_id == peak.id)
+    fitted = w.fitting.prepared.parameters[f"{engine}.F3.lw"]
+    assert (fitted.value, fitted.min, fitted.max) == (50.0, 40.0, 200.0)
+    # A Model rule's absolute range on positions is named, not shown as no window.
+    settings = w.edits.settings.model_copy(deep=True)
+    settings.parameters.position_window = None
+    settings.parameters.defaults.patterns["*.F2.cs"] = ParameterConstraint(min=-5.0, max=5.0)
+    w.edits.configure(settings)
+    w._refresh()
+    w.constrain(peak.id, ())
+    _open(w, peak.id)
+    position = _row(w.panel.parameters, "F2.cs").window_edit
+    assert position.placeholderText() == "range"
+    assert "bound it to −5.000–5.000 ppm" in position.toolTip()
+
+
+def test_a_failed_attempt_records_the_peaks_own_limits_as_a_run_does(workspace):
+    w = workspace
+    peak = replace(w.peaks[0], limits=(("F3.lw", ParameterLimit(lower=10.0)),))
+    fitting = w.fitting
+    fitting._attempt_id, fitting._attempt_parent = "a" * 32, None
+    fitting._attempt_initial = (peak, *w.peaks[1:])
+    fitting._record_attempt("failed", "simulated")
+    entry = fitting.journal[-1]
+    assert entry["status"] == "failed"
+    assert entry["initial_peaks"][0]["limits"] == (
+        ("F3.lw", {"start": None, "lower": 10.0, "upper": None, "vary": None, "window": None}),
+    )
+
+
+def test_a_long_default_window_is_hinted_short_and_given_exactly_in_its_tooltip():
+    # The model's default ± 50 Hz on ¹H at 600 MHz: 0.0833153 ppm does not fit the field.
+    rows = [
+        ParameterRow(
+            "F3.cs",
+            "δ ¹H F3",
+            "ppm",
+            8.25,
+            8.25 - 50 / 600.13,
+            8.25 + 50 / 600.13,
+            True,
+            50 / 600.13,
+        )
+    ]
+    editor, _shown = _editor(PEAK, rows=rows)
+    window = _row(editor, "F3.cs").window_edit
+    assert window.placeholderText() == "0.083"
+    assert window.toolTip().endswith("the Model settings give ± 0.0833153 ppm")
+    assert window.fontMetrics().horizontalAdvance("0.083") < window.contentsRect().width()

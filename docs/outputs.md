@@ -142,7 +142,10 @@ recorded GUI adoption remain context separate from the immutable numerical resul
 CLI records absent GUI adoption explicitly. A GUI export's recorded configuration is
 the one the engine fitted: a peak's own constraints appear under
 `parameters.peaks` keyed by its engine name (`p_0` …), which `peak_identities` maps to
-its working ID and assignment. Unusable clusters retain diagnostics
+its working ID and assignment. Those keys match only a peak list whose peaks are
+named by engine name, in the recorded order: run `peakfit fit` with the assignments
+and no own constraint applies, without a warning; two peaks sharing an assignment
+cannot be told apart by name at all. Unusable clusters retain diagnostics
 without fabricated predictions. Exports from the retired GUI local-fit preview
 contain only their fitted group and remain readable.
 

@@ -2,16 +2,15 @@
 
 import csv
 import math
-import re
 from dataclasses import astuple, dataclass, replace
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
+from peakfit.engine.domain.constraints import PARAMETER_KEY
 from peakfit.gui import formatting
 
 _SPECTRAL_DIMENSIONS = 2
-_PARAMETER = re.compile(r"F\d+\.\w+")  # a peak's parameter by axis and kind: ``F3.lw``
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +69,7 @@ class WorkingPeak:
         ):
             raise ValueError("Peak positions must be two finite ppm coordinates.")
         keys = [key for key, _limit in self.limits]
-        if keys != sorted(set(keys)) or not all(_PARAMETER.fullmatch(k) for k in keys):
+        if keys != sorted(set(keys)) or not all(PARAMETER_KEY.fullmatch(k) for k in keys):
             raise ValueError("Peak limits must name each parameter (F3.lw) once, in order.")
         for key, limit in self.limits:
             if limit.empty:

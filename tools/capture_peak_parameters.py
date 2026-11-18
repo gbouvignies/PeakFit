@@ -8,8 +8,8 @@ tool writes. Run it on a desktop (natively, not offscreen)::
 It opens the real window on the bundled ``02-advanced-fitting`` dataset through
 ``validate_gui_layout.Session``, selects 2N-H and captures at 1280×800 (and 1160×720,
 the narrowest supported window) in both appearances: Parameters as loaded; the
-peak's own constraints set (a ¹⁵N window, a ¹H linewidth range, the ¹⁵N linewidth
-held at a start); a typed range that cannot be used; a committed start outside the
+peak's own constraints set (a ¹⁵N window, a ¹H linewidth start and range, the ¹⁵N
+linewidth held at a start); a typed range that cannot be used; a committed start outside the
 settings' range; the Model page counting the peak; the GUI's own fit with those
 constraints, its Run page; and an edit that differs from that run. Each state is
 saved as the whole window (downscaled WebP) and the inspector alone (device pixels),
@@ -128,9 +128,14 @@ def _prepared(c: Capture) -> None:
 
 
 def _set(c: Capture) -> None:
-    """The peak's own constraints: a ¹⁵N window, a ¹H width range, the ¹⁵N width held."""
+    """The peak's own constraints: a ¹⁵N window, a ¹H width range, the ¹⁵N width held.
+
+    The ¹H width gets a start of its own first: the Model settings' start (2 Hz on
+    this dataset) lies outside the range, which the desktop refuses rather than moves.
+    """
     _type(_row(c, "F2.cs").window_edit, "0.3")
     width = _row(c, "F3.lw")
+    _type(width.start, "20")
     _type(width.low, "5")
     _type(width.high, "40")
     held = _row(c, "F2.lw")
@@ -161,7 +166,7 @@ def run(output: Path) -> list[dict[str, Any]]:
     _type(width.start, "500")
     _prepared(c)
     c.matrix("04-start-outside-range", scroll_to=section)
-    _type(width.start, "")
+    _type(width.start, "20")
     _type(width.high, "40")
     _prepared(c)
     blocked = w.fitting.blocked or section.invalid

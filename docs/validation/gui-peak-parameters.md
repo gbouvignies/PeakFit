@@ -17,7 +17,8 @@ working peak”). Sizes are Qt logical pixels.
   and 1160×720, light and dark, 32 in all:
   1. Parameters as loaded: every value greyed, from the Model settings;
   2. the peak's own constraints: a ¹⁵N position window of ± 0.3 ppm, a ¹H linewidth
-     range of 5–40 Hz, the ¹⁵N linewidth held at 20 Hz;
+     start of 20 Hz in 5–40 Hz (the settings' 2 Hz start lies outside it), the ¹⁵N
+     linewidth held at 20 Hz;
   3. a typed range of 60–40 Hz (a draft: explained, Fit disabled);
   4. a committed start of 500 Hz that the 5–200 Hz range excludes (a preparation
      problem: explained under the parameter, Fit disabled with the peak's name);

@@ -36,15 +36,18 @@ if TYPE_CHECKING:
 
 NOTE = "Empty fields follow the Model settings; typed values apply to this peak only."
 ENTER_WINDOW = "Enter the position window as a positive number of ppm, or leave it empty."
+WINDOW_TIP = "How far this peak's position may move from where it is"
 
 
 @dataclass(frozen=True)
 class ParameterRow:
-    """One of the peak's parameters as the current preparation submits it.
+    """One of the peak's parameters as the Model settings alone give it.
 
-    ``window`` is the settings' position window on a position's axis (None if none);
-    ``problem`` is why the peak's own limit cannot be fitted as given, or "".
-    A limit on a parameter the model lacks has non-finite values.
+    These are the greyed values and Hold's default; the peak's own limits replace
+    them field by field. ``window`` is a position's range as ± ppm around the peak
+    (None when the settings' range is not symmetric); ``problem`` is why the peak's
+    own limit cannot be fitted as given, or "". A limit on a parameter the model lacks
+    has non-finite values.
     """
 
     key: str  # ``F3.lw``
@@ -126,7 +129,7 @@ class _LimitRow(QtWidgets.QWidget):
         self.low = number_edit(f"{row.title} lower bound")
         self.high = number_edit(f"{row.title} upper bound")
         self.window_edit = number_edit(f"{row.title} position window (ppm)")
-        self.window_edit.setToolTip("How far this peak's position may move from where it is")
+        self.window_edit.setToolTip(WINDOW_TIP)
         self.at = text_label("", "muted")
         self.unit = text_label(row.unit, "muted")
         self.message = text_label("", "error", wrap=True)
@@ -189,8 +192,21 @@ class _LimitRow(QtWidgets.QWidget):
             edit.setPlaceholderText(value_text(value) if math.isfinite(value) else "")
             if edit.text() != text:
                 edit.setText(text)
-        window = value_text(row.window) if row.window else "none"
+        # The field is narrow: the hint is short, the exact value in the tooltip. A
+        # rule's absolute range is no ± window: say so, and give it in the tooltip.
+        given = row.window is not None and math.isfinite(row.window) and not stale
+        window = formatting.scaled(row.window, 2) if given and row.window else "range"
         self.window_edit.setPlaceholderText("" if stale else window)
+        if given:
+            tip = f"{WINDOW_TIP}; the Model settings give ± {value_text(row.window)} ppm"
+        elif math.isfinite(row.lower) and not stale:
+            tip = (
+                f"The Model settings bound it to {formatting.ppm(row.lower)}–"
+                f"{formatting.ppm(row.upper)} ppm; a window here replaces that"
+            )
+        else:
+            tip = WINDOW_TIP
+        self.window_edit.setToolTip(tip)
         if self.window_edit.text() != draft.window:
             self.window_edit.setText(draft.window)
         held = (draft.vary is False) if draft.vary is not None else not row.vary
@@ -286,8 +302,13 @@ class PeakParameters(QtWidgets.QWidget):
         self._emit()
 
     def hold(self, row: _LimitRow, held: bool) -> None:
-        """Hold: this peak's parameter is held (or fitted against a rule that holds it)."""
-        self._drafts.setdefault(row.key, _Draft()).vary = not held
+        """Hold: this peak's parameter is held (or fitted against a rule that holds it).
+
+        Back to what the Model settings give, the peak has no vary of its own, so a
+        rule changed later still applies to it.
+        """
+        given = not row.row.vary
+        self._drafts.setdefault(row.key, _Draft()).vary = None if held == given else not held
         self.commit()
 
     def reset(self, row: _LimitRow) -> None:

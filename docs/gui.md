@@ -566,11 +566,15 @@ constraints. Each parameter, positions then linewidths, the horizontal axis firs
 has a line with its name, **Hold** and ×, then its values: a position reads “at
 8.256 ± [window] ppm”, how far it may move from where the peak is (moving the peak is
 the position editor's); any other parameter reads “start [ ] range [ ] – [ ]” in
-its unit. An empty field shows, greyed, what the Model settings give this peak in the
-current preparation; a value typed there is the peak's own and applies to this peak
-only, as `[parameters.peaks."<name>"]` does for `peakfit fit`. **Hold** shows whether
-the parameter is held; changing it holds this peak's parameter, or fits it against a
-rule that holds it. × resets the parameter to the Model settings. Values accept
+its unit. An empty field shows, greyed, what the Model settings alone give this peak
+in the current preparation, also beside the peak's own values; a value typed there
+is the peak's own and applies to this peak only, as `[parameters.peaks."<name>"]`
+does for `peakfit fit`. A position bounded by a Model rule's absolute range rather
+than a ± window shows “range”, the range in its tooltip. **Hold** shows whether the
+parameter is held; changing it holds this peak's parameter, or fits it against a
+rule that holds it, and changing it back leaves the peak nothing of its own, so a
+Model-wide Hold added later applies to it. × resets the parameter to the Model
+settings. Values accept
 plain or scientific entry, like the Model page's. The title counts the parameters
 set (“Parameters · 2 set for this peak”). Own constraints belong to the working
 peak, not to its assignment: they follow it through renames and moves, and two
@@ -586,13 +590,12 @@ not positive) is explained under its parameter, outlines its fields, keeps the
 committed value and disables **Fit** with the same reason until it is corrected or
 the peak is left. A committed constraint that cannot be fitted as given (a start
 outside the range the settings and the peak's own bounds give together, an empty
-range, a parameter the current lineshape lacks) is explained under its parameter
+range, a parameter the current lineshape lacks, or a bound of the peak's own that
+excludes the start the Model settings give) is explained under its parameter
 and disables **Fit** with the peak's name; Fit then selects that peak with its
 Parameters open. This is a deliberate difference from `peakfit fit`, which moves
 such a start to its nearest bound without saying so; whether the engine should
-refuse it too is [#235](https://github.com/gbouvignies/PeakFit/issues/235). A start
-nobody typed, the model's default or a Model rule's, still follows the range, as in
-`peakfit fit`: the greyed start shows where the fit will begin. A peak's own values
+refuse it too is [#235](https://github.com/gbouvignies/PeakFit/issues/235). A peak's own values
 replace the Model settings' field by field (an own lower bound keeps the rule's
 upper one), Hold included, both ways; its own position window replaces the axis's
 and the Model-wide one. An imported fit-step schedule's fix and vary apply last and

@@ -148,6 +148,9 @@ class PreparedDatasetFit:
     estimated_noise: float | None = None
     # Peaks' own limits that cannot be fitted as given; any one blocks the fit.
     problems: tuple[ConstraintProblem, ...] = ()
+    # Every parameter as the Model settings alone give it, before any peak's own limits
+    # and fit steps: what a peak's Parameters show greyed, and what Hold reverts to.
+    inherited: Parameters | None = None
 
     @property
     def engine_configuration(self) -> PeakFitConfig:
@@ -219,10 +222,13 @@ def prepare_dataset_fit(
     continued: set[str] = set()
     reasons: dict[str, str] = {}
     problems: list[ConstraintProblem] = []
+    inherited = Parameters()
     for cluster in clusters:
         initial = prepare_cluster_parameters(cluster, engine, steps[0])
+        given = apply_constraints(Parameters.from_peaks(cluster.peaks), settings.parameters)
+        inherited.update(given)
         for peak in cluster.peaks:
-            problems += limit_problems(by_id[working[peak.name]], peak.name, initial, names)
+            problems += limit_problems(by_id[working[peak.name]], peak.name, initial, given, names)
         if seeding is not None:
             continued |= _continue(initial, cluster, engine, working, by_id, seeding, reasons)
         if problems:
@@ -265,6 +271,7 @@ def prepare_dataset_fit(
         ),
         estimated,
         tuple(sorted(problems, key=lambda p: (order[p.working_id], p.key))),
+        inherited,
     )
 
 
@@ -398,13 +405,18 @@ def engine_configuration(
 
 
 def limit_problems(
-    peak: WorkingPeak, engine_name: str, initial: Parameters, names: Mapping[str, str]
+    peak: WorkingPeak,
+    engine_name: str,
+    initial: Parameters,
+    inherited: Parameters,
+    names: Mapping[str, str],
 ) -> list[ConstraintProblem]:
     """Why each of a peak's own limits cannot be fitted as given, from its resolved values.
 
-    A limit must name a parameter of the current model, leave a non-empty range and,
-    when it sets a start, keep it inside the range the settings and the limit give
-    together: ``peakfit fit`` would move it to the nearest bound without saying so.
+    A limit must name a parameter of the current model and leave a non-empty range.
+    The start, the peak's own or the one the Model settings give (``inherited``), must
+    lie inside the range the settings and the limit give together: ``peakfit fit``
+    would move it to the nearest bound without saying so (#235).
     """
     problems = []
     for key, limit in peak.limits:
@@ -425,6 +437,12 @@ def limit_problems(
                 reason = (
                     f"Start {show(limit.start)}{unit} is outside its range {span}. "
                     "Change the start or the range."
+                )
+            elif limit.start is None and parameter.value != inherited[name].value:
+                reason = (
+                    f"The Model settings start it at {show(inherited[name].value)}{unit}, "
+                    f"outside this peak's range {span}. Type a start for this peak, or "
+                    "change the range."
                 )
         if reason:
             problems.append(ConstraintProblem(peak.id, key, title, reason))

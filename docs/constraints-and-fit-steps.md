@@ -131,7 +131,6 @@ With `"*.*.lw" = { min = 5.0, max = 100.0 }` and the model's linewidth start of
 | `{ min = 20.0 }` | 25 | 20–100 | yes |
 | `{ min = 10.0, max = 50.0 }` | 25 | 10–50 | yes |
 | `{ value = 40.0 }` | 40 | 5–100 | yes |
-| `{ min = 30.0 }` | 30 (moved to the bound) | 30–100 | yes |
 | `{ vary = false }` | 25 | 5–100 | no |
 
 A per-peak constraint replaces each field it sets and keeps the others; its `vary`
@@ -154,10 +153,12 @@ exactly the `[parameters.peaks."<name>"]` above, keyed by the peak's engine name
 the precedence, clustering (a doublet's footprint follows its own J bound) and fit
 are those of `peakfit fit` with the equivalent TOML. Two differences:
 
-- **A start outside its range is refused, not moved.** A start typed for the peak
-  that the combined range excludes, an empty range, or a constraint on a parameter
-  the model lacks blocks the desktop fit and names the peak; `peakfit fit` would fit
-  from the bound (#235). Starts nobody typed still move to the bound, as above.
+- **A start outside its range is refused, not moved.** When a peak's own constraint
+  leaves its start outside the combined range, whether the peak's own start or the
+  one the Model settings give (`{ min = 30.0 }` above, with the default start of
+  25), the desktop fit is blocked and names the peak; so are an empty range and a
+  constraint on a parameter the model lacks. `peakfit fit` would fit from the bound
+  (#235). A Model rule's own range still moves the model's default start, as above.
 - **Constraints follow the peak, not its name.** `peakfit fit` applies
   `[parameters.peaks."2N-H"]` to every peak named 2N-H; the desktop applies a peak's
   own constraints to that peak only, also when two peaks share an assignment.

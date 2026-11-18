@@ -1,7 +1,7 @@
 """Whole-dataset execution and atomic completion in the existing editor workspace."""
 
 from concurrent.futures import CancelledError
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from time import perf_counter
@@ -650,10 +650,8 @@ class DatasetFitting(QtCore.QObject):
                     "completed_at": datetime.now(UTC).isoformat(),
                     "status": status,
                     "configuration": self.configuration.model_dump_json(),
-                    "initial_peaks": [
-                        {"id": p.id, "name": p.name, "positions": p.positions}
-                        for p in self._attempt_initial
-                    ],
+                    # As a completed run records them, the peaks' own limits included.
+                    "initial_peaks": [asdict(p) for p in self._attempt_initial],
                     "diagnostics": diagnostic,
                     "parameters": [],
                 }

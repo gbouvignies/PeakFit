@@ -1473,7 +1473,7 @@ def test_a_run_recorded_before_the_rule_reopens_and_exports_as_recorded(collinea
     assert context["coordinate_table"]["peaks"][flagged]["adoption_status"] == "adopted_fitted"
 
 
-def test_peaks_own_limits_reopen_with_their_peaks_and_the_run(tmp_path, monkeypatch):
+def test_peaks_own_limits_reopen_with_their_peaks_and_the_run(qapp, tmp_path, monkeypatch):
     """A peak's own limits are saved with the working peak and with the run that used them."""
     spectra, peaks, config, _prepared = two_cluster_dataset()
     limits = (("F3.lw", ParameterLimit(lower=5.0, upper=80.0, vary=None)),)
@@ -1513,6 +1513,15 @@ def test_peaks_own_limits_reopen_with_their_peaks_and_the_run(tmp_path, monkeypa
     assert reopened.snapshot.peaks[0].limits == limits
     assert reopened.engine_configuration == prepared.engine_configuration
     assert not loaded.current
+    # Analysis history's effective settings are what the engine fitted, own limits included.
+    review = NumericalReview(loaded)
+    effective = next(
+        line for line in review.details.toPlainText().splitlines() if "Effective settings" in line
+    )
+    assert '"peaks":{"p_0":' in effective.replace(" ", "")
+    review.close()
+    review.deleteLater()
+    qapp.processEvents()
 
 
 @pytest.mark.parametrize("record", ["working_peaks", "run_peaks"])

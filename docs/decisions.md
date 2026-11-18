@@ -1766,12 +1766,17 @@ Short records of non‑obvious design choices and trade‑offs.
   with two peaks sharing one assignment). The run records the working settings and
   the peaks with their limits; the engine config is derived from them for the fit and
   written as the export's configuration, mapped by `peak_identities`.
-- **Refused, not clamped.** A committed own start outside the range the settings and
-  the peak's bounds give together, an empty range, or a limit on a parameter the
-  model lacks is a preparation problem that blocks Fit with the peak's name; Fit then
+- **Refused, not clamped.** A start outside the range the settings and the peak's
+  bounds give together, whether the peak's own or the one the Model settings give
+  (an own lower bound above the default start), an empty range, or a limit on a
+  parameter the model lacks is a preparation problem that blocks Fit with the
+  peak's name; Fit then
   opens that peak. `peakfit fit` silently clamps such a start (#235, pinned by
   `tests/test_gui_model_settings.py`); the engine's semantics stay as they are here.
-  A start nobody typed still follows the range, as in `peakfit fit`. Typed values that
+  A Model rule's own range still moves the model's default start, as in `peakfit fit`.
+  The Parameters' greyed values are what the Model settings alone give (the
+  preparation's `inherited` parameters), and Hold set back to them leaves no own
+  `vary`. Typed values that
   cannot be used are drafts, explained under the parameter, as on the Model page.
 - **Continuation per peak.** A peak whose own limits changed since the run starts
   from the configured defaults (“constraints changed since run …”), as a moved peak

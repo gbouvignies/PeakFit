@@ -83,6 +83,14 @@ _DISPLAY = (
 )
 
 
+def _half_width(parameter) -> float | None:
+    """A position's range as ± ppm around its start; None when it is not symmetric."""
+    below, above = parameter.value - parameter.min, parameter.max - parameter.value
+    if not math.isfinite(below + above) or not math.isclose(below, above, rel_tol=1e-9):
+        return None
+    return below
+
+
 class EditorWorkspace(QtWidgets.QWidget):
     """Own committed scientific edits; navigation and drafts never change revision."""
 
@@ -964,16 +972,17 @@ class EditorWorkspace(QtWidgets.QWidget):
             get_dimension_label(index): formatting.axis_name(a)
             for index, a in enumerate(spectra.spectral_params)
         }
-        settings = fitting.configuration.parameters
         problems = {p.key: p.reason for p in prepared.problems if p.working_id == peak.id}
+        inherited = prepared.inherited
         rows: dict[str, ParameterRow] = {}
-        for parameter in prepared.parameters.values():
-            identifier = parameter.param_id
+        for name, resolved in prepared.parameters.items():
+            identifier = resolved.param_id
             if identifier is None or identifier.peak_name != engine:
                 continue
+            # What the Model settings alone give: the greyed values, and Hold's default.
+            parameter = inherited[name] if inherited is not None and name in inherited else resolved
             axis = identifier.axis or ""
             key = f"{axis}.{identifier.label}"
-            window = settings.position_windows.get(axis) or settings.position_window
             rows[key] = ParameterRow(
                 key,
                 parameter_title(identifier.label, axes.get(axis) or axis),
@@ -982,7 +991,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 parameter.min,
                 parameter.max,
                 parameter.vary,
-                window if identifier.label == "cs" else None,
+                _half_width(parameter) if identifier.label == "cs" else None,
                 problems.get(key, ""),
             )
         for key, _limit in peak.limits:
