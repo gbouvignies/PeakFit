@@ -24,6 +24,7 @@ from peakfit.gui.editor.run_page import submitted_rows
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fitting import PeakIdentity, engine_configuration
 from peakfit.gui.peaks import ParameterLimit, WorkingEdits, WorkingPeak
+from peakfit.gui.project_results import run_numbers
 from peakfit.gui.spectrum import Dataset
 from peakfit.io.config import load_config
 
@@ -177,7 +178,7 @@ def test_hold_and_reset():
 
 
 def test_each_own_limit_is_marked_when_it_differs_from_the_run():
-    recorded = ("5d7b4768", (("F3.lw", ParameterLimit(lower=5.0, upper=50.0)),))
+    recorded = ("3", (("F3.lw", ParameterLimit(lower=5.0, upper=50.0)),))
     peak = replace(PEAK, limits=recorded[1])
     editor, _shown = _editor(peak, recorded=recorded)
     assert not editor.differs
@@ -185,10 +186,10 @@ def test_each_own_limit_is_marked_when_it_differs_from_the_run():
     _type(row.high, "40")
     assert editor.differs
     assert row.title.text() == f"LW ¹H F3 {DIFFERS}"
-    assert row.title.toolTip() == "Run 5d7b4768 used range 5–50 Hz"
+    assert row.title.toolTip() == "Run 3 used range 5–50 Hz"
     window = _row(editor, "F2.cs")
     _type(window.window_edit, "0.05")
-    assert window.title.toolTip() == "Run 5d7b4768 used the Model settings"
+    assert window.title.toolTip() == "Run 3 used the Model settings"
 
 
 def test_a_preparation_problem_is_shown_under_its_parameter():
@@ -297,8 +298,10 @@ def test_a_peak_edit_is_one_undoable_edit_that_outdates_the_run(workspace, scien
     assert not w.fitting.current  # Outdated
     w._update_inspector()
     run = scientific[-1].run_id[:8]
+    number = run_numbers(w.fitting.journal)[scientific[-1].run_id]
     row = _row(w.panel.parameters, "F3.lw")
-    assert row.title.toolTip() == f"Run {run} used the Model settings"
+    # Named by its number, as every caption names a run; the reason keeps the short ID.
+    assert row.title.toolTip() == f"Run {number} used the Model settings"
     assert w.panel.parameters_toggle.text() == f"▾  Parameters · 1 set for this peak {DIFFERS}"
     # The Model page counts the peaks with their own; the next fit does not continue them.
     assert "1 peak with its own" in w.panel.model_page.constraints_summary.text()

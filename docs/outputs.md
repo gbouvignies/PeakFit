@@ -490,6 +490,9 @@ The manifest's working peaks and each run's submitted and post-fit peaks record
 each peak's own parameter limits (`limits`: pairs of a parameter such as `F3.lw`
 and its `start`, `lower`, `upper`, `vary` and, for a position, `window` in ppm, each
 `null` when unset), by stable peak ID; the working settings never name peaks.
+`limits` is required: a peak record without it, or working settings with
+`parameters.peaks`, come from a development build that kept no such limits, and the
+project is refused with that explanation rather than opened without them.
 
 Each run's `review.json` keeps its exact submitted starts as `initial_parameters`
 and their provenance as `continuation`: `run_id` (the run that supplied continued

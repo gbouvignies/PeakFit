@@ -32,8 +32,22 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
 
+# Development builds wrote peaks without their own constraints, and could keep
+# ``[parameters.peaks]`` in the settings; neither is read as "no constraints".
+BEFORE_OWN_LIMITS = (
+    "This project was written by a PeakFit development build before peaks kept their "
+    "own constraints, so this version cannot read it without losing them. Open the "
+    "spectrum and peak list as a new analysis and refit."
+)
+
+
 def read_peaks(records):
-    """Validate stable working identities and exact unfolded coordinates."""
+    """Validate stable working identities and exact unfolded coordinates.
+
+    A peak record without ``limits`` is refused, never read as having none.
+    """
+    if any(isinstance(p, dict) and "limits" not in p for p in records):
+        raise ValueError(BEFORE_OWN_LIMITS)
     peaks = tuple(
         WorkingPeak(
             p["id"],

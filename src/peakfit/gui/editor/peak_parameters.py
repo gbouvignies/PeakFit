@@ -217,7 +217,7 @@ class PeakParameters(QtWidgets.QWidget):
         self._peak: WorkingPeak | None = None
         self._rows: list[ParameterRow] = []
         self._drafts: dict[str, _Draft] = {}
-        self._recorded: tuple[str, PeakLimits] | None = None  # the run's ID and limits
+        self._recorded: tuple[str, PeakLimits] | None = None  # the run's name and limits
         self._updating = False
         self._stale = False
         self.invalid = ""
@@ -248,7 +248,7 @@ class PeakParameters(QtWidgets.QWidget):
         note: str,
         recorded: tuple[str, PeakLimits] | None = None,
     ) -> None:
-        """Show ``peak``'s parameters; ``recorded`` is the active run's (ID, own limits).
+        """Show ``peak``'s parameters; ``recorded`` is the active run's (name, own limits).
 
         Without ``rows`` (a preparation under way or failed) the same peak keeps its
         rows and drafts; another peak shows only the note. A changed peak or limits

@@ -1769,7 +1769,9 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Refused, not clamped.** A committed own start outside the range the settings and
   the peak's bounds give together, an empty range, or a limit on a parameter the
   model lacks is a preparation problem that blocks Fit with the peak's name; Fit then
-  opens that peak. `peakfit fit` silently clamps such a start. Typed values that
+  opens that peak. `peakfit fit` silently clamps such a start (#235, pinned by
+  `tests/test_gui_model_settings.py`); the engine's semantics stay as they are here.
+  A start nobody typed still follows the range, as in `peakfit fit`. Typed values that
   cannot be used are drafts, explained under the parameter, as on the Model page.
 - **Continuation per peak.** A peak whose own limits changed since the run starts
   from the configured defaults (“constraints changed since run …”), as a moved peak
@@ -1778,7 +1780,10 @@ Short records of non‑obvious design choices and trade‑offs.
   the baseline's (`edited_since`).
 - **Storage amended in place.** Project 15.0.0 working, submitted and post-fit peaks
   gain `limits`; nothing else changes. Projects written by development builds
-  before this change are refused and refit.
+  before this change (peaks without `limits`, or settings with `parameters.peaks`)
+  are refused with that reason, never opened with their constraints dropped.
+- **Clustering sees them too.** The desktop clusters with the engine configuration,
+  so a doublet's footprint follows a peak's own J bound, as in `peakfit fit`.
 
 ## 2026-11-17: Compare the active run with any retained run; no Runs tab (#218)
 - **A baseline menu, not a tab.** The Run page's changes section reads **Changes

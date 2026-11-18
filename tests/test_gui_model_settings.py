@@ -7,6 +7,7 @@ same problem through the same functions, only with stable peak identities in pla
 of assignments.
 """
 
+import warnings
 from copy import deepcopy
 from dataclasses import replace
 
@@ -15,7 +16,9 @@ import pytest
 from builders import two_cluster_dataset
 
 from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.fit import fitting
+from peakfit.fit.pipeline import prepare_cluster_parameters
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.peaks import ParameterLimit
@@ -209,6 +212,7 @@ def test_a_desktop_fit_applies_each_peaks_own_constraints_as_peakfit_fit(
 
 
 def test_a_limit_that_cannot_be_fitted_as_given_blocks_the_fit(dataset):
+    """The desktop refuses what ``peakfit fit`` clamps (#235; see the next test)."""
     spectra, peaks = dataset
     rule = {"defaults": {"*.*.lw": {"min": 5.0, "max": 100.0}}}
     config = _settings(parameters=rule)
@@ -223,3 +227,30 @@ def test_a_limit_that_cannot_be_fitted_as_given_blocks_the_fit(dataset):
     assert prepared.problem_text().startswith(f"{outside.name}: LW F3: Start 150 Hz")
     with pytest.raises(ValueError, match="outside its range"):
         compute_dataset_fit(prepared)
+
+
+def test_peakfit_fit_moves_the_same_start_to_its_bound_without_saying_so(
+    dataset, tmp_path, monkeypatch
+):
+    # The current difference, pinned until #235 settles the engine's semantics: one
+    # configuration, a start of 150 Hz against a 5–100 Hz range. The desktop refuses
+    # it before fitting; ``peakfit fit`` fits from 100 Hz and records no warning.
+    spectra, peaks = dataset
+    rule = {"defaults": {"*.*.lw": {"min": 5.0, "max": 100.0}}}
+    gui = prepare_dataset_fit(
+        spectra,
+        (replace(peaks[0], limits=(("F3.lw", ParameterLimit(start=150.0)),)), *peaks[1:]),
+        _settings(parameters=rule),
+    )
+    assert [p.key for p in gui.problems] == ["F3.lw"]
+    config = _settings(parameters=rule | {"peaks": {"0N-H": {"F3.lw": {"value": 150.0}}}})
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        data, cli = _cli(tmp_path / "cli", monkeypatch, spectra, peaks, config)
+    [cluster] = [c for c in data.clusters if "0N-H" in [p.name for p in c.peaks]]
+    steps = build_fit_steps(config.fitting.steps, config.fitting.refine_iterations)
+    start = prepare_cluster_parameters(cluster, config, steps[0])["0N-H.F3.lw"]
+    assert (start.value, start.min, start.max) == (100.0, 5.0, 100.0)
+    final = {p.name: p for c in cli.outcome.clusters for p in c.final_nonlinear_parameters}
+    assert (final["0N-H.F3.lw"].min, final["0N-H.F3.lw"].max) == (5.0, 100.0)
+    assert not [w for w in captured if "150" in str(w.message) or "start" in str(w.message)]

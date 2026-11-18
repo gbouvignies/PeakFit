@@ -588,9 +588,17 @@ the peak is left. A committed constraint that cannot be fitted as given (a start
 outside the range the settings and the peak's own bounds give together, an empty
 range, a parameter the current lineshape lacks) is explained under its parameter
 and disables **Fit** with the peak's name; Fit then selects that peak with its
-Parameters open. `peakfit fit` would move such a start to its bound without saying
-so. While preparation runs or fails the section shows no values rather than old
-ones.
+Parameters open. This is a deliberate difference from `peakfit fit`, which moves
+such a start to its nearest bound without saying so; whether the engine should
+refuse it too is [#235](https://github.com/gbouvignies/PeakFit/issues/235). A start
+nobody typed, the model's default or a Model rule's, still follows the range, as in
+`peakfit fit`: the greyed start shows where the fit will begin. A peak's own values
+replace the Model settings' field by field (an own lower bound keeps the rule's
+upper one), Hold included, both ways; its own position window replaces the axis's
+and the Model-wide one. An imported fit-step schedule's fix and vary apply last and
+override Hold, as they do for `peakfit fit`
+([constraints and fit steps](constraints-and-fit-steps.md#desktop-own-constraints)).
+While preparation runs or fails the section shows no values rather than old ones.
 
 **Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
 the active run's profiles in the centre, one tile per cluster, in the cluster list's

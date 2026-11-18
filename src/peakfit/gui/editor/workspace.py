@@ -998,14 +998,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         return ordered, NOTE
 
     def _recorded_limits(self) -> tuple[str, PeakLimits] | None:
-        """The active run's short ID and the selected peak's own limits in it."""
+        """The active run's name and the selected peak's own limits in it."""
         result = self.fitting.result
         if result is None or self.selected_id is None:
             return None
         recorded = next(
             (p.limits for p in result.inputs.snapshot.peaks if p.id == self.selected_id), ()
         )
-        return result.run_id[:8], recorded
+        return run_name(result.run_id, self.fitting.journal), recorded
 
     def constrain(self, identity: str, limits: PeakLimits) -> None:
         """Commit one peak's own limits as one undoable edit; a run becomes Outdated."""

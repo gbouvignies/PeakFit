@@ -119,6 +119,52 @@ configured fixed parameters in the default step. Workflows relying on that accid
 release should explicitly request `vary = ["*"]` in a fit step. Runs using model
 defaults without constraints retain their existing behavior.
 
+### Combined example
+
+With `"*.*.lw" = { min = 5.0, max = 100.0 }` and the model's linewidth start of
+25 Hz, each line below gives one peak's effective linewidth before the first pass
+(`tests/test_gui_peak_constraints.py` pins each):
+
+| Peak's own constraint | Start | Bounds | Varied |
+| --- | --- | --- | --- |
+| none | 25 | 5–100 | yes |
+| `{ min = 20.0 }` | 25 | 20–100 | yes |
+| `{ min = 10.0, max = 50.0 }` | 25 | 10–50 | yes |
+| `{ value = 40.0 }` | 40 | 5–100 | yes |
+| `{ min = 30.0 }` | 30 (moved to the bound) | 30–100 | yes |
+| `{ vary = false }` | 25 | 5–100 | no |
+
+A per-peak constraint replaces each field it sets and keeps the others; its `vary`
+wins over a rule's both ways. A position window is centred on the peak's position
+and always replaces the window-free bounds a rule gives `cs`; a per-peak `cs`
+`min`/`max` would replace the window in turn.
+
+**Starts outside their range are moved without warning.** `apply_constraints` moves
+every start, configured or default, to the nearest bound of the combined range;
+`peakfit fit` reports nothing. A configured start of 150 Hz against the rule above
+fits from 100 Hz. Whether such a configuration should be refused is
+[#235](https://github.com/gbouvignies/PeakFit/issues/235).
+
+### Desktop own constraints
+
+The desktop fit has no `[parameters.peaks]` in its settings: a peak's own
+constraints are edited on its Peak page and kept on the working peak, by its stable
+ID ([GUI](gui.md), [decisions](decisions.md), 2026-11-17). For the fit they become
+exactly the `[parameters.peaks."<name>"]` above, keyed by the peak's engine name, so
+the precedence, clustering (a doublet's footprint follows its own J bound) and fit
+are those of `peakfit fit` with the equivalent TOML. Two differences:
+
+- **A start outside its range is refused, not moved.** A start typed for the peak
+  that the combined range excludes, an empty range, or a constraint on a parameter
+  the model lacks blocks the desktop fit and names the peak; `peakfit fit` would fit
+  from the bound (#235). Starts nobody typed still move to the bound, as above.
+- **Constraints follow the peak, not its name.** `peakfit fit` applies
+  `[parameters.peaks."2N-H"]` to every peak named 2N-H; the desktop applies a peak's
+  own constraints to that peak only, also when two peaks share an assignment.
+
+An imported fit-step schedule applies its `fix`/`vary` after all of these, so it can
+release a held parameter or fix a freed one, in both.
+
 ## Multi-Step Fit Steps
 
 `[[fitting.steps]]` defines a sequence of fitting steps with different parameter constraints.

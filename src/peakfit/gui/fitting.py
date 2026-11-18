@@ -194,7 +194,8 @@ def prepare_dataset_fit(
     lineshapes = axis_lineshapes(settings.fitting, spectra)
     identities, scientific_peaks = _working_model(spectra, peaks, lineshapes)
     engine = engine_configuration(settings, peaks, identities)
-    noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, settings)
+    # Own bounds reach the clustering too: a doublet's footprint follows its J bound.
+    noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, engine)
     estimated = noise if settings.noise_level is None else _estimate(spectra)
     included = [peak.name for cluster in clusters for peak in cluster.peaks]
     if len(included) != len(identities) or set(included) != {i.engine_name for i in identities}:

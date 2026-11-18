@@ -37,6 +37,7 @@ from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_an
 from peakfit.gui.project_process import project_operation
 from peakfit.gui.project_results import (
     journal_entry,
+    read_peaks,
     reconstruct_result,
     verify_model,
 )
@@ -1512,3 +1513,36 @@ def test_peaks_own_limits_reopen_with_their_peaks_and_the_run(tmp_path, monkeypa
     assert reopened.snapshot.peaks[0].limits == limits
     assert reopened.engine_configuration == prepared.engine_configuration
     assert not loaded.current
+
+
+@pytest.mark.parametrize("record", ["working_peaks", "run_peaks"])
+def test_peaks_written_without_their_own_limits_are_refused_not_read_as_none(
+    analysis, tmp_path, record
+):
+    # A development build wrote peaks before they kept their own constraints: reading
+    # such a record as "no constraints" would silently drop them.
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+    manifest = json.loads((path / "manifest.json").read_text())
+    peaks = manifest["working_peaks"]
+    for peak in peaks:
+        del peak["limits"]
+    if record == "working_peaks":
+        (path / "manifest.json").write_text(json.dumps(manifest))
+        with pytest.raises(ValueError, match="before peaks kept their own constraints") as error:
+            open_analysis(path)
+    else:  # a run's submitted or post-fit peaks, read by the same reader
+        with pytest.raises(ValueError, match="before peaks kept their own constraints") as error:
+            read_peaks(peaks)
+    assert str(error.value).endswith("Open the spectrum and peak list as a new analysis and refit.")
+
+
+def test_settings_that_name_peaks_are_refused_not_dropped(analysis, tmp_path):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+    manifest = json.loads((path / "manifest.json").read_text())
+    configuration = json.loads(manifest["configuration"])
+    configuration["parameters"]["peaks"] = {"G45N-HN": {"F3.lw": {"min": 5.0, "max": 40.0}}}
+    manifest["configuration"] = json.dumps(configuration)
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match=r"settings name peaks \('G45N-HN'\)") as error:
+        open_analysis(path)
+    assert "neither fits nor drops them" in str(error.value)
