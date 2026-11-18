@@ -7,8 +7,9 @@ working peak”). Sizes are Qt logical pixels.
 
 ## How it was run
 
-- **Code:** branch `dev/peak-constraints`, on top of W4 (PR #231). PySide6/Qt 6.10.1,
-  Fusion style.
+- **Code:** branch `dev/peak-constraints` after merging `main` (W4 #231, #233,
+  #234) and the final review (run numbers in tooltips, own J bounds in clustering).
+  PySide6/Qt 6.10.1, Fusion style.
 - **Machine:** macOS 27.2.1 on Apple silicon, built-in Retina display, DPR 2.0.
 - **Captures:** `uv run python tools/capture_peak_parameters.py --output <dir>`
   (native Cocoa) drives the real window on the bundled `02-advanced-fitting`
@@ -28,7 +29,8 @@ working peak”). Sizes are Qt logical pixels.
   parameters without ×, a three-line note once the inspector scrolled, and a
   problem message that repeated its parameter's name and sent the user to the
   section they were in; the Run page listed limits without units. Each was fixed
-  and the captures rerun; the figures below are from the final run.
+  and the captures rerun. The final review reran all 32 on 2026-11-18; the figures
+  below are from that run.
 
 ## Measurements
 
@@ -52,23 +54,38 @@ recorded number of the outcome is bit-identical (`assert_array_equal`). Each Pea
 page edit gives the engine configuration of its TOML
 (`tests/test_gui_peak_parameters.py`, five cases).
 
+`tests/test_gui_peak_constraints.py` states the effective start, bounds and vary of
+each combination of Model rules, own bounds and starts, windows and Hold (the table
+in [constraints and fit steps](../constraints-and-fit-steps.md#combined-example)),
+that a fit step's fix/vary applies last, and that a doublet's clustering footprint
+follows a peak's own J bound as it does in `peakfit fit`. One difference is
+deliberate and pinned
+(`test_peakfit_fit_moves_the_same_start_to_its_bound_without_saying_so`): a typed
+start outside its range blocks the desktop fit, while `peakfit fit` fits from the
+bound (#235).
+
 ## Captures (1280×800)
 
-As loaded, and with the peak's own constraints:
+Each in light and dark. As loaded, and with the peak's own constraints:
 
 ![](gui-peak-parameters/as-loaded-1280x800-light.webp)
+![](gui-peak-parameters/as-loaded-1280x800-dark.webp)
 ![](gui-peak-parameters/own-set-1280x800-light.webp)
+![](gui-peak-parameters/own-set-1280x800-dark.webp)
 
-A typed range that cannot be used, and a committed start the range excludes:
+A typed range that cannot be used:
 
+![](gui-peak-parameters/invalid-draft-1280x800-light.webp)
 ![](gui-peak-parameters/invalid-draft-1280x800-dark.webp)
+
+Differs from the run (its tooltip names the run by number, as
+`test_a_peak_edit_is_one_undoable_edit_that_outdates_the_run` checks):
+
+![](gui-peak-parameters/differs-from-run-1280x800-light.webp)
+![](gui-peak-parameters/differs-from-run-1280x800-dark.webp)
+
+A committed start the range excludes, the Model page and the Run page (light):
+
 ![](gui-peak-parameters/start-outside-range-1280x800-light.webp)
-
-The Model page and the Run page:
-
 ![](gui-peak-parameters/model-page-1280x800-light.webp)
 ![](gui-peak-parameters/run-page-1280x800-light.webp)
-
-Differs from the run:
-
-![](gui-peak-parameters/differs-from-run-1280x800-dark.webp)
