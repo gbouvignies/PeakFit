@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and specs live in GitHub Issues on `gbouvignies/PeakFit`. Use the `gh` CLI
+Issues and specs live in GitHub Issues on `ens-nmr/chemex-suite`. Use the `gh` CLI
 for all operations; it infers the repo inside a clone.
 
 ## Conventions

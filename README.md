@@ -6,7 +6,7 @@ spectra.
 > [!NOTE]
 > This README describes the development version on `main`. The latest release on
 > PyPI, 0.10.5, works differently (for example, plots come from `peakfit-plot`); see
-> [its README](https://github.com/gbouvignies/PeakFit/blob/v0.10.5/README.md).
+> [its README](https://github.com/ens-nmr/PeakFit/blob/v0.10.5/README.md).
 
 The normal workflow is:
 
@@ -31,7 +31,7 @@ that reopen with `peakfit gui Analysis.peakfit`. See the
 PeakFit requires Python 3.14 or newer.
 
 ```bash
-git clone https://github.com/gbouvignies/PeakFit.git
+git clone https://github.com/ens-nmr/PeakFit.git
 cd PeakFit
 uv sync --all-extras
 uv run peakfit --help

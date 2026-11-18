@@ -1603,7 +1603,7 @@ Short records of non‑obvious design choices and trade‑offs.
   region defect.
 - **SP1 ¹H linewidth gate.** The ¹H singlet linewidth of the SP1 ¹J case under-covers
   (±1.96σ 0.905, bias +0.19 Hz). It is accepted as the upward bias of contour-selected
-  fitting regions, which singlets show too, tracked in [#226](https://github.com/gbouvignies/PeakFit/issues/226).
+  fitting regions, which singlets show too, tracked in [#226](https://github.com/ens-nmr/PeakFit/issues/226).
 - **Below-LW qualification at SNR 8.** It is raised in 96.4 % of J = ½ LW fits, against
   a 99 % gate. It is accepted as the W2a low-SNR residual for unresolved couplings: 2.6 %
   of fits have σ(J) withheld, and 1.0 % land on a narrow resolved doublet with a

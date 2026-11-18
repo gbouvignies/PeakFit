@@ -94,7 +94,7 @@ Artifacts:
   **11,448 rows**, grouped by artifact and scientific purpose. Columns include
   physical member name, scientific path, exact shape/dtype, numerical bytes,
   stored uncompressed bytes, compressed contribution and exact-duplicate reference.
-- [Reproduction tool](https://github.com/gbouvignies/PeakFit/blob/1051ceb/tools/audit_scientific_storage.py)
+- [Reproduction tool](https://github.com/ens-nmr/PeakFit/blob/1051ceb/tools/audit_scientific_storage.py)
   (removed with pickle state; run it at `1051ceb`).
 
 The inventory counts physical storage, including arrays repeated across files.

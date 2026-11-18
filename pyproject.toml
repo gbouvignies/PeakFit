@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/gbouvignies/peakfit"
+Repository = "https://github.com/ens-nmr/PeakFit"
 
 [project.scripts]
 peakfit = "peakfit.cli.app:app"

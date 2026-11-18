@@ -94,7 +94,7 @@ document describes what is in `CODING_STANDARDS.md`. Short decisions go in
 
 ### Issue tracker
 
-GitHub Issues on `gbouvignies/PeakFit`. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `ens-nmr/chemex-suite`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

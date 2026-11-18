@@ -4,7 +4,7 @@ A product-level review of the desktop GUI: features, workflows, information
 architecture, vocabulary and consistency. It describes commit `6a5dc18`, main on
 17 November 2026, and changed no code. This note keeps its findings and evidence.
 The decisions that followed and the implementation plan are in
-[#209](https://github.com/gbouvignies/PeakFit/issues/209).
+[#209](https://github.com/ens-nmr/PeakFit/issues/209).
 
 Figures are cited as Fig. N and measurements as Mn; both are listed at the end.
 

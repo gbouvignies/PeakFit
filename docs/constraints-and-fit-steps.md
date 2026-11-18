@@ -142,7 +142,7 @@ and always replaces the window-free bounds a rule gives `cs`; a per-peak `cs`
 every start, configured or default, to the nearest bound of the combined range;
 `peakfit fit` reports nothing. A configured start of 150 Hz against the rule above
 fits from 100 Hz. Whether such a configuration should be refused is
-[#235](https://github.com/gbouvignies/PeakFit/issues/235).
+[#235](https://github.com/ens-nmr/PeakFit/issues/235).
 
 ### Desktop own constraints
 

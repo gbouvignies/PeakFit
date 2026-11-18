@@ -595,7 +595,7 @@ excludes the start the Model settings give) is explained under its parameter
 and disables **Fit** with the peak's name; Fit then selects that peak with its
 Parameters open. This is a deliberate difference from `peakfit fit`, which moves
 such a start to its nearest bound without saying so; whether the engine should
-refuse it too is [#235](https://github.com/gbouvignies/PeakFit/issues/235). A peak's own values
+refuse it too is [#235](https://github.com/ens-nmr/PeakFit/issues/235). A peak's own values
 replace the Model settings' field by field (an own lower bound keeps the rule's
 upper one), Hold included, both ways; its own position window replaces the axis's
 and the Model-wide one. An imported fit-step schedule's fix and vary apply last and

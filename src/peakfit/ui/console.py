@@ -66,7 +66,7 @@ console = Console(theme=PEAKFIT_THEME, record=True)
 
 # Version and branding
 VERSION = version
-REPO_URL = "https://github.com/gbouvignies/PeakFit"
+REPO_URL = "https://github.com/ens-nmr/PeakFit"
 
 __all__ = [
     "PEAKFIT_THEME",
