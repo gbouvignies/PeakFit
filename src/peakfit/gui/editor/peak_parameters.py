@@ -130,6 +130,10 @@ class _LimitRow(QtWidgets.QWidget):
         self.high = number_edit(f"{row.title} upper bound")
         self.window_edit = number_edit(f"{row.title} position window (ppm)")
         self.window_edit.setToolTip(WINDOW_TIP)
+        # One figure wider than a value field: the hint reads 0.083 or "range" whole.
+        metrics = self.window_edit.fontMetrics()
+        hint = max(metrics.horizontalAdvance(t) for t in ("0.0000", "range"))
+        self.window_edit.setFixedWidth(hint + 14)
         self.at = text_label("", "muted")
         self.unit = text_label(row.unit, "muted")
         self.message = text_label("", "error", wrap=True)

@@ -30,7 +30,8 @@ working peak”). Sizes are Qt logical pixels.
   parameters without ×, a three-line note once the inspector scrolled, and a
   problem message that repeated its parameter's name and sent the user to the
   section they were in; the Run page listed limits without units. Each was fixed
-  and the captures rerun. The final review reran all 32 on 2026-11-18; the figures
+  and the captures rerun. The final review (with the independent review addressed) reran all 32 on
+  2026-11-18; the figures
   below are from that run.
 
 ## Measurements

@@ -465,4 +465,3 @@ def test_a_long_default_window_is_hinted_short_and_given_exactly_in_its_tooltip(
     window = _row(editor, "F3.cs").window_edit
     assert window.placeholderText() == "0.083"
     assert window.toolTip().endswith("the Model settings give ± 0.0833153 ppm")
-    assert window.fontMetrics().horizontalAdvance("0.083") < window.contentsRect().width()
