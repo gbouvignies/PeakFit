@@ -49,7 +49,9 @@ def export_fit_result(
             completion = replace(completion, result=result)
     inputs = result.inputs
     snapshot = inputs.snapshot
-    configuration = json.loads(snapshot.configuration)
+    # The configuration the engine fitted: each peak's own limits under its engine name,
+    # which ``peak_identities`` maps to its working ID and assignment.
+    configuration = json.loads(inputs.engine_configuration.model_dump_json())
     metadata = RunMetadata(
         run_id=result.run_id,
         timestamp=result.completed_at,

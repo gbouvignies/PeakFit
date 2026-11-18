@@ -139,7 +139,13 @@ existing destinations are refused. Failure cleans staging. This provides atomic
 visibility, not a power-loss durability guarantee. Project saving has its stronger
 flush/manifest transaction described below. Export-time Current/Outdated and
 recorded GUI adoption remain context separate from the immutable numerical result;
-CLI records absent GUI adoption explicitly. Unusable clusters retain diagnostics
+CLI records absent GUI adoption explicitly. A GUI export's recorded configuration is
+the one the engine fitted: a peak's own constraints appear under
+`parameters.peaks` keyed by its engine name (`p_0` …), which `peak_identities` maps to
+its working ID and assignment. Those keys match only a peak list whose peaks are
+named by engine name, in the recorded order: run `peakfit fit` with the assignments
+and no own constraint applies, without a warning; two peaks sharing an assignment
+cannot be told apart by name at all. Unusable clusters retain diagnostics
 without fabricated predictions. Exports from the retired GUI local-fit preview
 contain only their fitted group and remain readable.
 
@@ -482,6 +488,14 @@ also retain exact terminal corrections, paired sample indices, ordered source-pl
 identities, observation dtype/SHA-256, calibration and a small component-basis
 reference for evaluator validation. Terminal corrections are independent terminal
 inputs and cannot be substituted with final neighboring models.
+
+The manifest's working peaks and each run's submitted and post-fit peaks record
+each peak's own parameter limits (`limits`: pairs of a parameter such as `F3.lw`
+and its `start`, `lower`, `upper`, `vary` and, for a position, `window` in ppm, each
+`null` when unset), by stable peak ID; the working settings never name peaks.
+`limits` is required: a peak record without it, or working settings with
+`parameters.peaks`, come from a development build that kept no such limits, and the
+project is refused with that explanation rather than opened without them.
 
 Each run's `review.json` keeps its exact submitted starts as `initial_parameters`
 and their provenance as `continuation`: `run_id` (the run that supplied continued

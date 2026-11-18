@@ -2,32 +2,90 @@
 
 import csv
 import math
-from dataclasses import dataclass, replace
+from dataclasses import astuple, dataclass, replace
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
+from peakfit.engine.domain.constraints import PARAMETER_KEY
 from peakfit.gui import formatting
 
 _SPECTRAL_DIMENSIONS = 2
 
 
 @dataclass(frozen=True, slots=True)
+class ParameterLimit:
+    """A peak's own constraint on one of its parameters; None keeps the model settings'.
+
+    ``vary`` False holds the parameter at its start, True fits one a rule holds.
+    ``window`` applies to a position only: how far (ppm) it may move from the working
+    position. Values are in the parameter's unit and need not be consistent with each
+    other here: the editor and the preparation explain and refuse inconsistent ones.
+    """
+
+    start: float | None = None
+    lower: float | None = None
+    upper: float | None = None
+    vary: bool | None = None
+    window: float | None = None
+
+    def __post_init__(self) -> None:
+        """Reject values no fit can use: non-finite numbers or a window that is not positive."""
+        numbers = (self.start, self.lower, self.upper, self.window)
+        if any(v is not None and not math.isfinite(v) for v in numbers):
+            raise ValueError("Constraint values must be finite numbers.")
+        if self.window is not None and self.window <= 0:
+            raise ValueError("A position window must be a positive number of ppm.")
+
+    @property
+    def empty(self) -> bool:
+        """Whether the limit leaves everything to the model settings."""
+        return all(value is None for value in astuple(self))
+
+
+type PeakLimits = tuple[tuple[str, ParameterLimit], ...]  # by parameter (``F3.lw``), sorted
+
+
+@dataclass(frozen=True, slots=True)
 class WorkingPeak:
-    """One assignment with stable identity and unfolded (indirect, direct) ppm."""
+    """One assignment with stable identity, unfolded (indirect, direct) ppm and own limits.
+
+    ``limits`` are the peak's own parameter constraints. They belong to this working
+    peak, not to its assignment: they follow it through renames, and peaks sharing an
+    assignment have their own.
+    """
 
     id: str
     name: str
     positions: tuple[float, float]
+    limits: PeakLimits = ()
 
     def __post_init__(self) -> None:
-        """Reject invalid coordinates before committing an edit."""
+        """Reject invalid coordinates or limits before committing an edit."""
         if not self.name.strip():
             raise ValueError("Give the peak a non-empty name.")
         if len(self.positions) != _SPECTRAL_DIMENSIONS or not all(
             math.isfinite(p) for p in self.positions
         ):
             raise ValueError("Peak positions must be two finite ppm coordinates.")
+        keys = [key for key, _limit in self.limits]
+        if keys != sorted(set(keys)) or not all(PARAMETER_KEY.fullmatch(k) for k in keys):
+            raise ValueError("Peak limits must name each parameter (F3.lw) once, in order.")
+        for key, limit in self.limits:
+            if limit.empty:
+                raise ValueError("An empty peak limit is no limit; leave it out.")
+            if limit.window is not None and not key.endswith(".cs"):
+                raise ValueError("A position window applies to a position only.")
+
+    def limit(self, key: str) -> ParameterLimit:
+        """The peak's own limit on parameter ``key``; empty when it has none."""
+        return dict(self.limits).get(key, ParameterLimit())
+
+    def with_limit(self, key: str, limit: ParameterLimit) -> WorkingPeak:
+        """This peak with ``limit`` on ``key``; an empty limit removes it."""
+        limits = {**dict(self.limits), key: limit}
+        kept = sorted(((k, v) for k, v in limits.items() if not v.empty), key=lambda kv: kv[0])
+        return replace(self, limits=tuple(kept))
 
     @classmethod
     def new(cls, name: str, positions: tuple[float, float]) -> WorkingPeak:
@@ -136,6 +194,16 @@ class WorkingEdits[S]:
             tuple(updated if p.id == peak_id else p for p in self.peaks),
             self.settings,
             f"{label} {name}",
+        )
+
+    def constrain(self, peak_id: str, limits: PeakLimits) -> None:
+        """Replace one peak's own parameter limits in one undoable edit."""
+        peak = next(p for p in self.peaks if p.id == peak_id)
+        updated = replace(peak, limits=limits)
+        self._commit(
+            tuple(updated if p.id == peak_id else p for p in self.peaks),
+            self.settings,
+            f"constraints of {peak.name}",
         )
 
     def delete(self, peak_id: str) -> None:

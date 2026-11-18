@@ -21,6 +21,7 @@ from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
+from peakfit.gui.editor.axis_table import DIFFERS
 from peakfit.gui.editor.cluster_page import (
     ABOUT_MEASURES,
     CORRELATION_QUALIFIER,
@@ -39,6 +40,7 @@ from peakfit.gui.editor.labels import (
 from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.model_page import ModelPage
+from peakfit.gui.editor.peak_parameters import ParameterRow, PeakParameters
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import correlation_matrix
 from peakfit.gui.editor.run_page import RunPage
@@ -50,7 +52,7 @@ if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
     from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.editor.review import ClusterReview
-    from peakfit.gui.peaks import WorkingPeak
+    from peakfit.gui.peaks import PeakLimits, WorkingPeak
 
 _KINDS = {"cs": "δ", "lw": "LW"}
 
@@ -251,8 +253,6 @@ _RIGHT = QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCent
 
 # One table cell: text, label style and the number of value columns it spans.
 type Cell = tuple[str, str, int]
-# The next fit's parameter: name, unit, start, lower, upper (formatted) and varied.
-type StartRow = tuple[str, str, str, str, str, bool]
 
 
 def parameter_table(
@@ -262,9 +262,8 @@ def parameter_table(
 ) -> None:
     """One line per parameter: name and unit in the label column, then values.
 
-    ``rows`` holds (name, unit, cells, at a bound). The starts and the fitted values
-    share this layout, and the label column is the inspector's, so values line up
-    with the form and the review above and below.
+    ``rows`` holds (name, unit, cells, at a bound). The label column is the
+    inspector's, so values line up with the form and the review above and below.
     """
     grid.setColumnMinimumWidth(0, LABEL_WIDTH)
     for column, header in enumerate(headers, start=1):
@@ -381,22 +380,13 @@ class Inspector(QtWidgets.QScrollArea):
         grid.addWidget(self.draft, 5, 0, 1, 2)
         self.editor.fields_changed.connect(self._draft_changed)
         peak.addWidget(self.editor)
-        self.starts_toggle = disclosure("Starting values and bounds")
-        self.starts_toggle.toggled.connect(lambda shown: self.starts.setVisible(shown))
-        peak.addWidget(self.starts_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.starts = QtWidgets.QWidget()
-        starts = QtWidgets.QVBoxLayout(self.starts)
-        starts.setContentsMargins(0, 0, 0, 0)
-        starts.setSpacing(4)
-        self.starts_note = _label("", "caption", wrap=True)
-        starts.addWidget(self.starts_note)
-        self.start_grid = QtWidgets.QGridLayout()
-        self.start_grid.setHorizontalSpacing(themes.SPACE_S)
-        self.start_grid.setVerticalSpacing(3)
-        starts.addLayout(self.start_grid)
-        self.starts.hide()
-        peak.addWidget(self.starts)
-        self._starts_key = None
+        # Parameters: the next fit's starts and bounds, and this peak's own limits.
+        self.parameters_toggle = disclosure("Parameters")
+        self.parameters_toggle.toggled.connect(self._show_parameters)
+        peak.addWidget(self.parameters_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.parameters = PeakParameters()
+        self.parameters.hide()
+        peak.addWidget(self.parameters)
         # One amplitude profile, moved between the peak and cluster pages, so its
         # normalization reference is shared by both.
         self.profile_block = QtWidgets.QWidget()
@@ -498,34 +488,27 @@ class Inspector(QtWidgets.QScrollArea):
         self.profile.apply_theme(theme)
         self._key = None
 
-    def show_starts(self, rows: list[StartRow] | None, note: str) -> None:
-        """The next fit's start and bounds per parameter (read-only).
+    def show_parameters(
+        self,
+        rows: list[ParameterRow] | None,
+        note: str,
+        recorded: tuple[str, PeakLimits] | None,
+    ) -> None:
+        """The selected peak's parameters for the next fit, and its own limits.
 
-        ``rows`` holds (name, unit, start, lower, upper, varied), already formatted.
+        ``recorded`` is the active run's short ID and the limits it used for this peak.
         """
-        key = (tuple(rows) if rows is not None else None, note)
-        if key == self._starts_key:
-            return
-        self._starts_key = key
-        self.starts_note.setText(note)
-        _clear(self.start_grid)
-        if not rows:
-            return
-        parameter_table(
-            self.start_grid,
-            ("Start", "Lower", "Upper"),
-            [
-                (
-                    name,
-                    unit,
-                    [(start, "", 1), (lower, "", 1), (upper, "", 1)]
-                    if varied
-                    else [(start, "", 1), ("fixed", "caption", 2)],
-                    False,
-                )
-                for name, unit, start, lower, upper, varied in rows
-            ],
-        )
+        self.parameters.show_peak(self._peak, rows, note, recorded)
+        self._show_parameters(self.parameters_toggle.isChecked())
+
+    def _show_parameters(self, shown: bool) -> None:
+        """Open or close Parameters; its title counts the peak's own limits and marks •."""
+        self.parameters.setVisible(shown)
+        own = self.parameters.own
+        title = f"Parameters · {own} set for this peak" if own else "Parameters"
+        if self.parameters.differs:
+            title += f" {DIFFERS}"
+        self.parameters_toggle.setText(f"{'▾' if shown else '▸'}  {title}")
 
     def _draft_changed(self) -> None:
         show_text(

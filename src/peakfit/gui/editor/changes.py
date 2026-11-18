@@ -13,10 +13,11 @@ samples and the same number of varied parameters. Otherwise they describe differ
 problems, and the change says why they are not compared. A lower χ²ᵣ is never
 presented as a better fit.
 
-A peak is "edited" only when a refit after the baseline recorded it as moved or
-added by hand.
+A peak is "edited" only when a refit after the baseline recorded it as moved, added
+or given other own constraints by hand.
 """
 
+import json
 import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -26,7 +27,7 @@ import numpy as np
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
-from peakfit.gui.fitting import ADDED_SINCE, MOVED_SINCE
+from peakfit.gui.fitting import ADDED_SINCE, CONSTRAINED_SINCE, MOVED_SINCE
 from peakfit.gui.project_results import completed
 
 if TYPE_CHECKING:
@@ -37,28 +38,35 @@ if TYPE_CHECKING:
     from peakfit.gui.editor.review import ClusterReview
 
 DISPLACEMENTS = 5  # largest position differences listed
-EDITS = (MOVED_SINCE, ADDED_SINCE)  # continuation reasons of a manual edit
+EDITS = (MOVED_SINCE, ADDED_SINCE)  # continuation reasons of a position edit
 
 
 def _positions(peaks) -> dict[str, tuple[float, ...]]:
     return {p["id"]: tuple(float(x) for x in p["positions"]) for p in peaks or ()}
 
 
+def _limits(peaks) -> dict[str, str]:
+    """Each recorded peak's own limits, comparable whether read from memory or JSON."""
+    return {p["id"]: json.dumps(p["limits"]) for p in peaks or ()}
+
+
 def edited_since(
     journal: Iterable[Mapping[str, Any]], active_id: str, baseline_id: str
 ) -> frozenset[str] | None:
-    """Working IDs moved or added by hand in a refit after the baseline run, and kept.
+    """Working IDs moved, added or constrained by hand after the baseline run, and kept.
 
     Each refit records, against the run it continued from, the peaks whose working
-    position was moved or added by hand. Following the parent links from the active
-    run back to the baseline collects them; an edit undone before a fit was never
-    recorded. A recorded edit counts only while the active run still started the
-    peak away from where the baseline left it (its adopted working position): one
-    moved back by hand there is not edited. A position changed only by fitting never
-    is. None when the baseline is not an earlier run of the active one.
+    position was moved or added, or whose own limits changed, by hand. Following the
+    parent links from the active run back to the baseline collects them; an edit
+    undone before a fit was never recorded. A recorded edit counts only while the
+    active run still started the peak away from where the baseline left it: a move
+    at another adopted working position, a constraint edit with other own limits. One
+    set back by hand there is not edited, and a position changed only by fitting
+    never is. None when the baseline is not an earlier run of the active one.
     """
     entries = {e["run_id"]: e for e in journal if completed(e)}
-    edited: set[str] = set()
+    edited: set[str] = set()  # positions edited
+    constrained: set[str] = set()  # own limits edited
     run, seen = active_id, set()
     while run != baseline_id:
         entry = entries.get(run)
@@ -68,13 +76,19 @@ def edited_since(
         parent = entry.get("parent_run_id")
         continuation = entry.get("continuation")
         if continuation and continuation["run_id"] == parent:
-            edited |= {i for i, reason in continuation["reasons"] if reason.startswith(EDITS)}
+            reasons = continuation["reasons"]
+            edited |= {i for i, reason in reasons if reason.startswith(EDITS)}
+            constrained |= {i for i, reason in reasons if reason.startswith(CONSTRAINED_SINCE)}
         if not parent:
             return None
         run = parent
-    started = _positions(entries[active_id].get("initial_peaks")) if active_id in entries else {}
-    left = _positions(entries[baseline_id].get("working_peaks"))
-    return frozenset(i for i in edited if started.get(i) != left.get(i))
+    first = entries[active_id].get("initial_peaks") if active_id in entries else None
+    last = entries[baseline_id].get("working_peaks")
+    started, left = _positions(first), _positions(last)
+    moved = {i for i in edited if started.get(i) != left.get(i)}
+    # A moved peak's limits may have changed too: its reason names only the move.
+    began, ended = _limits(first), _limits(last)
+    return frozenset(moved | {i for i in edited | constrained if began.get(i) != ended.get(i)})
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +114,7 @@ class ClusterChange:
     regrouped_from: tuple[str, ...]  # empty when the members are exactly the same
     before: tuple[str, ...]  # "▲ Uncertainty unreliable", "◇ Linewidth outlier", …
     now: tuple[str, ...]
-    edited: tuple[str, ...] = ()  # assignments moved or added by hand since the baseline
+    edited: tuple[str, ...] = ()  # assignments edited by hand since the baseline
     measures: tuple[Measures, Measures] | None = None  # before, after; when comparable
     not_compared: str = ""  # why the recorded measures are not compared
     new: bool = False  # every member was added since the baseline: nothing before
@@ -234,12 +248,17 @@ def _comparison(
 
 
 def _edited(active: DatasetFitResult, parent: DatasetFitResult) -> frozenset[str]:
-    """Working IDs moved or added since the parent run, as the active run recorded them."""
+    """Working IDs moved, added or given other own constraints since the parent run.
+
+    As the active run recorded them: each started from the configured defaults.
+    """
     continuation = active.inputs.continuation
     if continuation is None or continuation.run_id != parent.run_id:
         return frozenset()
     return frozenset(
-        identity for identity, reason in continuation.reasons if reason.startswith(EDITS)
+        identity
+        for identity, reason in continuation.reasons
+        if reason.startswith((*EDITS, CONSTRAINED_SINCE))
     )
 
 

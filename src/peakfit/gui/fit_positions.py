@@ -160,4 +160,5 @@ def continuation_source(completion: DatasetCompletion) -> ContinuationSource:
         snapshot.configuration,
         snapshot.spectral_parameters,
         MappingProxyType(dict(completion.retained)),
+        MappingProxyType({p.id: p.limits for p in completion.working_peaks}),
     )

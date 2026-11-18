@@ -28,6 +28,7 @@ from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import _change_entries
 from peakfit.gui.fit_positions import continuation_source, dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import ParameterLimit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_results import journal_entry, run_numbers
 from peakfit.gui.spectrum import Dataset
@@ -169,6 +170,35 @@ def test_a_peak_moved_back_where_the_baseline_left_it_is_not_edited(chain):
     assert edited_since(journal, b, a) == {MOVED}
     # Also after a save: positions read back from JSON lists compare the same.
     reread = json.loads(json.dumps(journal))
+    assert edited_since(reread, c, a) == frozenset()
+
+
+def test_a_peak_given_its_own_constraints_is_edited_until_they_are_set_back(chain):
+    # Run B starts from a peak given a linewidth range of its own; before run C the
+    # range is removed again. Against run A the peak is edited in B, not in C.
+    spectra, config, runs, _journal = chain
+    first = runs[0]
+    limits = (("F2.lw", ParameterLimit(lower=1.0, upper=100.0)),)
+    constrained = tuple(
+        replace(p, limits=limits) if p.id == FITTED else p for p in first.working_peaks
+    )
+    second = _fit(spectra, constrained, config, first)
+    released = tuple(replace(p, limits=()) for p in second.working_peaks)
+    third = _fit(spectra, released, config, second)
+    assert dict(second.result.inputs.continuation.reasons)[FITTED].startswith(
+        "constraints changed since run"
+    )
+    journal = []
+    parent = None
+    for run in (first, second, third):
+        journal.append(dict(journal_entry(run), parent_run_id=parent))
+        parent = run.result.run_id
+    a, b, c = (run.result.run_id for run in (first, second, third))
+    assert edited_since(journal, b, a) == {FITTED}
+    assert edited_since(journal, c, b) == {FITTED}
+    assert edited_since(journal, c, a) == frozenset()
+    reread = json.loads(json.dumps(journal))  # limits read back from JSON lists
+    assert edited_since(reread, b, a) == {FITTED}
     assert edited_since(reread, c, a) == frozenset()
 
 

@@ -532,6 +532,16 @@ def _open_analysis(path, *, relink, progress, canceled):
     runs = tuple(StoredRun(path, e) for e in entries)
     active = runs[-1].load() if runs else None
     config = stored_config(manifest["configuration"])
+    if config.parameters.peaks:
+        # The desktop keeps a peak's own constraints on the working peak; settings
+        # naming peaks would block every fit, and dropping them would lose them.
+        names = ", ".join(map(repr, config.parameters.peaks))
+        raise ValueError(
+            f"This project's settings name peaks ({names}), as a PeakFit development "
+            "build wrote them before peaks kept their own constraints. This version "
+            "neither fits nor drops them. Open the spectrum and peak list as a new "
+            "analysis, set each peak's constraints on its Parameters and refit."
+        )
     if active:
         snapshot = active.result.inputs.snapshot
         fingerprint = json.loads(dict(snapshot.source_files)["spectrum"])["checksum_sha256"]

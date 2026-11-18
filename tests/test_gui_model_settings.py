@@ -1,21 +1,27 @@
 """The Model page's settings fit exactly as the CLI fits the equivalent configuration.
 
-A desktop fit that excludes planes, sets the statistical noise or sets an absolute
-clustering level must give the clusters and outcome of ``peakfit fit`` with the same
-settings, bit for bit: the GUI prepares the same problem through the same functions,
-only with stable peak identities in place of assignments.
+A desktop fit that excludes planes, sets the statistical noise, sets an absolute
+clustering level or gives peaks constraints of their own must give the clusters and
+outcome of ``peakfit fit`` with the same settings, bit for bit: the GUI prepares the
+same problem through the same functions, only with stable peak identities in place
+of assignments.
 """
 
+import warnings
 from copy import deepcopy
+from dataclasses import replace
 
 import numpy as np
 import pytest
 from builders import two_cluster_dataset
 
 from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.fit import fitting
+from peakfit.fit.pipeline import prepare_cluster_parameters
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fitting import prepare_dataset_fit
+from peakfit.gui.peaks import ParameterLimit
 
 PLANE_VALUES = np.array([2.0, 0.0, 2.0, 1.0, 3.0, 0.5])  # repeated: identity is the index
 EXCLUDED = [1, 4]
@@ -151,3 +157,100 @@ def test_the_estimate_stays_known_beside_a_manual_noise(dataset):
     )
     assert manual.noise == 0.0031
     assert manual.estimated_noise == estimated.noise == estimated.estimated_noise
+
+
+# Each peak's own constraints, as ``peakfit fit`` reads them from the TOML. The two
+# overlapping peaks share one assignment in the desktop ("Duplicate"); their limits stay
+# their own because they belong to the working peak, not to its assignment.
+OWN_TOML = {
+    "0N-H": {"position_windows": {"F2": 0.01}, "F3.lw": {"min": 20.0, "max": 30.0}},
+    "1N-H": {"F2.lw": {"value": 28.0, "vary": False}},
+}
+OWN = {
+    0: (
+        ("F2.cs", ParameterLimit(window=0.01)),
+        ("F3.lw", ParameterLimit(lower=20.0, upper=30.0)),
+    ),
+    1: (("F2.lw", ParameterLimit(start=28.0, vary=False)),),
+}
+
+
+def test_a_desktop_fit_applies_each_peaks_own_constraints_as_peakfit_fit(
+    dataset, tmp_path, monkeypatch
+):
+    spectra, peaks = dataset
+    rule = {"defaults": {"*.*.lw": {"min": 5.0, "max": 100.0}}}
+    config = _settings(exclude_planes=EXCLUDED, parameters=rule)
+    constrained = tuple(replace(p, limits=OWN.get(i, ())) for i, p in enumerate(peaks))
+    assert constrained[0].name == constrained[1].name  # one assignment, two peaks
+    prepared, gui = _gui(spectra, constrained, config)
+    cli_config = _settings(exclude_planes=EXCLUDED, parameters=rule | {"peaks": OWN_TOML})
+    _data, cli = _cli(tmp_path / "cli", monkeypatch, spectra, peaks, cli_config)
+    # The engine fits the configuration of the equivalent TOML, peak for peak.
+    engine = prepared.engine_configuration
+    rename = {f"p_{i}": f"{i}N-H" for i in range(len(peaks))}
+    assert {rename[name]: c for name, c in engine.parameters.peaks.items()} == (
+        cli_config.parameters.peaks
+    )
+    assert (
+        engine.model_copy(update={"parameters": engine.parameters.model_copy(update={"peaks": {}})})
+        == config
+    )
+    assert not prepared.problems
+    _assert_identical(gui, cli)
+    # And the constraints act: the held width stays at its start, the bounded one inside.
+    final = {p.name: p for c in gui.outcome.clusters for p in c.final_nonlinear_parameters}
+    held = final["p_1.F2.lw"]
+    assert (held.value, held.vary) == (28.0, False)
+    assert (final["p_0.F3.lw"].min, final["p_0.F3.lw"].max) == (20.0, 30.0)
+    start = constrained[0].positions[0]
+    assert final["p_0.F2.cs"].min == pytest.approx(start - 0.01)
+    assert final["p_0.F2.cs"].max == pytest.approx(start + 0.01)
+    # The record keeps the working settings and the limits on their peaks.
+    assert PeakFitConfig.model_validate_json(prepared.snapshot.configuration) == config
+    assert prepared.snapshot.peaks == constrained
+
+
+def test_a_limit_that_cannot_be_fitted_as_given_blocks_the_fit(dataset):
+    """The desktop refuses what ``peakfit fit`` clamps (#235; see the next test)."""
+    spectra, peaks = dataset
+    rule = {"defaults": {"*.*.lw": {"min": 5.0, "max": 100.0}}}
+    config = _settings(parameters=rule)
+    outside = replace(peaks[0], limits=(("F3.lw", ParameterLimit(start=150.0)),))
+    missing = replace(peaks[1], limits=(("F3.eta", ParameterLimit(vary=False)),))
+    prepared = prepare_dataset_fit(spectra, (outside, missing, peaks[2]), config)
+    reasons = {(p.working_id, p.key): p.reason for p in prepared.problems}
+    assert reasons[outside.id, "F3.lw"].startswith("Start 150 Hz is outside its range 5–100 Hz.")
+    assert "model has no such parameter" in reasons[missing.id, "F3.eta"]
+    # ``peakfit fit`` would move the start to its bound without saying so; the desktop
+    # names the peak and refuses to fit.
+    assert prepared.problem_text().startswith(f"{outside.name}: LW F3: Start 150 Hz")
+    with pytest.raises(ValueError, match="outside its range"):
+        compute_dataset_fit(prepared)
+
+
+def test_peakfit_fit_moves_the_same_start_to_its_bound_without_saying_so(
+    dataset, tmp_path, monkeypatch
+):
+    # The current difference, pinned until #235 settles the engine's semantics: one
+    # configuration, a start of 150 Hz against a 5–100 Hz range. The desktop refuses
+    # it before fitting; ``peakfit fit`` fits from 100 Hz and records no warning.
+    spectra, peaks = dataset
+    rule = {"defaults": {"*.*.lw": {"min": 5.0, "max": 100.0}}}
+    gui = prepare_dataset_fit(
+        spectra,
+        (replace(peaks[0], limits=(("F3.lw", ParameterLimit(start=150.0)),)), *peaks[1:]),
+        _settings(parameters=rule),
+    )
+    assert [p.key for p in gui.problems] == ["F3.lw"]
+    config = _settings(parameters=rule | {"peaks": {"0N-H": {"F3.lw": {"value": 150.0}}}})
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        data, cli = _cli(tmp_path / "cli", monkeypatch, spectra, peaks, config)
+    [cluster] = [c for c in data.clusters if "0N-H" in [p.name for p in c.peaks]]
+    steps = build_fit_steps(config.fitting.steps, config.fitting.refine_iterations)
+    start = prepare_cluster_parameters(cluster, config, steps[0])["0N-H.F3.lw"]
+    assert (start.value, start.min, start.max) == (100.0, 5.0, 100.0)
+    final = {p.name: p for c in cli.outcome.clusters for p in c.final_nonlinear_parameters}
+    assert (final["0N-H.F3.lw"].min, final["0N-H.F3.lw"].max) == (5.0, 100.0)
+    assert not [w for w in captured if "150" in str(w.message) or "start" in str(w.message)]

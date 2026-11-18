@@ -10,13 +10,19 @@ from peakfit.engine.algorithms.clustering import prepare_clusters
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.algorithms.noise_power import check_noise_power
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
-from peakfit.engine.domain.constraints import apply_constraints
+from peakfit.engine.domain.constraints import (
+    ParameterConstraint,
+    PeakConstraints,
+    PositionWindowConfig,
+    apply_constraints,
+)
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import axis_lineshapes
+from peakfit.engine.domain.spectrum import axis_lineshapes, get_dimension_label
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import prepare_cluster_parameters
+from peakfit.gui import formatting
 from peakfit.io.readers.spectrum import read_noise_model
 
 if TYPE_CHECKING:
@@ -25,13 +31,14 @@ if TYPE_CHECKING:
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.spectrum import AxisLineshape, Spectra
-    from peakfit.gui.peaks import WorkingPeak
+    from peakfit.gui.peaks import PeakLimits, WorkingPeak
 
 
 _SPECTRAL_DIMENSIONS = 2
 # How a continuation records a peak edited by hand since its source run; the run
 # comparison reads these prefixes back (``editor.changes.edited_since``).
 ADDED_SINCE, MOVED_SINCE = "added since run", "moved since run"
+CONSTRAINED_SINCE = "constraints changed since run"
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +91,7 @@ class ContinuationSource:
     configuration: str
     spectral_parameters: tuple[str, ...]
     retained: Mapping[str, str]  # fitted but not adopted by that run, with the reason
+    limits: Mapping[str, PeakLimits]  # each peak's own parameter limits in that run
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +121,16 @@ class PeakIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class ConstraintProblem:
+    """Why one of a peak's own limits cannot be fitted as given, by stable working ID."""
+
+    working_id: str
+    key: str  # the parameter, ``F3.lw``
+    title: str  # ``LW ¹H F3``
+    reason: str  # ``Start 300 Hz is outside its range 5–100 Hz. …``
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedDatasetFit:
     """Reviewed complete fitting problem; no relation to display contour settings."""
 
@@ -128,6 +146,28 @@ class PreparedDatasetFit:
     continuation: Continuation | None = None
     # The noise estimated from the fitted planes, also when a configured value replaces it.
     estimated_noise: float | None = None
+    # Peaks' own limits that cannot be fitted as given; any one blocks the fit.
+    problems: tuple[ConstraintProblem, ...] = ()
+    # Every parameter as the Model settings alone give it, before any peak's own limits
+    # and fit steps: what a peak's Parameters show greyed, and what Hold reverts to.
+    inherited: Parameters | None = None
+
+    @property
+    def engine_configuration(self) -> PeakFitConfig:
+        """The configuration the engine fits: the settings with each peak's own limits."""
+        return engine_configuration(
+            PeakFitConfig.model_validate_json(self.snapshot.configuration),
+            self.snapshot.peaks,
+            self.identities,
+        )
+
+    def problem_text(self) -> str:
+        """The first problem as Fit's reason, naming its peak; "" when there is none."""
+        if not self.problems:
+            return ""
+        problem = self.problems[0]
+        name = next(i.assignment for i in self.identities if i.working_id == problem.working_id)
+        return f"{name}: {problem.title}: {problem.reason}"
 
 
 def prepare_dataset_fit(
@@ -156,7 +196,9 @@ def prepare_dataset_fit(
     whole, spectra = spectra, spectra.excluding_planes(settings.exclude_planes)
     lineshapes = axis_lineshapes(settings.fitting, spectra)
     identities, scientific_peaks = _working_model(spectra, peaks, lineshapes)
-    noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, settings)
+    engine = engine_configuration(settings, peaks, identities)
+    # Own bounds reach the clustering too: a doublet's footprint follows its J bound.
+    noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, engine)
     estimated = noise if settings.noise_level is None else _estimate(spectra)
     included = [peak.name for cluster in clusters for peak in cluster.peaks]
     if len(included) != len(identities) or set(included) != {i.engine_name for i in identities}:
@@ -172,13 +214,26 @@ def prepare_dataset_fit(
     incompatible = _incompatible(source, settings, lineshapes, spectra) if source else ""
     seeding = source if not incompatible else None
     working = {i.engine_name: i.working_id for i in identities}
-    positions = {p.id: tuple(p.positions) for p in peaks}
+    by_id = {p.id: p for p in peaks}
+    names = {
+        get_dimension_label(index): formatting.axis_name(axis)
+        for index, axis in enumerate(spectra.spectral_params)
+    }
     continued: set[str] = set()
     reasons: dict[str, str] = {}
+    problems: list[ConstraintProblem] = []
+    inherited = Parameters()
     for cluster in clusters:
-        initial = prepare_cluster_parameters(cluster, settings, steps[0])
+        initial = prepare_cluster_parameters(cluster, engine, steps[0])
+        given = apply_constraints(Parameters.from_peaks(cluster.peaks), settings.parameters)
+        inherited.update(given)
+        for peak in cluster.peaks:
+            problems += limit_problems(by_id[working[peak.name]], peak.name, initial, given, names)
         if seeding is not None:
-            continued |= _continue(initial, cluster, settings, working, positions, seeding, reasons)
+            continued |= _continue(initial, cluster, engine, working, by_id, seeding, reasons)
+        if problems:
+            parameters.update(initial)
+            continue  # explained by its problem; the fit is blocked until it is corrected
         if not initial.get_vary_names():
             raise ValueError(f"Cluster {cluster.cluster_id} has no variable nonlinear parameters.")
         for parameter in initial.values():
@@ -188,6 +243,7 @@ def prepare_dataset_fit(
             ):
                 raise ValueError("The model produced invalid starting values or bounds.")
         parameters.update(initial)
+    order = {p.id: index for index, p in enumerate(peaks)}
     return PreparedDatasetFit(
         FitInputSnapshot(
             id(whole),
@@ -214,6 +270,8 @@ def prepare_dataset_fit(
             tuple((p.id, reasons[p.id]) for p in peaks if p.id in reasons),
         ),
         estimated,
+        tuple(sorted(problems, key=lambda p: (order[p.working_id], p.key))),
+        inherited,
     )
 
 
@@ -237,15 +295,16 @@ def _incompatible(source, settings, lineshapes, spectra) -> str:
     return ""
 
 
-def _continue(initial, cluster, settings, working, positions, source, reasons) -> set[str]:
+def _continue(initial, cluster, settings, working, peaks, source, reasons) -> set[str]:
     """Seed each unchanged peak of one cluster from its fitted values; return its IDs.
 
-    A peak continues only if its working position is the one the run adopted and
-    every parameter the configuration lets vary (in any fit step) has a fitted value
-    within the new bounds; values are never clamped. Parameters the configuration
-    fixes keep their configured values, and so does any parameter given an explicit
-    configured start: the pipeline re-applies the constraints to the submitted
-    starts, so they are applied here too and the recorded starts are the real ones.
+    A peak continues only if its working position and its own limits are the ones
+    the run adopted and used, and every parameter the configuration lets vary (in any
+    fit step) has a fitted value within the new bounds; values are never clamped.
+    Parameters the configuration fixes keep their configured values, and so does any
+    parameter given an explicit configured start: the pipeline re-applies the
+    constraints to the submitted starts, so they are applied here too and the
+    recorded starts are the real ones. ``settings`` is the engine configuration.
     """
     configured = apply_constraints(Parameters.from_peaks(cluster.peaks), settings.parameters)
     seeded: list[str] = []
@@ -257,8 +316,11 @@ def _continue(initial, cluster, settings, working, positions, source, reasons) -
         if identity not in source.positions:
             reasons[identity] = f"{ADDED_SINCE} {run}"
             continue
-        if tuple(source.positions[identity]) != positions[identity]:
+        if tuple(source.positions[identity]) != tuple(peaks[identity].positions):
             reasons[identity] = f"{MOVED_SINCE} {run}"
+            continue
+        if source.limits.get(identity, ()) != peaks[identity].limits:
+            reasons[identity] = f"{CONSTRAINED_SINCE} {run}"
             continue
         if identity in source.retained or fitted is None:
             why = source.retained.get(identity, "no fitted values")
@@ -301,6 +363,101 @@ def _working_model(spectra, peaks, lineshapes):
     return identities, scientific
 
 
+def peak_constraints(peak: WorkingPeak) -> PeakConstraints | None:
+    """A working peak's own limits as the engine's per-peak constraints; None if it has none.
+
+    A window on a position is that axis's per-peak position window; the rest are the
+    parameter's start, bounds and vary, as ``[parameters.peaks."<name>"]`` gives them.
+    """
+    windows = {key.partition(".")[0]: limit.window for key, limit in peak.limits if limit.window}
+    parameters = {
+        key: ParameterConstraint(
+            value=limit.start, min=limit.lower, max=limit.upper, vary=limit.vary
+        )
+        for key, limit in peak.limits
+        if (limit.start, limit.lower, limit.upper, limit.vary) != (None, None, None, None)
+    }
+    if not windows and not parameters:
+        return None
+    return PeakConstraints(position_windows=PositionWindowConfig(**windows), parameters=parameters)
+
+
+def engine_configuration(
+    settings: PeakFitConfig,
+    peaks: tuple[WorkingPeak, ...],
+    identities: tuple[PeakIdentity, ...],
+) -> PeakFitConfig:
+    """The working settings with each peak's own limits under its engine name.
+
+    The working settings never name peaks: own limits live on the working peak, by
+    stable ID, so they follow it through renames and two peaks sharing an
+    assignment keep their own. The engine sees them as ``peakfit fit`` sees
+    ``[parameters.peaks."<assignment>"]``, keyed by the safe name the desktop gives
+    the peak in place of its assignment.
+    """
+    engine_names = {i.working_id: i.engine_name for i in identities}
+    own = {engine_names[p.id]: c for p in peaks if (c := peak_constraints(p)) is not None}
+    if not own:
+        return settings
+    return settings.model_copy(
+        update={"parameters": settings.parameters.model_copy(update={"peaks": own})}
+    )
+
+
+def limit_problems(
+    peak: WorkingPeak,
+    engine_name: str,
+    initial: Parameters,
+    inherited: Parameters,
+    names: Mapping[str, str],
+) -> list[ConstraintProblem]:
+    """Why each of a peak's own limits cannot be fitted as given, from its resolved values.
+
+    A limit must name a parameter of the current model and leave a non-empty range.
+    The start, the peak's own or the one the Model settings give (``inherited``), must
+    lie inside the range the settings and the limit give together: ``peakfit fit``
+    would move it to the nearest bound without saying so (#235).
+    """
+    problems = []
+    for key, limit in peak.limits:
+        axis, _, kind = key.partition(".")
+        title = parameter_title(kind, names.get(axis) or axis)
+        name = f"{engine_name}.{key}"
+        reason = ""
+        if name not in initial:
+            reason = "The current model has no such parameter. Reset it, or change the lineshape."
+        else:
+            parameter = initial[name]
+            unit = f" {parameter.unit}" if parameter.unit else ""
+            show = formatting.setting
+            span = f"{show(parameter.min)}–{show(parameter.max)}{unit}"
+            if not parameter.min < parameter.max:
+                reason = f"The range {span} is empty. Widen it."
+            elif limit.start is not None and parameter.value != limit.start:
+                reason = (
+                    f"Start {show(limit.start)}{unit} is outside its range {span}. "
+                    "Change the start or the range."
+                )
+            elif limit.start is None and parameter.value != inherited[name].value:
+                reason = (
+                    f"The Model settings start it at {show(inherited[name].value)}{unit}, "
+                    f"outside this peak's range {span}. Type a start for this peak, or "
+                    "change the range."
+                )
+        if reason:
+            problems.append(ConstraintProblem(peak.id, key, title, reason))
+    return problems
+
+
+# How a parameter kind reads in tables and messages, before its axis (``LW ¹H F3``).
+PARAMETER_KINDS = {"cs": "δ", "lw": "LW", "eta": "η", "j": "J", "phase": "φ"}
+
+
+def parameter_title(kind: str, axis: str) -> str:
+    """``LW ¹H F3``: a parameter kind on an axis, as the inspector names it."""
+    return f"{PARAMETER_KINDS.get(kind, kind)} {axis}"
+
+
 def desktop_rule(pattern: str) -> bool:
     """Whether the desktop fit applies a rule: ``*`` or ``*.<axis>.<parameter>``.
 
@@ -312,18 +469,23 @@ def desktop_rule(pattern: str) -> bool:
 def _validate_constraint_targets(settings: PeakFitConfig) -> None:
     """Reject assignment-dependent rules before replacing names with safe IDs.
 
-    Only whole-model '*' or '*.<axis>.<parameter>' patterns are supported here.
-    Apply the same restriction to fit-step rules.
+    Only whole-model '*' or '*.<axis>.<parameter>' patterns are supported here, also
+    in fit-step rules. A peak's own constraints are its working peak's limits, never
+    ``parameters.peaks`` of the working settings.
     """
+    if settings.parameters.peaks:
+        raise ValueError(
+            "The working settings name peaks. A peak's own constraints belong to the "
+            "working peak: set them on its Parameters."
+        )
     patterns = list(settings.parameters.defaults.patterns)
     for step in settings.fitting.steps:
         patterns.extend((*step.fix, *step.vary))
-    if settings.parameters.peaks or not all(map(desktop_rule, patterns)):
+    if not all(map(desktop_rule, patterns)):
         raise ValueError(
-            "Name/assignment-targeted constraints are not supported in the desktop dataset "
-            "fit. Remove parameters.peaks and "
-            "use global or axis/parameter-wide wildcard rules (e.g. '*.*.lw', '*.F2.cs'); "
-            "use the CLI for assignment-specific constraints."
+            "Rules naming peaks are not supported in the desktop dataset fit. Use rules "
+            "on every peak ('*.*.lw', '*.F2.cs') and set one peak's own constraints on "
+            "its Parameters."
         )
 
 

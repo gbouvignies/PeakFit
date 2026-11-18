@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.params_scalar import Parameters
 
+# A peak's parameter by axis and kind, as per-peak constraints name it: ``F3.lw``.
+PARAMETER_KEY = re.compile(r"F\d+\.\w+")
+
 
 class ParameterConstraint(BaseModel):
     """Constraint for a single parameter.
@@ -107,7 +110,7 @@ class PeakConstraints(BaseModel):
                 "position_windows",
                 "parameters",
             },
-            key_predicate=lambda key: re.match(r"^F\d+\.\w+$", key) is not None,
+            key_predicate=lambda key: PARAMETER_KEY.fullmatch(key) is not None,
             normalize_value=lambda value: {"value": value},
         )
 

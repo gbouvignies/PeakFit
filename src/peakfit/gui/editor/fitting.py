@@ -1,7 +1,7 @@
 """Whole-dataset execution and atomic completion in the existing editor workspace."""
 
 from concurrent.futures import CancelledError
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from time import perf_counter
@@ -329,13 +329,27 @@ class DatasetFitting(QtCore.QObject):
 
     @property
     def blocked(self) -> str:
-        """Why the current working inputs cannot be fitted, from their preparation."""
-        return self.preview_error if self._preview_inputs == self._inputs() else ""
+        """Why the current working inputs cannot be fitted, from their preparation.
+
+        A preparation that failed says why; one that completed may still find a peak's
+        own limit that cannot be fitted as given.
+        """
+        if self._preview_inputs != self._inputs():
+            return ""
+        if self.preview_error or self.preview is None:
+            return self.preview_error
+        return self.preview.problem_text()
 
     def fit(self) -> None:
         """Submit the prepared working inputs; the first Fit may reveal the Model page."""
         w = self.workspace
         if self.busy or w.inputs_loading or not w.peaks or not w.commit_fields():
+            return
+        if w.panel.parameters.invalid:
+            return  # explained on the Peak page shown, under the parameter
+        prepared = self.prepared
+        if prepared is not None and prepared.problems:
+            w.show_limit_problem(prepared.problems[0].working_id)
             return
         if not self.model_seen or self.blocked or w.panel.model_page.invalid:
             w.show_model_page()
@@ -434,8 +448,9 @@ class DatasetFitting(QtCore.QObject):
             self._publish(outcome)
             return
         self._preparing = False
-        if isinstance(outcome, Exception):
-            self._fail(FailureStage.PREPARATION, str(outcome))
+        if isinstance(outcome, Exception) or outcome.problems:
+            reason = str(outcome) if isinstance(outcome, Exception) else outcome.problem_text()
+            self._fail(FailureStage.PREPARATION, reason)
             self.state_changed.emit()
             return
         self.start(outcome)
@@ -635,10 +650,8 @@ class DatasetFitting(QtCore.QObject):
                     "completed_at": datetime.now(UTC).isoformat(),
                     "status": status,
                     "configuration": self.configuration.model_dump_json(),
-                    "initial_peaks": [
-                        {"id": p.id, "name": p.name, "positions": p.positions}
-                        for p in self._attempt_initial
-                    ],
+                    # As a completed run records them, the peaks' own limits included.
+                    "initial_peaks": [asdict(p) for p in self._attempt_initial],
                     "diagnostics": diagnostic,
                     "parameters": [],
                 }

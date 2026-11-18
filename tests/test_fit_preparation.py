@@ -109,7 +109,7 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
         targeted_step.fitting.steps = [step]
         unsupported.append(targeted_step)
     for settings in unsupported:
-        with pytest.raises(ValueError, match=r"assignment.*not supported.*wildcard"):
+        with pytest.raises(ValueError, match=r"settings name peaks|Rules naming peaks"):
             _prepare(spectra, peak, settings, contour_level)
 
     # A configured start must be used once; explicit later release continues from

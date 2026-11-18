@@ -1340,7 +1340,7 @@ def test_the_peak_page_says_each_thing_once(workspace, scientific):
         return widget.mapTo(panel, QtCore.QPoint(0, 0)).x()
 
     edge = left(panel.kind)
-    for toggle in (panel.starts_toggle, panel.profile.about_toggle, panel.provenance_toggle):
+    for toggle in (panel.parameters_toggle, panel.profile.about_toggle, panel.provenance_toggle):
         assert abs(left(toggle) - edge) <= 1
     assert left(_review_cell(panel.review, "χ²ᵣ")) == left(panel.editor.x_field)
 
@@ -1486,7 +1486,7 @@ def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace
     assert review.highlights[0].rule in text
 
 
-def test_starting_values_show_the_next_fit_inputs(workspace):
+def test_the_parameters_show_the_next_fit_inputs(workspace):
     w, fitting = workspace, workspace.fitting
     wait_until(lambda: fitting.prepared is not None)
     peak = w.peaks[0]
@@ -1494,34 +1494,39 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
     w._update_inspector()
     prepared = fitting.prepared
     engine = next(i.engine_name for i in prepared.identities if i.working_id == peak.id)
-    expected = [
-        p for p in prepared.parameters.values() if p.param_id and p.param_id.peak_name == engine
-    ]
-    grid = w.panel.start_grid
+    expected = {
+        f"{p.param_id.axis}.{p.param_id.label}": p
+        for p in prepared.parameters.values()
+        if p.param_id and p.param_id.peak_name == engine
+    }
+    rows = w.panel.parameters.rows
+    # One entry per parameter; positions before widths, the horizontal axis first.
+    assert [row.title.text().split()[0] for row in rows] == ["δ", "δ", "LW", "LW"]
+    assert {row.key for row in rows} == set(expected)
 
-    def text(row: int, column: int) -> str:
-        return grid.itemAtPosition(row, column).widget().text()
+    def number(text: str) -> float:
+        return float(text.replace("−", "-"))
 
-    # One line per parameter under Start, Lower and Upper; positions before widths.
-    assert [text(0, column) for column in (1, 2, 3)] == ["Start", "Lower", "Upper"]
-    rows = range(1, len(expected) + 1)
-    assert [text(row, 0).split()[0] for row in rows] == ["δ", "δ", "LW", "LW"]
-
-    def number(row: int, column: int) -> float:
-        return float(text(row, column).replace("−", "-"))
-
-    shown = sorted((number(r, 1), number(r, 2), number(r, 3)) for r in rows)
-    recorded = sorted((p.value, p.min, p.max) for p in expected)
-    np.testing.assert_allclose(shown, recorded, rtol=1e-3, atol=1e-2)
-    assert "next fit" in w.panel.starts_note.text()
+    for row in rows:
+        parameter = expected[row.key]
+        if row.row.position:
+            # A position starts where the peak is; its window is the settings' one.
+            assert number(row.at.text()) == pytest.approx(parameter.value, abs=1e-3)
+            assert row.window_edit.placeholderText() == "0.04"
+        else:
+            shown = [number(e.placeholderText()) for e in (row.start, row.low, row.high)]
+            np.testing.assert_allclose(shown, [parameter.value, parameter.min, parameter.max])
+        assert row.hold.isChecked() is not parameter.vary
+        assert not any(e.text() for e in row.fields)  # nothing of the peak's own
+    assert "this peak only" in w.panel.parameters.note.text()
     # Without a current preparation the section says why instead of showing stale values.
     invalid = fitting.configuration.model_copy(deep=True)
     invalid.exclude_planes = [0, 1, 2]  # every plane: nothing left to fit
     w.configure(invalid)
     wait_until(lambda: bool(fitting.blocked))
     w._update_inspector()
-    assert grid.count() == 0
-    assert fitting.blocked in w.panel.starts_note.text()
+    assert not any(e.placeholderText() for row in rows for e in (row.start, row.low, row.high))
+    assert fitting.blocked in w.panel.parameters.note.text()
 
 
 def test_warning_navigation_never_selects_a_hidden_cluster(workspace, scientific):

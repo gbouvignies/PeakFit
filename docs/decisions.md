@@ -1744,6 +1744,52 @@ Short records of non‑obvious design choices and trade‑offs.
   test also runs under DejaVu Sans, as Linux renders the UI font, and names the
   widest row when it fails.
 
+## 2026-11-17: A peak's own constraints belong to the working peak (#209)
+- **By stable working ID, not by assignment.** Per-peak starts, bounds, position
+  windows and Hold are edited on the Peak page (spec §7) and kept on the
+  `WorkingPeak` (`limits`), not in the working settings, which never name peaks. The
+  desktop gives peaks safe engine names (`p_0` …) because assignments may repeat or be
+  empty, so a constraint keyed by assignment would match nothing; keyed by the working
+  peak it follows renames and moves, two peaks of one assignment keep their own, and
+  deleting the peak deletes them (Undo restores both). Considered and rejected:
+  settings keyed by assignment (lost on rename, ambiguous for duplicates) and
+  settings keyed by working ID (orphans on delete and import, and a dataset-wide
+  record the spec rules out). A future TOML import would attach
+  `[parameters.peaks."<name>"]` to every working peak of that assignment, as
+  `peakfit fit` applies it to every peak of that name.
+- **The engine config of the equivalent TOML.** At preparation
+  `engine_configuration` places each peak's limits under its engine name as
+  `PeakConstraints` (a window is that axis's per-peak `position_windows`; start,
+  bounds and Hold are `"F3.lw" = {value, min, max, vary}`), so a GUI edit gives
+  exactly the config `peakfit fit` reads from the TOML, and a desktop fit with own
+  constraints equals `peakfit fit` bit for bit (`tests/test_gui_model_settings.py`,
+  with two peaks sharing one assignment). The run records the working settings and
+  the peaks with their limits; the engine config is derived from them for the fit and
+  written as the export's configuration, mapped by `peak_identities`.
+- **Refused, not clamped.** A start outside the range the settings and the peak's
+  bounds give together, whether the peak's own or the one the Model settings give
+  (an own lower bound above the default start), an empty range, or a limit on a
+  parameter the model lacks is a preparation problem that blocks Fit with the
+  peak's name; Fit then
+  opens that peak. `peakfit fit` silently clamps such a start (#235, pinned by
+  `tests/test_gui_model_settings.py`); the engine's semantics stay as they are here.
+  A Model rule's own range still moves the model's default start, as in `peakfit fit`.
+  The Parameters' greyed values are what the Model settings alone give (the
+  preparation's `inherited` parameters), and Hold set back to them leaves no own
+  `vary`. Typed values that
+  cannot be used are drafts, explained under the parameter, as on the Model page.
+- **Continuation per peak.** A peak whose own limits changed since the run starts
+  from the configured defaults (“constraints changed since run …”), as a moved peak
+  does; axis-wide rule changes still make the whole run incompatible. Against any
+  baseline, the Run page lists such a peak as edited while its limits differ from
+  the baseline's (`edited_since`).
+- **Storage amended in place.** Project 15.0.0 working, submitted and post-fit peaks
+  gain `limits`; nothing else changes. Projects written by development builds
+  before this change (peaks without `limits`, or settings with `parameters.peaks`)
+  are refused with that reason, never opened with their constraints dropped.
+- **Clustering sees them too.** The desktop clusters with the engine configuration,
+  so a doublet's footprint follows a peak's own J bound, as in `peakfit fit`.
+
 ## 2026-11-17: Compare the active run with any retained run; no Runs tab (#218)
 - **A baseline menu, not a tab.** The Run page's changes section reads **Changes
   from run N ▾**; its menu lists every other completed run, newest first, with its

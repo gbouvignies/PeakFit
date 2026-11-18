@@ -149,7 +149,8 @@ The inspector shows one page, chosen by selection and never by hover:
 - **Peak:** a header with the cluster size, the identity and **Review cluster ›**
   on the identity's line; the working-position editor (group commit, §5), with no
   Delete button (the Delete key, Edit menu and context menus delete); an expandable
-  Parameters section with working starts, bounds and fixed/vary flags; accepted
+  Parameters section with the next fit's starts and bounds as placeholders and the
+  peak's own starts, bounds, position windows and Hold (§7); accepted
   values of the active run with value, σ and unit, labeled by run; the review items
   of its cluster; and the amplitude profile with the other cluster members.
 - **Cluster** (chosen in the cluster list or with N; a peak page links to it, and
@@ -586,7 +587,12 @@ edit with no surprise.
 multi-step schedule replaces the pass field rather than competing with it. A
 setting that differs from the active run's is marked •. Per-peak starts, bounds,
 position windows and fixed/vary flags live in the Peak page's Parameters section,
-not in a dataset-wide table. Every committed setting change is one undoable edit,
+not in a dataset-wide table (revision 17 November 2026): they belong to the working
+peak, by stable ID, not to its assignment, and the engine receives them as the
+`parameters.peaks` of the equivalent TOML under the peak's safe engine name. A
+committed own constraint that cannot be fitted as given (a start the combined range
+excludes, an empty range, a parameter the model lacks) blocks Fit with the peak's
+name, and Fit then opens that peak. Every committed setting change is one undoable edit,
 shared with peak edits, and marks an existing run Outdated. Supported settings
 round-trip through the engine configuration; unrepresented settings are never
 silently discarded. A typed value that cannot be fitted is explained under its

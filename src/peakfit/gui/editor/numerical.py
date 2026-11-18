@@ -423,7 +423,8 @@ class NumericalReview(QtWidgets.QWidget):
                         else "Historical run"
                     )
                     + " · Source verification is independent of currentness.",
-                    "Effective settings: " + r.inputs.snapshot.configuration,
+                    # What the engine fitted: the settings with each peak's own limits.
+                    "Effective settings: " + r.inputs.engine_configuration.model_dump_json(),
                     *[
                         f"Cluster {c.cluster_id}: {c.classification.value}; "
                         f"{c.optimizer_provenance.termination_message}; "
